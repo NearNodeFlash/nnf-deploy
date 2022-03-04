@@ -1,0 +1,15 @@
+[submodule "hpc-dpm-dws-operator"]
+	path = hpc-dpm-dws-operator
+	url = https://github.hpe.com/hpe/hpc-dpm-dws-operator
+[submodule "hpc-rabsw-nnf-sos"]
+	path = hpc-rabsw-nnf-sos
+	url = https://github.hpe.com/hpe/hpc-rabsw-nnf-sos
+[submodule "hpc-rabsw-nnf-dm"]
+	path = hpc-rabsw-nnf-dm
+	url = https://github.hpe.com/hpe/hpc-rabsw-nnf-dm
+[submodule "hpc-rabsw-lustre-csi-driver"]
+	path = hpc-rabsw-lustre-csi-driver
+	url = https://github.hpe.com/hpe/hpc-rabsw-lustre-csi-driver
+[submodule "hpc-rabsw-lustre-fs-operator"]
+	path = hpc-rabsw-lustre-fs-operator
+	url = https://github.hpe.com/hpe/hpc-rabsw-lustre-fs-operator
