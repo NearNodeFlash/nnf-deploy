@@ -9,12 +9,12 @@ import (
 )
 
 type System struct {
-	Name    string              `yaml:"name"`
-	Aliases []string            `yaml:"aliases,flow,omitempty"`
-	Overlay string              `yaml:"overlay,omitempty"`
-	Master  string              `yaml:"master"`
-	Workers []string            `yaml:"workers,flow,omitempty"`
-	Rabbits map[string][]string `yaml:"rabbits,flow"`
+	Name     string              `yaml:"name"`
+	Aliases  []string            `yaml:"aliases,flow,omitempty"`
+	Overlays []string            `yaml:"overlays,omitempty,flow"`
+	Master   string              `yaml:"master"`
+	Workers  []string            `yaml:"workers,flow,omitempty"`
+	Rabbits  map[string][]string `yaml:"rabbits,flow"`
 }
 
 type SystemConfigFile struct {
@@ -46,24 +46,28 @@ func FindSystem(name string) (*System, error) {
 	return nil, fmt.Errorf("System '%s' Not Found", name)
 }
 
-type ArtifactoryConfigFile struct {
+type RepositoryConfigFile struct {
 	Repositories []Repository `yaml:"repositories"`
 }
 
 type Repository struct {
 	Name        string
+	Overlays    []string `yaml:",flow"`
 	Development string
 	Master      string
 }
 
 func FindRepository(module string) (*Repository, error) {
 
-	configFile, err := os.ReadFile("config/artifactory.yaml")
+	configFile, err := os.ReadFile("config/repositories.yaml")
 	if err != nil {
-		return nil, err
+		configFile, err = os.ReadFile("../config/repositories.yaml")
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	config := new(ArtifactoryConfigFile)
+	config := new(RepositoryConfigFile)
 	if err := yaml.Unmarshal(configFile, config); err != nil {
 		return nil, err
 	}

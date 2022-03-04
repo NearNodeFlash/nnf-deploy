@@ -2,7 +2,7 @@
 systems:
 - name: kind
   aliases: [kind-kind]
-  overlay: kind
+  overlay: [kind]
   master: kind-control-plane
   workers:
   rabbits:
@@ -10,14 +10,14 @@ systems:
     kind-worker2:
 - name: rabbit-dev
   aliases: [dp0, rabbit-dev-01, rabbit-lab]
-  overlay: dp0
+  overlay: [dp0,lustre]
   master: rabbit-dev-cn-04
   workers: [rabbit-dev-cn-03]
   rabbits:
     rabbit-dev-01: [rabbit-dev-cn-01, rabbit-dev-cn-02]
 - name: rabbit-htx
   aliases: [dp1]
-  overlay: dp0
+  overlay: [dp0,lustre]
   master: rabbit-k8s-master
   workers: [rabbit-k8s-worker]
   rabbits:

@@ -126,6 +126,25 @@ func lastLocalCommit() (string, error) {
 	return strings.TrimRight(string(out), "\r\n"), err
 }
 
+func getOverlay(system *config.System, module string) (string, error) {
+
+	fmt.Println("  Finding Overlay...")
+	repo, err := config.FindRepository(module)
+	if err != nil {
+		return "", err
+	}
+
+	for _, repoOverlay := range repo.Overlays {
+		for _, systemOverlay := range system.Overlays {
+			if repoOverlay == systemOverlay {
+				fmt.Printf("  Overlay for %s found: %s\n", module, repoOverlay)
+				return repoOverlay, nil
+			}
+		}
+	}
+
+	return "", nil
+}
 func artifactoryVersion(url, commit string) (string, error) {
 	out, err := exec.Command("curl", url).Output()
 	if err != nil {
@@ -150,15 +169,21 @@ func deployModule(system *config.System, module string) error {
 
 	cmd := exec.Command("make", "deploy")
 
-	if system.Overlay != "kind" {
-		fmt.Println("  Loading Current Branch...")
-		branch, err := currentBranch()
+	overlay, err := getOverlay(system, module)
+	if err != nil {
+		return err
+	}
+
+	if len(overlay) != 0 && overlay != "kind" {
+
+		fmt.Println("  Finding Repository...")
+		repo, err := config.FindRepository(module)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("  Finding Repository...")
-		repo, err := config.FindRepository(module)
+		fmt.Println("  Loading Current Branch...")
+		branch, err := currentBranch()
 		if err != nil {
 			return err
 		}
@@ -185,7 +210,7 @@ func deployModule(system *config.System, module string) error {
 		cmd.Env = append(os.Environ(),
 			"IMAGE_TAG_BASE="+imageTagBase,
 			"VERSION="+version,
-			"OVERLAY="+system.Overlay,
+			"OVERLAY="+overlay,
 		)
 	}
 
@@ -214,10 +239,18 @@ func undeploy() error {
 	return runInModules(reversed, func(module string) error {
 		fmt.Printf("Uneploying Module %s...\n", module)
 
+		overlay, err := getOverlay(system, module)
+		if err != nil {
+			return err
+		}
+
 		cmd := exec.Command("make", "undeploy")
-		cmd.Env = append(os.Environ(),
-			"OVERLAY="+system.Overlay,
-		)
+
+		if len(overlay) != 0 {
+			cmd.Env = append(os.Environ(),
+				"OVERLAY="+overlay,
+			)
+		}
 
 		fmt.Println("  Running Undeploy...")
 		if dryrun == false {
@@ -241,12 +274,20 @@ func makefile(command string) error {
 		fmt.Printf("Running Make %s in %s...\n", command, module)
 
 		cmd := exec.Command("make", command)
-		cmd.Env = append(os.Environ(),
-			"OVERLAY="+system.Overlay,
-		)
+
+		overlay, err := getOverlay(system, module)
+		if err != nil {
+			return err
+		}
+
+		if len(overlay) != 0 {
+			cmd.Env = append(os.Environ(),
+				"OVERLAY="+overlay,
+			)
+		}
 
 		if dryrun == false {
-			return cmd.Run()
+			err = cmd.Run()
 		}
 
 		return nil
@@ -254,11 +295,12 @@ func makefile(command string) error {
 }
 
 func runInModules(modules []string, runFn func(module string) error) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
 	for _, module := range modules {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
 
 		if err := os.Chdir(module); err != nil {
 			return err
