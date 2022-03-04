@@ -5,6 +5,9 @@ repositories:
   - name: hpc-rabsw-lustre-fs-operator
     development: https://arti.dev.cray.com/ui/native/rabsw-docker-unstable-local/cray-dp-lustre-fs-operator/
     master: https://arti.dev.cray.com/ui/native/rabsw-docker-master-local/cray-dp-lustre-fs-operator/
+  - name: hpc-rabsw-lustre-csi-driver
+    development: https://arti.dev.cray.com/ui/native/rabsw-docker-unstable-local/cray-dp-lustre-csi-driver/
+    master: https://arti.dev.cray.com/ui/native/rabsw-docker-master-local/cray-dp-lustre-csi-driver/
   - name: hpc-rabsw-nnf-dm
     development: https://arti.dev.cray.com/ui/native/rabsw-docker-unstable-local/cray-dp-nnf-dm/
     master: https://arti.dev.cray.com/artifactory/rabsw-docker-master-local/cray-dp-nnf-dm/
