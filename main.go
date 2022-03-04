@@ -32,6 +32,7 @@ func usage() {
 	fmt.Println("Commands:")
 	fmt.Println("  deploy                deploy to current context")
 	fmt.Println("  undeploy              undeploy from current context")
+	fmt.Println("  make [subcommand]     run a make command in all the modules")
 	os.Exit(1)
 }
 
@@ -54,6 +55,17 @@ func main() {
 		undeployCmd.BoolVar(&dryrun, "dry-run", false, "dry run the undeployment")
 		undeployCmd.Parse(os.Args[2:])
 		err = undeploy()
+	case "make":
+		if len(os.Args) < 3 {
+			usage()
+			return
+		}
+
+		makeCmd := flag.NewFlagSet("make", flag.ExitOnError)
+		makeCmd.BoolVar(&dryrun, "dry-run", false, "dry run the make command")
+		makeCmd.Parse(os.Args[3:])
+		err = makefile(os.Args[2])
+
 	default:
 		usage()
 		return
@@ -93,15 +105,15 @@ func deploy() error {
 		return err
 	}
 
-	// Walk through repositories and run make deploy on them with the correct environmental variables
-	for _, module := range modules {
-		fmt.Printf("Deploying %s...\n", module)
+	return runInModules(modules, func(module string) error {
+		fmt.Printf("Deploying Module %s...\n", module)
 		if err := deployModule(system, module); err != nil {
 			return err
 		}
-	}
 
-	return nil
+		return nil
+	})
+
 }
 
 func currentBranch() (string, error) {
@@ -135,56 +147,49 @@ func artifactoryVersion(url, commit string) (string, error) {
 }
 
 func deployModule(system *config.System, module string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	defer os.Chdir(cwd)
-
-	if err := os.Chdir(module); err != nil {
-		return err
-	}
-
-	fmt.Println("  Loading Current Branch...")
-	branch, err := currentBranch()
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("  Finding Repository...")
-	repo, err := config.FindRepository(module)
-	if err != nil {
-		return err
-	}
-
-	url := repo.Master
-	if branch != "master" {
-		url = repo.Development
-	}
-
-	fmt.Println("  Loading Last Commit...")
-	commit, err := lastLocalCommit()
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("  Loading From Artifactory ...")
-	version, err := artifactoryVersion(url, commit)
-	if err != nil {
-		return err
-	}
-
-	imageTagBaseEnv := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
-	versionEnv := version
-
-	fmt.Printf("  Running Deploy...")
 
 	cmd := exec.Command("make", "deploy")
-	cmd.Env = append(os.Environ(),
-		"IMAGE_TAG_BASE="+imageTagBaseEnv,
-		"VERSION="+versionEnv,
-	)
 
+	if system.Overlay != "kind" {
+		fmt.Println("  Loading Current Branch...")
+		branch, err := currentBranch()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("  Finding Repository...")
+		repo, err := config.FindRepository(module)
+		if err != nil {
+			return err
+		}
+
+		url := repo.Master
+		if branch != "master" {
+			url = repo.Development
+		}
+
+		fmt.Println("  Loading Last Commit...")
+		commit, err := lastLocalCommit()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("  Loading From Artifactory ...")
+		version, err := artifactoryVersion(url, commit)
+		if err != nil {
+			return err
+		}
+
+		imageTagBase := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
+
+		cmd.Env = append(os.Environ(),
+			"IMAGE_TAG_BASE="+imageTagBase,
+			"VERSION="+version,
+			"OVERLAY="+system.Overlay,
+		)
+	}
+
+	fmt.Println("  Running Deploy...")
 	if dryrun == false {
 		if err := cmd.Run(); err != nil {
 			return err
@@ -201,30 +206,68 @@ func undeploy() error {
 		return err
 	}
 
+	reversed := make([]string, len(modules))
 	for i := range modules {
-		module := modules[len(modules)-i-1]
-		fmt.Printf("Undeploying %s...\n", module)
-		if err := undeployModule(system, module); err != nil {
-			return err
-		}
+		reversed[i] = modules[len(modules)-i-1]
 	}
 
-	return nil
+	return runInModules(reversed, func(module string) error {
+		fmt.Printf("Uneploying Module %s...\n", module)
+
+		cmd := exec.Command("make", "undeploy")
+		cmd.Env = append(os.Environ(),
+			"OVERLAY="+system.Overlay,
+		)
+
+		fmt.Println("  Running Undeploy...")
+		if dryrun == false {
+			if err := cmd.Run(); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
-func undeployModule(system *config.System, module string) error {
-	cwd, err := os.Getwd()
+func makefile(command string) error {
+	system, err := loadSystem()
 	if err != nil {
 		return err
 	}
-	defer os.Chdir(cwd)
 
-	if err := os.Chdir(module); err != nil {
-		return err
-	}
+	return runInModules(modules, func(module string) error {
 
-	if !dryrun {
-		if err := exec.Command("make", "undeploy").Run(); err != nil {
+		fmt.Printf("Running Make %s in %s...\n", command, module)
+
+		cmd := exec.Command("make", command)
+		cmd.Env = append(os.Environ(),
+			"OVERLAY="+system.Overlay,
+		)
+
+		if dryrun == false {
+			return cmd.Run()
+		}
+
+		return nil
+	})
+}
+
+func runInModules(modules []string, runFn func(module string) error) error {
+	for _, module := range modules {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+
+		if err := os.Chdir(module); err != nil {
+			return err
+		}
+
+		err = runFn(module)
+		os.Chdir(cwd)
+
+		if err != nil {
 			return err
 		}
 	}

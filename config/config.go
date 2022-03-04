@@ -11,6 +11,7 @@ import (
 type System struct {
 	Name    string              `yaml:"name"`
 	Aliases []string            `yaml:"aliases,flow,omitempty"`
+	Overlay string              `yaml:"overlay,omitempty"`
 	Master  string              `yaml:"master"`
 	Workers []string            `yaml:"workers,flow,omitempty"`
 	Rabbits map[string][]string `yaml:"rabbits,flow"`
