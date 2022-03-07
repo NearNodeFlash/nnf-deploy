@@ -3,11 +3,12 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/alecthomas/kong"
 
 	"github.hpe.com/hpe/hpc-rabsw-nnf-deploy/config"
 )
@@ -21,59 +22,118 @@ var modules = []string{
 	"hpc-rabsw-nnf-dm",
 }
 
-var (
-	dryrun bool
-)
+type Context struct {
+	Debug  bool
+	DryRun bool
+}
 
-func usage() {
-	fmt.Println("Near Node Flash (NNF) Deployment Tool")
-	fmt.Println("hpc-rabsw-nnf-deploy [command] [options]")
-	fmt.Println("")
-	fmt.Println("Commands:")
-	fmt.Println("  deploy                deploy to current context")
-	fmt.Println("  undeploy              undeploy from current context")
-	fmt.Println("  make [subcommand]     run a make command in all the modules")
-	os.Exit(1)
+var cli struct {
+	Debug  bool `help:"Enable debug mode."`
+	DryRun bool `help:"Show what would be run."`
+
+	Deploy   DeployCmd   `cmd:"" help:"Deploy to current context."`
+	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
+
+	Make MakeCmd `cmd:"" help:"Run make in ever repository."`
 }
 
 func main() {
+	ctx := kong.Parse(&cli)
+	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun})
+	ctx.FatalIfErrorf(err)
+}
 
-	if len(os.Args) < 2 {
-		usage()
-		return
+type DeployCmd struct{}
+
+func (*DeployCmd) Run(ctx *Context) error {
+	system, err := loadSystem()
+	if err != nil {
+		return err
 	}
 
-	var err error
-	switch os.Args[1] {
-	case "deploy":
-		deployCmd := flag.NewFlagSet("deploy", flag.ExitOnError)
-		deployCmd.BoolVar(&dryrun, "dry-run", false, "dry run the deployment")
-		deployCmd.Parse(os.Args[2:])
-		err = deploy()
-	case "undeploy":
-		undeployCmd := flag.NewFlagSet("undeploy", flag.ExitOnError)
-		undeployCmd.BoolVar(&dryrun, "dry-run", false, "dry run the undeployment")
-		undeployCmd.Parse(os.Args[2:])
-		err = undeploy()
-	case "make":
-		if len(os.Args) < 3 {
-			usage()
-			return
+	return runInModules(modules, func(module string) error {
+		fmt.Printf("Deploying Module %s...\n", module)
+		if err := deployModule(ctx, system, module); err != nil {
+			return err
 		}
 
-		makeCmd := flag.NewFlagSet("make", flag.ExitOnError)
-		makeCmd.BoolVar(&dryrun, "dry-run", false, "dry run the make command")
-		makeCmd.Parse(os.Args[3:])
-		err = makefile(os.Args[2])
+		return nil
+	})
+}
 
-	default:
-		usage()
-		return
-	}
+type UndeployCmd struct{}
 
+func (*UndeployCmd) Run(ctx *Context) error {
+	system, err := loadSystem()
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
+		return err
 	}
+
+	reversed := make([]string, len(modules))
+	for i := range modules {
+		reversed[i] = modules[len(modules)-i-1]
+	}
+
+	return runInModules(reversed, func(module string) error {
+		fmt.Printf("Undeploying Module %s...\n", module)
+
+		overlay, err := getOverlay(system, module)
+		if err != nil {
+			return err
+		}
+
+		cmd := exec.Command("make", "undeploy")
+
+		if len(overlay) != 0 {
+			cmd.Env = append(os.Environ(),
+				"OVERLAY="+overlay,
+			)
+		}
+
+		fmt.Println("  Running Undeploy...")
+		if ctx.DryRun == false {
+			if err := cmd.Run(); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+type MakeCmd struct {
+	Command string `arg:"" name:"command" help:"Make target."`
+}
+
+func (cmd *MakeCmd) Run(ctx *Context) error {
+	system, err := loadSystem()
+	if err != nil {
+		return err
+	}
+
+	return runInModules(modules, func(module string) error {
+
+		fmt.Printf("Running Make %s in %s...\n", cmd.Command, module)
+
+		cmd := exec.Command("make", cmd.Command)
+
+		overlay, err := getOverlay(system, module)
+		if err != nil {
+			return err
+		}
+
+		if len(overlay) != 0 {
+			cmd.Env = append(os.Environ(),
+				"OVERLAY="+overlay,
+			)
+		}
+
+		if ctx.DryRun == false {
+			err = cmd.Run()
+		}
+
+		return nil
+	})
 }
 
 func currentContext() (string, error) {
@@ -96,24 +156,6 @@ func loadSystem() (*config.System, error) {
 
 	fmt.Printf("Target System: %s\n", system.Name)
 	return system, nil
-}
-
-func deploy() error {
-
-	system, err := loadSystem()
-	if err != nil {
-		return err
-	}
-
-	return runInModules(modules, func(module string) error {
-		fmt.Printf("Deploying Module %s...\n", module)
-		if err := deployModule(system, module); err != nil {
-			return err
-		}
-
-		return nil
-	})
-
 }
 
 func currentBranch() (string, error) {
@@ -145,6 +187,7 @@ func getOverlay(system *config.System, module string) (string, error) {
 
 	return "", nil
 }
+
 func artifactoryVersion(url, commit string) (string, error) {
 	out, err := exec.Command("curl", url).Output()
 	if err != nil {
@@ -165,7 +208,7 @@ func artifactoryVersion(url, commit string) (string, error) {
 	return "", fmt.Errorf("Commit %s Not Found", commit)
 }
 
-func deployModule(system *config.System, module string) error {
+func deployModule(ctx *Context, system *config.System, module string) error {
 
 	cmd := exec.Command("make", "deploy")
 
@@ -215,83 +258,13 @@ func deployModule(system *config.System, module string) error {
 	}
 
 	fmt.Println("  Running Deploy...")
-	if dryrun == false {
+	if ctx.DryRun == false {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func undeploy() error {
-
-	system, err := loadSystem()
-	if err != nil {
-		return err
-	}
-
-	reversed := make([]string, len(modules))
-	for i := range modules {
-		reversed[i] = modules[len(modules)-i-1]
-	}
-
-	return runInModules(reversed, func(module string) error {
-		fmt.Printf("Uneploying Module %s...\n", module)
-
-		overlay, err := getOverlay(system, module)
-		if err != nil {
-			return err
-		}
-
-		cmd := exec.Command("make", "undeploy")
-
-		if len(overlay) != 0 {
-			cmd.Env = append(os.Environ(),
-				"OVERLAY="+overlay,
-			)
-		}
-
-		fmt.Println("  Running Undeploy...")
-		if dryrun == false {
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-}
-
-func makefile(command string) error {
-	system, err := loadSystem()
-	if err != nil {
-		return err
-	}
-
-	return runInModules(modules, func(module string) error {
-
-		fmt.Printf("Running Make %s in %s...\n", command, module)
-
-		cmd := exec.Command("make", command)
-
-		overlay, err := getOverlay(system, module)
-		if err != nil {
-			return err
-		}
-
-		if len(overlay) != 0 {
-			cmd.Env = append(os.Environ(),
-				"OVERLAY="+overlay,
-			)
-		}
-
-		if dryrun == false {
-			err = cmd.Run()
-		}
-
-		return nil
-	})
 }
 
 func runInModules(modules []string, runFn func(module string) error) error {
