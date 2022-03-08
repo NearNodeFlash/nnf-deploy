@@ -225,22 +225,24 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 			return err
 		}
 
-		fmt.Println("  Loading Current Branch...")
+		fmt.Printf("  Loading Current Branch...")
 		branch, err := currentBranch()
 		if err != nil {
 			return err
 		}
+		fmt.Printf(" %s\n", branch)
 
 		url := repo.Master
 		if branch != "master" {
 			url = repo.Development
 		}
 
-		fmt.Println("  Loading Last Commit...")
+		fmt.Printf("  Loading Last Commit...")
 		commit, err := lastLocalCommit()
 		if err != nil {
 			return err
 		}
+		fmt.Printf(" %s\n", commit)
 
 		fmt.Println("  Loading From Artifactory ...")
 		version, err := artifactoryVersion(url, commit)
