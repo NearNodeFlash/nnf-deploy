@@ -1,0 +1,8 @@
+daemons:
+  - name: nnf-data-movement
+    bin: nnf-dm
+    repository: hpc-rabsw-nnf-dm
+    path: daemons/compute/server
+    serviceAccount:
+      name: nnf-dm-controller-manager
+      namespace: nnf-dm-system
