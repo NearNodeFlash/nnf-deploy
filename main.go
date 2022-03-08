@@ -201,7 +201,7 @@ func artifactoryVersion(url, commit string) (string, error) {
 		if strings.Contains(text, commit) {
 			start := strings.Index(text, "<a href=\"")
 			end := strings.Index(text, "\">")
-			return text[start+len("<a href=\"") : end-len("\">")], nil
+			return text[start+len("<a href=\"") : end-len("\">")+1], nil
 		}
 	}
 
@@ -217,13 +217,14 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		return err
 	}
 
-	if len(overlay) != 0 && overlay != "kind" {
+	if overlay != "kind" {
 
-		fmt.Println("  Finding Repository...")
+		fmt.Print("  Finding Repository...")
 		repo, err := config.FindRepository(module)
 		if err != nil {
 			return err
 		}
+		fmt.Printf(" %s\n", repo.Name)
 
 		fmt.Printf("  Loading Current Branch...")
 		branch, err := currentBranch()
@@ -244,13 +245,15 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		}
 		fmt.Printf(" %s\n", commit)
 
-		fmt.Println("  Loading From Artifactory ...")
+		fmt.Print("  Loading From Artifactory...")
 		version, err := artifactoryVersion(url, commit)
 		if err != nil {
 			return err
 		}
+		fmt.Printf(" %s\n", version)
 
 		imageTagBase := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
+		imageTagBase = strings.Replace(imageTagBase, "/artifactory", "", 1)
 
 		cmd.Env = append(os.Environ(),
 			"IMAGE_TAG_BASE="+imageTagBase,
