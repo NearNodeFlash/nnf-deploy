@@ -80,3 +80,38 @@ func FindRepository(module string) (*Repository, error) {
 
 	return nil, fmt.Errorf("Repository '%s' Not Found", module)
 }
+
+type Daemon struct {
+	Name           string `yaml:"name"`
+	Bin            string `yaml:"bin"`
+	Repository     string `yaml:"repository"`
+	Path           string `yaml:"path"`
+	ServiceAccount struct {
+		Name      string `yaml:"name"`
+		Namespace string `yaml:"namespace"`
+	} `yaml:"serviceAccount,omitempty"`
+}
+
+type DaemonConfigFile struct {
+	Daemons []Daemon `yaml:"daemons"`
+}
+
+func EnumerateDaemons(handleFn func(Daemon) error) error {
+	configFile, err := os.ReadFile("config/daemons.yaml")
+	if err != nil {
+		return err
+	}
+
+	config := new(DaemonConfigFile)
+	if err := yaml.Unmarshal(configFile, config); err != nil {
+		return err
+	}
+
+	for _, daemon := range config.Daemons {
+		if err := handleFn(daemon); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

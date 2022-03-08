@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/alecthomas/kong"
+	"gopkg.in/yaml.v2"
 
 	"github.hpe.com/hpe/hpc-rabsw-nnf-deploy/config"
 )
@@ -33,13 +35,16 @@ var cli struct {
 
 	Deploy   DeployCmd   `cmd:"" help:"Deploy to current context."`
 	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
-
-	Make MakeCmd `cmd:"" help:"Run make in ever repository."`
+	Make     MakeCmd     `cmd:"" help:"Run make in ever repository."`
+	Install  InstallCmd  `cmd:"" help:"Install daemons."`
 }
 
 func main() {
 	ctx := kong.Parse(&cli)
 	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun})
+	if err != nil {
+		fmt.Printf("%v", err)
+	}
 	ctx.FatalIfErrorf(err)
 }
 
@@ -134,6 +139,254 @@ func (cmd *MakeCmd) Run(ctx *Context) error {
 
 		return nil
 	})
+}
+
+type InstallCmd struct{}
+
+func (*InstallCmd) Run(ctx *Context) error {
+
+	system, err := loadSystem()
+	if err != nil {
+		return err
+	}
+
+	clusterConfig, err := currentClusterConfig()
+	if err != nil {
+		return err
+	}
+
+	clusterConfig = strings.TrimPrefix(clusterConfig, "https://")
+
+	k8sServerHost := clusterConfig[:strings.Index(clusterConfig, ":")]
+	k8sServerPort := clusterConfig[strings.Index(clusterConfig, ":")+1:]
+
+	return config.EnumerateDaemons(func(d config.Daemon) error {
+
+		var token []byte
+		var cert []byte
+		if d.ServiceAccount.Name != "" {
+			fmt.Printf("Loading Service Account Cert & Token\n")
+
+			fmt.Print("  Secret...")
+			secret, err := exec.Command("bash", "-c", fmt.Sprintf("kubectl get serviceaccount %s -n %s -o json | jq -Mr '.secrets[].name | select(contains(\"token\"))'", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
+			if err != nil {
+				return err
+			}
+			secret = secret[:len(secret)-1]
+			fmt.Printf("Loaded %s\n", secret)
+
+			fmt.Printf("  Token...")
+			token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 -D", string(secret), d.ServiceAccount.Namespace)).Output()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Loaded REDACTED\n")
+
+			fmt.Printf("  Cert...")
+			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data[\"ca.crt\"]' | base64 -D", string(secret), d.ServiceAccount.Namespace)).Output()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Loaded REDACTED\n")
+		}
+
+		err = runInModules([]string{d.Repository}, func(module string) error {
+
+			if err := os.Chdir(d.Path); err != nil {
+				return err
+			}
+
+			cmd := exec.Command("go", "build", "-o", d.Bin)
+			cmd.Env = append(os.Environ(),
+				"CGO_ENABLED=0",
+				"GOOS=linux",
+				"GOARCH=amd64",
+				"GOPRIVATE=github.hpe.com",
+			)
+
+			if ctx.DryRun == false {
+				if err := cmd.Run(); err != nil {
+					return err
+				}
+			}
+
+			for rabbit := range system.Rabbits {
+				for _, compute := range system.Rabbits[rabbit] {
+					fmt.Printf("Installing %s on Compute %s\n", d.Name, compute)
+
+					if err := copyToNode(d.Bin, compute, "/usr/bin"); err != nil {
+						return err
+					}
+
+					fmt.Println("  Installing service...")
+					if err := exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "||", "true").Run(); err != nil {
+						return err
+					}
+
+
+					configDir := "/etc/nnf-dm"
+					if len(token) != 0 || len(cert) != 0 {
+						if err := exec.Command("ssh", compute, "mkdir -p " + configDir).Run(); err != nil {
+							return err
+						}
+					}
+
+
+					serviceTokenPath := configDir
+					if len(token) != 0 {
+						if err := os.WriteFile("service.token", token, os.ModePerm); err != nil {
+							return err
+						}
+
+						err = copyToNode("service.token", compute, serviceTokenPath)
+						os.Remove("service.token")
+
+						if err != nil {
+							return err
+						}
+					}
+
+					certFilePath := configDir
+					if len(cert) != 0 {
+						if err := os.WriteFile("service.cert", cert, os.ModePerm); err != nil {
+							return err
+						}
+
+						err = copyToNode("service.cert", compute, certFilePath)
+						os.Remove("service.cert")
+
+						if err != nil {
+							return err
+						}
+					}
+
+					execStart := ""
+					execStart += "[Service]\n"
+					execStart += "ExecStart=\n"
+					execStart += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
+					execStart += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
+					execStart += "  --kubernetes-service-port=" + k8sServerPort + " \\\n"
+					execStart += "  --node-name=" + compute + " \\\n"
+					execStart += "  --nnf-node-name=" + rabbit + " \\\n"
+					if len(token) != 0 {
+						execStart += "  --" + strings.Replace(d.Name, "_", "-", -1) + "-service-token-file=" + path.Join(serviceTokenPath, "service.token") + " \\\n"
+					}
+					if len(cert) != 0 {
+						execStart += "  --" + strings.Replace(d.Name, "_", "-", -1) + "-service-cert-file=" + path.Join(certFilePath, "service.cert") + " \\\n"
+					}
+
+					fmt.Println("  Creating override directory...")
+					overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
+					if err := exec.Command("ssh", compute, "mkdir", "-p", overridePath).Run(); err != nil {
+						return err
+					}
+
+					fmt.Println("  Creating override configuration...")
+					if err := os.WriteFile("override.conf", []byte(execStart), os.ModePerm); err != nil {
+						return err
+					}
+
+					err = copyToNode("override.conf", compute, overridePath)
+					os.Remove("override.conf")
+
+					if err != nil {
+						return err
+					}
+
+					fmt.Println("  Starting service...")
+					if err := exec.Command("ssh", compute, "systemctl start " + d.Bin).Run(); err != nil {
+						return err
+					}
+				}
+			}
+
+			return nil
+		})
+
+		return err
+	})
+}
+
+type k8scluster struct {
+	Name    string
+	Cluster struct {
+		Server string
+	}
+}
+type k8sConfig struct {
+	Kind     string
+	Clusters []k8scluster
+}
+
+func currentClusterConfig() (string, error) {
+	current, err := exec.Command("kubectl", "config", "current-context").Output()
+	if err != nil {
+		return "", err
+	}
+	current = current[:len(current)-1]
+
+	configView, err := exec.Command("kubectl", "config", "view").Output()
+	if err != nil {
+		return "", err
+	}
+
+	config := new(k8sConfig)
+	if err := yaml.Unmarshal(configView, config); err != nil {
+		return "", err
+	}
+
+	for _, cluster := range config.Clusters {
+		if cluster.Name == string(current) {
+			return cluster.Cluster.Server, nil
+		}
+	}
+
+	return "", fmt.Errorf("Current Cluster %s not found", current)
+}
+
+func copyToNode(name string, compute string, destination string) error {
+	fmt.Printf("  Copying %s to %s at %s\n", name, compute, destination)
+	compareMD5 := func(first []byte, second []byte) bool {
+		if len(second) < len(first) {
+			return false
+		}
+
+		for i := 0; i < len(first); i++ {
+			if first[i] == ' ' {
+				return true
+			}
+
+			if first[i] != second[i] {
+				return false
+			}
+		}
+
+		return false
+	}
+
+	fmt.Printf("    Source MD5: ")
+	src, err := exec.Command("md5sum", name).Output()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s", src)
+
+	fmt.Printf("    Destination MD5: ")
+	dest, err := exec.Command("ssh", compute, "md5sum "+path.Join(destination, name)+" || true").Output()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s", dest)
+
+	if !compareMD5(src, dest) {
+		fmt.Printf("    Copying...")
+		if err := exec.Command("scp", name, compute+":"+destination).Run(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+
 }
 
 func currentContext() (string, error) {
