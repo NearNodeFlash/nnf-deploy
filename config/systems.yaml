@@ -16,7 +16,7 @@ systems:
   rabbits:
     rabbit-dev-01: [rabbit-dev-cn-01, rabbit-dev-cn-02]
 - name: rabbit-htx
-  aliases: [dp1]
+  aliases: [dp1, dp1a]
   overlays: [dp0,lustre]
   master: rabbit-k8s-master
   workers: [rabbit-k8s-worker]
