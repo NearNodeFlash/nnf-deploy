@@ -1,6 +1,6 @@
 repositories:
   - name: hpc-dpm-dws-operator
-    overlays: [craystack, kind]
+    overlays: [craystack, kind, dp0]
     development: https://arti.dev.cray.com/artifactory/kj-docker-unstable-local/cray-dws-operator/
     master: https://arti.dev.cray.com/artifactory/kj-docker-master-local/cray-dws-operator/
   - name: hpc-rabsw-lustre-fs-operator

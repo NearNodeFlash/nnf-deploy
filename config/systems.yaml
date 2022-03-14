@@ -21,8 +21,8 @@ systems:
   master: rabbit-k8s-master
   workers: [rabbit-k8s-worker]
   rabbits:
-    rabbit-node-0:
-    rabbit-node-1: [compute-node-0, compute-node-1]
+    rabbit-node-0: [compute-node-0, compute-node-1]
+    rabbit-node-1: [compute-node-2, compute-node-3]
 - name: rabbit-htx-2
   aliases: [htx-2]
   overlays: [dp0,lustre]
