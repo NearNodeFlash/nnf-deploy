@@ -223,14 +223,12 @@ func (*InstallCmd) Run(ctx *Context) error {
 						return err
 					}
 
-
 					configDir := "/etc/nnf-dm"
 					if len(token) != 0 || len(cert) != 0 {
-						if err := exec.Command("ssh", compute, "mkdir -p " + configDir).Run(); err != nil {
+						if err := exec.Command("ssh", compute, "mkdir -p "+configDir).Run(); err != nil {
 							return err
 						}
 					}
-
 
 					serviceTokenPath := configDir
 					if len(token) != 0 {
@@ -294,7 +292,7 @@ func (*InstallCmd) Run(ctx *Context) error {
 					}
 
 					fmt.Println("  Starting service...")
-					if err := exec.Command("ssh", compute, "systemctl start " + d.Bin).Run(); err != nil {
+					if err := exec.Command("ssh", compute, "systemctl start "+d.Bin).Run(); err != nil {
 						return err
 					}
 				}
@@ -483,6 +481,12 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		branch, err := currentBranch()
 		if err != nil {
 			return err
+		}
+		// For the detached head case, i.e. there is no branch name, assume
+		// that at some point that commit was built in the master branch
+		// and treat it like the 'master' branch case.
+		if branch == "" {
+			branch = "master"
 		}
 		fmt.Printf(" %s\n", branch)
 
