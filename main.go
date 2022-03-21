@@ -223,7 +223,7 @@ func (*InstallCmd) Run(ctx *Context) error {
 						return err
 					}
 
-					configDir := "/etc/nnf-dm"
+					configDir := "/etc/"+d.Bin
 					if len(token) != 0 || len(cert) != 0 {
 						if err := exec.Command("ssh", compute, "mkdir -p "+configDir).Run(); err != nil {
 							return err
