@@ -291,6 +291,12 @@ func (*InstallCmd) Run(ctx *Context) error {
 						return err
 					}
 
+					// Reload the daemon to pick up the override.conf.
+					fmt.Println("  Reloading service...")
+					if err := exec.Command("ssh", compute, "systemctl daemon-reload").Run(); err != nil {
+						return err
+					}
+
 					fmt.Println("  Starting service...")
 					if err := exec.Command("ssh", compute, "systemctl start "+d.Bin).Run(); err != nil {
 						return err
