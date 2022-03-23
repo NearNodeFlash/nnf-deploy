@@ -8,6 +8,15 @@ systems:
   rabbits:
     kind-worker:
     kind-worker2:
+- name: craystack-default
+  aliases: [craystack]
+  overlays: [craystack,lustre]
+  master: k3s-master
+  workers: [k3s-master]
+  rabbits:
+    rabbit-01: [compute-01]
+    rabbit-02: [compute-01]
+    rabbit-03: [compute-01]
 - name: rabbit-dev
   aliases: [dp0, rabbit-dev-01, rabbit-lab]
   overlays: [dp0,lustre]
