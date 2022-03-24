@@ -82,11 +82,14 @@ func FindRepository(module string) (*Repository, error) {
 }
 
 type Daemon struct {
-	Name           string `yaml:"name"`
-	Bin            string `yaml:"bin"`
-	Repository     string `yaml:"repository"`
-	Path           string `yaml:"path"`
-	ServiceAccount struct {
+	Name            string `yaml:"name"`
+	Bin             string `yaml:"bin"`
+	Repository      string `yaml:"repository"`
+	Path            string `yaml:"path"`
+	SkipNnfNodeName bool   `yaml:"skipNnfNodeName"`
+	ServiceAccount  struct {
+		Token     string `yaml:"token"`
+		Cert      string `yaml:"cert"`
 		Name      string `yaml:"name"`
 		Namespace string `yaml:"namespace"`
 	} `yaml:"serviceAccount,omitempty"`

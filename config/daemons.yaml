@@ -4,5 +4,17 @@ daemons:
     repository: hpc-rabsw-nnf-dm
     path: daemons/compute/server
     serviceAccount:
+      token: nnf-data-movement-service-token-file
+      cert: nnf-data-movement-service-cert-file
       name: nnf-dm-controller-manager
       namespace: nnf-dm-system
+  - name: client-mount
+    bin: clientmount
+    repository: hpc-dpm-dws-operator
+    path: mount-daemon
+    skipNnfNodeName: true
+    serviceAccount:
+      token: dws-client-mount-service-token-file
+      cert: dws-client-mount-service-cert-file
+      name: dws-operator-controller-manager
+      namespace: dws-operator-system
