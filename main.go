@@ -35,8 +35,8 @@ var cli struct {
 
 	Deploy   DeployCmd   `cmd:"" help:"Deploy to current context."`
 	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
-	Make     MakeCmd     `cmd:"" help:"Run make in ever repository."`
-	Install  InstallCmd  `cmd:"" help:"Install daemons."`
+	Make     MakeCmd     `cmd:"" help:"Run make [COMMAND] in every repository."`
+	Install  InstallCmd  `cmd:"" help:"Install daemons (EXPERIMENTAL)."`
 }
 
 func main() {
@@ -205,9 +205,11 @@ func (*InstallCmd) Run(ctx *Context) error {
 			)
 
 			if ctx.DryRun == false {
+				fmt.Printf("Compile daemon...")
 				if err := cmd.Run(); err != nil {
 					return err
 				}
+				fmt.Printf("DONE\n")
 			}
 
 			for rabbit := range system.Rabbits {
@@ -223,7 +225,7 @@ func (*InstallCmd) Run(ctx *Context) error {
 						return err
 					}
 
-					configDir := "/etc/"+d.Bin
+					configDir := "/etc/" + d.Bin
 					if len(token) != 0 || len(cert) != 0 {
 						if err := exec.Command("ssh", compute, "mkdir -p "+configDir).Run(); err != nil {
 							return err
@@ -265,12 +267,14 @@ func (*InstallCmd) Run(ctx *Context) error {
 					execStart += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
 					execStart += "  --kubernetes-service-port=" + k8sServerPort + " \\\n"
 					execStart += "  --node-name=" + compute + " \\\n"
-					execStart += "  --nnf-node-name=" + rabbit + " \\\n"
+					if !d.SkipNnfNodeName {
+						execStart += "  --nnf-node-name=" + rabbit + " \\\n"
+					}
 					if len(token) != 0 {
-						execStart += "  --" + strings.Replace(d.Name, "_", "-", -1) + "-service-token-file=" + path.Join(serviceTokenPath, "service.token") + " \\\n"
+						execStart += "  --" + d.ServiceAccount.Token + "=" + path.Join(serviceTokenPath, "service.token") + " \\\n"
 					}
 					if len(cert) != 0 {
-						execStart += "  --" + strings.Replace(d.Name, "_", "-", -1) + "-service-cert-file=" + path.Join(certFilePath, "service.cert") + " \\\n"
+						execStart += "  --" + d.ServiceAccount.Cert + "=" + path.Join(certFilePath, "service.cert") + " \\\n"
 					}
 
 					fmt.Println("  Creating override directory...")
@@ -373,20 +377,21 @@ func copyToNode(name string, compute string, destination string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s", src)
+	fmt.Printf("%s\n", src)
 
 	fmt.Printf("    Destination MD5: ")
 	dest, err := exec.Command("ssh", compute, "md5sum "+path.Join(destination, name)+" || true").Output()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s", dest)
+	fmt.Printf("%s\n", dest)
 
 	if !compareMD5(src, dest) {
 		fmt.Printf("    Copying...")
 		if err := exec.Command("scp", name, compute+":"+destination).Run(); err != nil {
 			return err
 		}
+		fmt.Println()
 	}
 
 	return nil
