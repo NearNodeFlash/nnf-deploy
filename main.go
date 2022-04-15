@@ -214,16 +214,23 @@ func (*InstallCmd) Run(ctx *Context) error {
 
 			for rabbit := range system.Rabbits {
 				for _, compute := range system.Rabbits[rabbit] {
-					fmt.Printf("Installing %s on Compute %s\n", d.Name, compute)
 
+					fmt.Printf("  Stopping service...")
+					if err := exec.Command("ssh", compute, "systemctl", "stop", d.Bin).Run(); err != nil {
+						return err
+					}
+					fmt.Printf("\n")
+
+					fmt.Printf("  Installing %s on Compute %s\n", d.Name, compute)
 					if err := copyToNode(d.Bin, compute, "/usr/bin"); err != nil {
 						return err
 					}
 
-					fmt.Println("  Installing service...")
+					fmt.Printf("  Installing service...")
 					if err := exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "||", "true").Run(); err != nil {
 						return err
 					}
+					fmt.Printf("\n")
 
 					configDir := "/etc/" + d.Bin
 					if len(token) != 0 || len(cert) != 0 {
@@ -377,14 +384,14 @@ func copyToNode(name string, compute string, destination string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s\n", src)
+	fmt.Printf("%s", src)
 
 	fmt.Printf("    Destination MD5: ")
 	dest, err := exec.Command("ssh", compute, "md5sum "+path.Join(destination, name)+" || true").Output()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s\n", dest)
+	fmt.Printf("%s", dest)
 
 	if !compareMD5(src, dest) {
 		fmt.Printf("    Copying...")
