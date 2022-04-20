@@ -6,36 +6,36 @@ systems:
   master: kind-control-plane
   workers:
   rabbits:
-    kind-worker:
-    kind-worker2:
+    kind-worker: {0: compute-01, 1: compute-02, 6: compute-03}
+    kind-worker2: {4: compute-04}
 - name: craystack-default
   aliases: [craystack]
   overlays: [craystack,lustre]
   master: k3s-master
   workers: [k3s-master]
   rabbits:
-    rabbit-01: [compute-01]
-    rabbit-02: [compute-01]
-    rabbit-03: [compute-01]
+    rabbit-01: {0: compute-01}
+    rabbit-02: 
+    rabbit-03: 
 - name: rabbit-dev
   aliases: [dp0, rabbit-dev-01, rabbit-lab]
   overlays: [dp0,lustre]
   master: rabbit-dev-cn-04
   workers: [rabbit-dev-cn-03]
   rabbits:
-    rabbit-dev-01: [rabbit-dev-cn-01, rabbit-dev-cn-02]
+    rabbit-dev-01: {0: rabbit-dev-cn-01, 1: rabbit-dev-cn-02, 2: rabbit-dev-cn-03, 3: rabbit-dev-cn-04}
 - name: rabbit-htx
   aliases: [dp1, dp1a]
   overlays: [dp0,lustre]
   master: rabbit-k8s-master
   workers: [rabbit-k8s-worker]
   rabbits:
-    rabbit-node-0: [compute-node-0, compute-node-1]
-    rabbit-node-1: [compute-node-2, compute-node-3]
+    rabbit-node-0: {0: compute-node-0, 1: compute-node-1}
+    rabbit-node-1: {0: compute-node-2, 1: compute-node-3}
 - name: rabbit-htx-2
   aliases: [htx-2]
   overlays: [dp0,lustre]
   master: rabbit-compute-4
   workers: [rabbit-compute-5]
   rabbits:
-    rabbit-node-2: [rabbit-compute-4, rabbit-compute-5]
+    rabbit-node-2: {0: rabbit-compute-4, 1: rabbit-compute-5}

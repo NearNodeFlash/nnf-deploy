@@ -9,12 +9,12 @@ import (
 )
 
 type System struct {
-	Name     string              `yaml:"name"`
-	Aliases  []string            `yaml:"aliases,flow,omitempty"`
-	Overlays []string            `yaml:"overlays,omitempty,flow"`
-	Master   string              `yaml:"master"`
-	Workers  []string            `yaml:"workers,flow,omitempty"`
-	Rabbits  map[string][]string `yaml:"rabbits,flow"`
+	Name     string                    `yaml:"name"`
+	Aliases  []string                  `yaml:"aliases,flow,omitempty"`
+	Overlays []string                  `yaml:"overlays,omitempty,flow"`
+	Master   string                    `yaml:"master"`
+	Workers  []string                  `yaml:"workers,flow,omitempty"`
+	Rabbits  map[string]map[int]string `yaml:"rabbits,flow"`
 }
 
 type SystemConfigFile struct {
