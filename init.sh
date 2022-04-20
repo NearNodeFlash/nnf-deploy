@@ -45,16 +45,6 @@ if [[ "$CMD" == dp0 ]]; then
     #Required for webhooks
     install_cert_manager
 
-    cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nnf-node-map
-  namespace: default
-data:
-  rabbit-dev-01: rabbit-dev-cn-01;rabbit-dev-cn-02;rabbit-dev-cn-03;rabbit-dev-cn-04;np05;np06;np07;np08;np09;np10;np11;np12;np13;np14;np15;np16;
-EOF
-
 fi
 
 # The following commands apply to initializing the current DP1 environment
@@ -87,16 +77,5 @@ if [[ "$CMD" == dp1 ]]; then
 
     #Required for webhooks
     install_cert_manager
-
-    cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nnf-node-map
-  namespace: default
-data:
-  rabbit-node-0: rabbit-cn-00-01;np02;np03;np04;np05;np06;np07;np08;np09;np10;np11;np12;np13;np14;np15;np16
-  rabbit-node-1: np17;np18;np19;np20;np21;np22;np23;np24;np25;np26;np27;np28;np29;np30;np31;np32
-EOF
 
 fi

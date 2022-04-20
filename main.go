@@ -20,10 +20,10 @@ import (
 // This is the order in which we process the modules on deployment.
 var modules = []string{
 	"hpc-dpm-dws-operator",
-	"hpc-rabsw-lustre-csi-driver",
-	"hpc-rabsw-lustre-fs-operator",
+//	"hpc-rabsw-lustre-csi-driver",
+//	"hpc-rabsw-lustre-fs-operator",
 	"hpc-rabsw-nnf-sos",
-	"hpc-rabsw-nnf-dm",
+//	"hpc-rabsw-nnf-dm",
 }
 
 type Context struct {
@@ -613,13 +613,12 @@ func createSystemConfig(ctx *Context, system *config.System) error {
 	if err != nil {
 		return err
 	}
-
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("cat <<EOF | kubectl apply -f - \n%s", configjson))
+	fmt.Printf("%v", configjson)
+//	cmd := exec.Command("bash", "-c", fmt.Sprintf("cat <<EOF | kubectl apply -f - \n%s", configjson))
 	if ctx.DryRun == false {
-		if err := cmd.Run(); err != nil {
-			return err
-		}
+	//	if err := cmd.Run(); err != nil {
+	//		return err
+	//	}
 	}
-
 	return nil
 }
