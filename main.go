@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,16 +13,17 @@ import (
 	"github.com/alecthomas/kong"
 	"gopkg.in/yaml.v2"
 
+	dwsv1alpha1 "github.hpe.com/hpe/hpc-dpm-dws-operator/api/v1alpha1"
 	"github.hpe.com/hpe/hpc-rabsw-nnf-deploy/config"
 )
 
 // This is the order in which we process the modules on deployment.
 var modules = []string{
 	"hpc-dpm-dws-operator",
-	"hpc-rabsw-lustre-csi-driver",
-	"hpc-rabsw-lustre-fs-operator",
+//	"hpc-rabsw-lustre-csi-driver",
+//	"hpc-rabsw-lustre-fs-operator",
 	"hpc-rabsw-nnf-sos",
-	"hpc-rabsw-nnf-dm",
+//	"hpc-rabsw-nnf-dm",
 }
 
 type Context struct {
@@ -56,7 +58,7 @@ func (*DeployCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	return runInModules(modules, func(module string) error {
+	err = runInModules(modules, func(module string) error {
 		fmt.Printf("Deploying Module %s...\n", module)
 		if err := deployModule(ctx, system, module); err != nil {
 			return err
@@ -64,6 +66,12 @@ func (*DeployCmd) Run(ctx *Context) error {
 
 		return nil
 	})
+
+	if err != nil {
+		return err
+	}
+
+	return createSystemConfig(ctx, system)
 }
 
 type UndeployCmd struct{}
@@ -567,5 +575,50 @@ func runInModules(modules []string, runFn func(module string) error) error {
 		}
 	}
 
+	return nil
+}
+
+// createSystemConfig creates a DWS SystemConfiguration resource using
+// information found in the systems.yaml file.
+func createSystemConfig(ctx *Context, system *config.System) error {
+	fmt.Println("Creating SystemConfiguration...")
+
+	config := dwsv1alpha1.SystemConfiguration{}
+
+	config.Name = "default"
+	config.Namespace = "default"
+	config.Kind = "SystemConfiguration"
+	config.APIVersion = fmt.Sprintf("%s/%s", dwsv1alpha1.GroupVersion.Group, dwsv1alpha1.GroupVersion.Version)
+
+	for storageName, computes := range system.Rabbits {
+		storage := dwsv1alpha1.SystemConfigurationStorageNode{}
+		storage.Type = "Rabbit"
+		storage.Name = storageName
+		for index, computeName := range computes {
+			compute := dwsv1alpha1.SystemConfigurationComputeNode{
+				Name: computeName,
+			}
+			config.Spec.ComputeNodes = append(config.Spec.ComputeNodes, compute)
+
+			computeReference := dwsv1alpha1.SystemConfigurationComputeNodeReference{
+				Name:  computeName,
+				Index: index,
+			}
+			storage.ComputesAccess = append(storage.ComputesAccess, computeReference)
+		}
+		config.Spec.StorageNodes = append(config.Spec.StorageNodes, storage)
+	}
+
+	configjson, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%v", configjson)
+//	cmd := exec.Command("bash", "-c", fmt.Sprintf("cat <<EOF | kubectl apply -f - \n%s", configjson))
+	if ctx.DryRun == false {
+	//	if err := cmd.Run(); err != nil {
+	//		return err
+	//	}
+	}
 	return nil
 }
