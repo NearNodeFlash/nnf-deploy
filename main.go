@@ -50,16 +50,22 @@ func main() {
 	ctx.FatalIfErrorf(err)
 }
 
-type DeployCmd struct{}
+type DeployCmd struct {
+	Only []string `arg:"" optional:"" name:"only" help:"Only use these repositories"`
+}
 
-func (*DeployCmd) Run(ctx *Context) error {
+func (cmd *DeployCmd) Run(ctx *Context) error {
 	system, err := loadSystem()
 	if err != nil {
 		return err
 	}
 
 	err = runInModules(modules, func(module string) error {
-		fmt.Printf("Deploying Module %s...\n", module)
+
+		if shouldSkipModule(module, cmd.Only) {
+			return nil
+		}
+
 		if err := deployModule(ctx, system, module); err != nil {
 			return err
 		}
@@ -74,9 +80,11 @@ func (*DeployCmd) Run(ctx *Context) error {
 	return createSystemConfig(ctx, system)
 }
 
-type UndeployCmd struct{}
+type UndeployCmd struct {
+	Only []string `arg:"" optional:"" name:"only" help:"Only use these repositories"`
+}
 
-func (*UndeployCmd) Run(ctx *Context) error {
+func (cmd *UndeployCmd) Run(ctx *Context) error {
 	system, err := loadSystem()
 	if err != nil {
 		return err
@@ -88,6 +96,11 @@ func (*UndeployCmd) Run(ctx *Context) error {
 	}
 
 	return runInModules(reversed, func(module string) error {
+
+		if shouldSkipModule(module, cmd.Only) {
+			return nil
+		}
+
 		fmt.Printf("Undeploying Module %s...\n", module)
 
 		overlay, err := getOverlay(system, module)
@@ -115,7 +128,8 @@ func (*UndeployCmd) Run(ctx *Context) error {
 }
 
 type MakeCmd struct {
-	Command string `arg:"" name:"command" help:"Make target."`
+	Command string   `arg:"" name:"command" help:"Make target."`
+	Only    []string `arg:"" optional:"" name:"only" help:"Only use these repositories"`
 }
 
 func (cmd *MakeCmd) Run(ctx *Context) error {
@@ -125,6 +139,10 @@ func (cmd *MakeCmd) Run(ctx *Context) error {
 	}
 
 	return runInModules(modules, func(module string) error {
+
+		if shouldSkipModule(module, cmd.Only) {
+			return nil
+		}
 
 		fmt.Printf("Running Make %s in %s...\n", cmd.Command, module)
 
@@ -576,6 +594,20 @@ func runInModules(modules []string, runFn func(module string) error) error {
 	}
 
 	return nil
+}
+
+func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
+	if len(permittedModulesOrEmpty) == 0 {
+		return false
+	}
+
+	for _, permittedModule := range permittedModulesOrEmpty {
+		if strings.Contains(module, permittedModule) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // createSystemConfig creates a DWS SystemConfiguration resource using
