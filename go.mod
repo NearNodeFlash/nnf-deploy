@@ -39,7 +39,7 @@ require (
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.hpe.com/hpe/hpc-dpm-dws-operator v0.0.0-20220419154358-d267b9530cb5 // indirect
+	github.hpe.com/hpe/hpc-dpm-dws-operator v0.0.0-20220420160934-ece64af91353 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.18.1 // indirect
