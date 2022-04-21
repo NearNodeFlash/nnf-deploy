@@ -117,13 +117,7 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 		}
 
 		fmt.Println("  Running Undeploy...")
-		if ctx.DryRun == false {
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-		}
-
-		return nil
+		return runCommand(ctx, cmd)
 	})
 }
 
@@ -159,11 +153,7 @@ func (cmd *MakeCmd) Run(ctx *Context) error {
 			)
 		}
 
-		if ctx.DryRun == false {
-			err = cmd.Run()
-		}
-
-		return nil
+		return runCommand(ctx, cmd)
 	})
 }
 
@@ -575,12 +565,16 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 	}
 
 	fmt.Println("  Running Deploy...")
+	return runCommand(ctx, cmd)
+}
+
+func runCommand(ctx *Context, cmd *exec.Cmd) error {
 	if ctx.DryRun == false {
-		if err := cmd.Run(); err != nil {
+		if stdoutStderr, err := cmd.CombinedOutput(); err != nil {
+			fmt.Printf("%s\n", stdoutStderr)
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -658,10 +652,5 @@ func createSystemConfig(ctx *Context, system *config.System) error {
 	}
 
 	cmd := exec.Command("bash", "-c", fmt.Sprintf("cat <<EOF | kubectl apply -f - \n%s", configjson))
-	if ctx.DryRun == false {
-		if err := cmd.Run(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return runCommand(ctx, cmd)
 }
