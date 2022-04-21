@@ -512,7 +512,18 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		return err
 	}
 
-	if overlay != "kind" {
+	if system.Name == "kind" {
+		// TODO: Do a sanity check to make sure the image is present on the kind nodes. This will ensure
+		//       that a "kind-push" was done. This would _not_ guarantee that a docker-build was done with
+		//       the latest code but at least we wouldn't get an ImagePullFailure. One can get the list of
+		//       images present on a cluster node by using `docker exec -it [NODE NAME] crictl images`
+
+		if len(overlay) != 0 {
+			cmd.Env = append(os.Environ(),
+				"OVERLAY="+overlay)
+		}
+
+	} else {
 
 		fmt.Print("  Finding Repository...")
 		repo, err := config.FindRepository(module)
