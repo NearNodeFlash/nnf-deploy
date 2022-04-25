@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"gopkg.in/yaml.v2"
@@ -87,6 +88,10 @@ type UndeployCmd struct {
 func (cmd *UndeployCmd) Run(ctx *Context) error {
 	system, err := loadSystem()
 	if err != nil {
+		return err
+	}
+
+	if err := deleteSystemConfig(ctx, system); err != nil {
 		return err
 	}
 
@@ -613,6 +618,29 @@ func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
 	}
 
 	return true
+}
+
+func deleteSystemConfig(ctx *Context, system *config.System) error {
+	// Check if the SystemConfiguration resource exists, and return if it doesn't
+	getCmd := exec.Command("kubectl", "get", "systemconfiguration", "default", "--no-headers")
+	if err := runCommand(ctx, getCmd); err != nil {
+		return nil
+	}
+
+	fmt.Println("Deleting SystemConfiguration")
+	deleteCmd := exec.Command("kubectl", "delete", "systemconfiguration", "default")
+
+	if err := runCommand(ctx, deleteCmd); err != nil {
+		return err
+	}
+
+	// Wait until the SystemConfiguration resource is completely gone. This may take
+	// some time if there are many compute node namespaces to delete
+	for runCommand(ctx, getCmd) == nil {
+		time.Sleep(1 * time.Second)
+	}
+
+	return nil
 }
 
 // createSystemConfig creates a DWS SystemConfiguration resource using
