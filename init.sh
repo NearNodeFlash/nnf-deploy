@@ -45,6 +45,15 @@ dp1)
 
     ;;
 
+htx2)
+    # The following commands apply to initializing the current HTX-2 environment
+    WORKER_NODES=$(kubectl get nodes --no-headers -o custom-columns=:metadata.name | grep -i 'rabbit-compute-5' | paste -d" " -s -)
+    RABBIT_NODES=$(kubectl get nodes --no-headers -o custom-columns=:metadata.name | grep -i 'rabbit-node-2'    | grep -v master | paste -d" " -s -)
+    MASTER_NODES=$(kubectl get nodes --no-headers -o custom-columns=:metadata.name | grep -i 'rabbit-compute-4' | paste -d" " -s -)
+
+    ;;
+
+
 craystack)
     # The following commands apply to initializing the current Craystack-lop environment
     RABBIT_NODES=$(kubectl get nodes --no-headers -o custom-columns=:metadata.name | grep -i 'rabbit' | paste -d" " -s -)
