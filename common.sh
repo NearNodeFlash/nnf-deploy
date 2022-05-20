@@ -24,4 +24,4 @@ install_cert_manager ()
     kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/"$certver"/cert-manager.yaml
 }
 
-SUBMODULES=$(ls -d */ | grep -e "hpc-dpm-" -e "hpc-rabsw-")
+SUBMODULES=$(git submodule status | awk '{print $2}')

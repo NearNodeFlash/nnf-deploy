@@ -33,17 +33,17 @@ import (
 	"github.com/alecthomas/kong"
 	"gopkg.in/yaml.v2"
 
-	dwsv1alpha1 "github.hpe.com/hpe/hpc-dpm-dws-operator/api/v1alpha1"
-	"github.hpe.com/hpe/hpc-rabsw-nnf-deploy/config"
+	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
+	"github.com/NearNodeFlash/nnf-deploy/config"
 )
 
 // This is the order in which we process the modules on deployment.
 var modules = []string{
-	"hpc-dpm-dws-operator",
-	"hpc-rabsw-lustre-csi-driver",
-	"hpc-rabsw-lustre-fs-operator",
-	"hpc-rabsw-nnf-sos",
-	"hpc-rabsw-nnf-dm",
+	"dws",
+	"lustre-csi-driver",
+	"lustre-fs-operator",
+	"nnf-sos",
+	"nnf-dm",
 }
 
 type Context struct {
