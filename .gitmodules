@@ -1,0 +1,15 @@
+[submodule "dws"]
+	path = dws
+	url = git@github.com:HewlettPackard/dws.git
+[submodule "lustre-csi-driver"]
+	path = lustre-csi-driver
+	url = git@github.com:HewlettPackard/lustre-csi-driver.git
+[submodule "lustre-fs-operator"]
+	path = lustre-fs-operator
+	url = git@github.com:NearNodeFlash/lustre-fs-operator.git
+[submodule "nnf-sos"]
+	path = nnf-sos
+	url = git@github.com:NearNodeFlash/nnf-sos.git
+[submodule "nnf-dm"]
+	path = nnf-dm
+	url = git@github.com:NearNodeFlash/nnf-dm.git

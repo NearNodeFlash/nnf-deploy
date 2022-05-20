@@ -1,7 +1,7 @@
 daemons:
   - name: nnf-data-movement
     bin: nnf-dm
-    repository: hpc-rabsw-nnf-dm
+    repository: nnf-dm
     path: daemons/compute/server
     serviceAccount:
       token: nnf-data-movement-service-token-file

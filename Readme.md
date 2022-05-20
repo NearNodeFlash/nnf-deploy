@@ -3,12 +3,12 @@
 To clone this project, use the additional --recurse-submodules option to retrieve its submodules:
 
 ```bash
-git clone --recurse-submodules git@github.hpe.com:hpe/hpc-rabsw-nnf-deploy
+git clone --recurse-submodules git@github.com:NearNodeFlash/nnf-deploy
 ```
 
-## hpc-rabsw-nnf-deploy
+## nnf-deploy
 
-hpc-rabsw-nnf-deploy is a golang executable capable of building all of the docker components of the Rabbit software stack locally as well as deploying and undeploying those components to a k8s cluster specified by the current kube config.
+nnf-deploy is a golang executable capable of building all of the docker components of the Rabbit software stack locally as well as deploying and undeploying those components to a k8s cluster specified by the current kube config.
 
 ### Build
 
@@ -19,8 +19,8 @@ Prior to running, ensure correct NNF systems are loaded in [./config/systems.yam
 ### Options
 
 ```bash
-./hpc-rabsw-nnf-deploy --help
-Usage: hpc-rabsw-nnf-deploy <command>
+./nnf-deploy --help
+Usage: nnf-deploy <command>
 
 Flags:
   -h, --help       Show context-sensitive help.
@@ -40,7 +40,7 @@ Commands:
   install
     Install daemons (EXPERIMENTAL).
 
-Run "hpc-rabsw-nnf-deploy <command> --help" for more information on a command.
+Run "nnf-deploy <command> --help" for more information on a command.
 
 ```
 
@@ -49,7 +49,7 @@ Run "hpc-rabsw-nnf-deploy <command> --help" for more information on a command.
 Deploying will deploy all the submodules to your current kube config context
 
 ```bash
-./hpc-rabsw-nnf-deploy deploy
+./nnf-deploy deploy
 ```
 
 ## Undeploy
@@ -57,15 +57,15 @@ Deploying will deploy all the submodules to your current kube config context
 Undeploy all the submodules
 
 ```bash
-./hpc-rabsw-nnf-deploy undeploy
+./nnf-deploy undeploy
 ```
 
 ## Make
 
-The `make` subcommand provides direct access to makefile targets within each submodule in hpc-rabsw-nnf-deploy executing `make <command>` within each submodule. For example, the following command performs a `docker-build` within each submodule:
+The `make` subcommand provides direct access to makefile targets within each submodule in nnf-deploy executing `make <command>` within each submodule. For example, the following command performs a `docker-build` within each submodule:
 
 ```bash
-./hpc-rabsw-nnf-deploy make docker-build
+./nnf-deploy make docker-build
 ```
 
 ### Kind cluster
@@ -79,10 +79,11 @@ Kind clusters are built and deployed using locally compiled images. The followin
 
 ```bash
 ./kind.sh reset
-./hpc-rabsw-nnf-deploy make docker-build
-./hpc-rabsw-nnf-deploy make kind-push
-./hpc-rabsw-nnf-deploy make deploy
+./nnf-deploy make docker-build
+./nnf-deploy make kind-push
+./nnf-deploy deploy
 ```
 
 ## Install
+
 <TBD>
