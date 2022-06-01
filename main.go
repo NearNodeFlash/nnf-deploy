@@ -527,7 +527,7 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 	}
 
 	if system.Name == "kind" {
-		// TODO: Do a sanity check to make sure the image is present on the kind nodes. This will ensure
+		// TODO: Do a sanity check to make sure the image is present on the kind nodes. This ensures
 		//       that a "kind-push" was done. This would _not_ guarantee that a docker-build was done with
 		//       the latest code but at least we wouldn't get an ImagePullFailure. One can get the list of
 		//       images present on a cluster node by using `docker exec -it [NODE NAME] crictl images`
@@ -573,14 +573,7 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 
 		fmt.Print("  Loading From GHCR...")
 		version := commit
-		// version, err := artifactoryVersion(url, commit)
-		// if err != nil {
-		// 	return err
-		// }
-		// fmt.Printf(" %s\n", version)
-
 		imageTagBase := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
-		// imageTagBase = strings.Replace(imageTagBase, "/artifactory", "", 1)
 
 		cmd.Env = append(os.Environ(),
 			"IMAGE_TAG_BASE="+imageTagBase,
