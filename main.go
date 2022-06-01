@@ -473,7 +473,7 @@ func currentBranch() (string, error) {
 }
 
 func lastLocalCommit() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output()
+	out, err := exec.Command("git", "rev-parse", "HEAD").Output()
 	return strings.TrimRight(string(out), "\r\n"), err
 }
 
@@ -571,15 +571,16 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		}
 		fmt.Printf(" %s\n", commit)
 
-		fmt.Print("  Loading From Artifactory...")
-		version, err := artifactoryVersion(url, commit)
-		if err != nil {
-			return err
-		}
-		fmt.Printf(" %s\n", version)
+		fmt.Print("  Loading From GHCR...")
+		version := commit
+		// version, err := artifactoryVersion(url, commit)
+		// if err != nil {
+		// 	return err
+		// }
+		// fmt.Printf(" %s\n", version)
 
 		imageTagBase := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
-		imageTagBase = strings.Replace(imageTagBase, "/artifactory", "", 1)
+		// imageTagBase = strings.Replace(imageTagBase, "/artifactory", "", 1)
 
 		cmd.Env = append(os.Environ(),
 			"IMAGE_TAG_BASE="+imageTagBase,

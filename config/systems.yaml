@@ -15,13 +15,13 @@ systems:
   workers: [k3s-master]
   rabbits:
     rabbit-01: {0: compute-01}
-    rabbit-02: 
-    rabbit-03: 
+    rabbit-02:
+    rabbit-03:
 - name: rabbit-dev
   aliases: [dp0, rabbit-dev-01, rabbit-lab]
   overlays: [dp0,lustre]
-  master: rabbit-dev-cn-04
-  workers: [rabbit-dev-cn-03]
+  master: rabbit-dev-vm-k8s-master
+  workers: [rabbit-dev-cn-02]
   rabbits:
     rabbit-dev-01: {0: rabbit-dev-cn-01, 1: rabbit-dev-cn-02, 2: rabbit-dev-cn-03, 3: rabbit-dev-cn-04}
 - name: rabbit-htx

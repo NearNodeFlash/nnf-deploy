@@ -14,7 +14,7 @@ nnf-deploy is a golang executable capable of building all of the docker componen
 
 Build using: `go build`
 
-Prior to running, ensure correct NNF systems are loaded in [./config/systems.yaml](./config/systems.yaml) and correct Artifactory repositories are defined in [./config/artifactory.yaml](./config/artifactory.yaml)
+Prior to running, ensure correct NNF systems are loaded in [./config/systems.yaml](./config/systems.yaml) and correct ghcr repositories are defined in [./config/repositories.yaml](./config/repositories.yaml)
 
 ### Options
 
@@ -86,4 +86,4 @@ Kind clusters are built and deployed using locally compiled images. The followin
 
 ## Install
 
-<TBD>
+TBD
