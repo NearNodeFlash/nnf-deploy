@@ -10,7 +10,7 @@ daemons:
       namespace: nnf-dm-system
   - name: client-mount
     bin: clientmount
-    repository: hpc-dpm-dws-operator
+    repository: dws
     path: mount-daemon
     skipNnfNodeName: true
     serviceAccount:
