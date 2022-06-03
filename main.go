@@ -181,9 +181,25 @@ func (cmd *MakeCmd) Run(ctx *Context) error {
 	})
 }
 
-type InstallCmd struct{}
+type InstallCmd struct {
+	Nodes []string `arg:"" optional:"" name:"node" help:"Only use these nodes"`
+}
 
-func (*InstallCmd) Run(ctx *Context) error {
+func (cmd *InstallCmd) Run(ctx *Context) error {
+
+	shouldSkipNode := func(node string) bool {
+		if len(cmd.Nodes) == 0 {
+			return false
+		}
+
+		for _, n := range cmd.Nodes {
+			if n == node {
+				return false
+			}
+		}
+
+		return true
+	}
 
 	system, err := loadSystem()
 	if err != nil {
@@ -253,21 +269,27 @@ func (*InstallCmd) Run(ctx *Context) error {
 			}
 
 			for rabbit := range system.Rabbits {
+
 				for _, compute := range system.Rabbits[rabbit] {
 
+					if shouldSkipNode(compute) {
+						continue
+					}
+
+					fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
+
 					fmt.Printf("  Stopping service...")
-					if err := exec.Command("ssh", compute, "systemctl", "stop", d.Bin).Run(); err != nil {
+					if err := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true").Run(); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
 
-					fmt.Printf("  Installing %s on Compute %s\n", d.Name, compute)
 					if err := copyToNode(d.Bin, compute, "/usr/bin"); err != nil {
 						return err
 					}
 
-					fmt.Printf("  Installing service...")
-					if err := exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "||", "true").Run(); err != nil {
+					fmt.Printf("  Installing %s service...", d.Name)
+					if err := exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true").Run(); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
@@ -324,11 +346,12 @@ func (*InstallCmd) Run(ctx *Context) error {
 						execStart += "  --" + d.ServiceAccount.Cert + "=" + path.Join(certFilePath, "service.cert") + " \\\n"
 					}
 
-					fmt.Println("  Creating override directory...")
+					fmt.Printf("  Creating override directory...")
 					overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
 					if err := exec.Command("ssh", compute, "mkdir", "-p", overridePath).Run(); err != nil {
 						return err
 					}
+					fmt.Printf("\n")
 
 					fmt.Println("  Creating override configuration...")
 					if err := os.WriteFile("override.conf", []byte(execStart), os.ModePerm); err != nil {
@@ -343,15 +366,17 @@ func (*InstallCmd) Run(ctx *Context) error {
 					}
 
 					// Reload the daemon to pick up the override.conf.
-					fmt.Println("  Reloading service...")
+					fmt.Printf("  Reloading service...")
 					if err := exec.Command("ssh", compute, "systemctl daemon-reload").Run(); err != nil {
 						return err
 					}
+					fmt.Printf("\n")
 
-					fmt.Println("  Starting service...")
-					if err := exec.Command("ssh", compute, "systemctl start "+d.Bin).Run(); err != nil {
+					fmt.Printf("  Starting service...")
+					if err := exec.Command("ssh", compute, "systemctl", "start", d.Bin).Run(); err != nil {
 						return err
 					}
+					fmt.Printf("\n")
 				}
 			}
 
@@ -427,7 +452,7 @@ func copyToNode(name string, compute string, destination string) error {
 	fmt.Printf("%s", src)
 
 	fmt.Printf("    Destination MD5: ")
-	dest, err := exec.Command("ssh", compute, "md5sum "+path.Join(destination, name)+" || true").Output()
+	dest, err := exec.Command("ssh", compute, "md5sum "+path.Join(destination, name), " || true").Output()
 	if err != nil {
 		return err
 	}
