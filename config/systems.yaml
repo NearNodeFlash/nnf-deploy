@@ -35,7 +35,7 @@ systems:
 - name: rabbit-htx-2
   aliases: [htx-2]
   overlays: [dp0,lustre]
-  master: rabbit-compute-4
-  workers: [rabbit-compute-5]
+  master: compute-node-4
+  workers: [compute-node-5]
   rabbits:
-    rabbit-node-2: {0: rabbit-compute-4, 1: rabbit-compute-5}
+    rabbit-node-2: {0: compute-node-4, 1: compute-node-5}
