@@ -31,7 +31,7 @@ systems:
   workers: [rabbit-k8s-worker]
   rabbits:
     rabbit-node-0: {0: compute-node-0, 1: compute-node-1}
-    rabbit-node-1: {0: compute-node-2, 1: compute-node-3}
+    rabbit-node-1: {0: compute-node-3, 1: compute-node-2}   # These computes are physically swapped
 - name: rabbit-htx-2
   aliases: [htx-2]
   overlays: [dp0,rabbit]
