@@ -279,7 +279,8 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
 
 					fmt.Printf("  Stopping service...")
-					if err := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true").Run(); err != nil {
+					cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
+					if err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
@@ -289,14 +290,16 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					}
 
 					fmt.Printf("  Installing %s service...", d.Name)
-					if err := exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true").Run(); err != nil {
+					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
+					if err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
 
 					configDir := "/etc/" + d.Bin
 					if len(token) != 0 || len(cert) != 0 {
-						if err := exec.Command("ssh", compute, "mkdir -p "+configDir).Run(); err != nil {
+						cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
+						if err := runCommand(ctx, cmd); err != nil {
 							return err
 						}
 					}
@@ -348,7 +351,8 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 					fmt.Printf("  Creating override directory...")
 					overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
-					if err := exec.Command("ssh", compute, "mkdir", "-p", overridePath).Run(); err != nil {
+					cmd = exec.Command("ssh", compute, "mkdir", "-p", overridePath)
+					if err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
@@ -367,13 +371,15 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 					// Reload the daemon to pick up the override.conf.
 					fmt.Printf("  Reloading service...")
-					if err := exec.Command("ssh", compute, "systemctl daemon-reload").Run(); err != nil {
+					cmd = exec.Command("ssh", compute, "systemctl daemon-reload")
+					if err := runCommand(ctx,cmd); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
 
 					fmt.Printf("  Starting service...")
-					if err := exec.Command("ssh", compute, "systemctl", "start", d.Bin).Run(); err != nil {
+					cmd = exec.Command("ssh", compute, "systemctl", "start", d.Bin)
+					if err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
