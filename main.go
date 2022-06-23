@@ -372,7 +372,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					// Reload the daemon to pick up the override.conf.
 					fmt.Printf("  Reloading service...")
 					cmd = exec.Command("ssh", compute, "systemctl daemon-reload")
-					if err := runCommand(ctx,cmd); err != nil {
+					if err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
