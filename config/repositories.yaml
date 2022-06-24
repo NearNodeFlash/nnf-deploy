@@ -23,7 +23,7 @@ repositories:
     development: https://ghcr.io/hewlettpackard/dws
     master: https://ghcr.io/hewlettpackard/dws
   - name: lustre-csi-driver
-    overlays: [rabbit]
+    overlays: [rabbit, kind]
     development: https://ghcr.io/hewlettpackard/lustre-csi-driver
     master: https://ghcr.io/hewlettpackard/lustre-csi-driver
   - name: lustre-fs-operator
