@@ -466,7 +466,7 @@ func copyToNode(name string, compute string, destination string) error {
 
 	if !compareMD5(src, dest) {
 		fmt.Printf("    Copying...")
-		if err := exec.Command("scp", name, compute+":"+destination).Run(); err != nil {
+		if err := exec.Command("scp", "-C", name, compute+":"+destination).Run(); err != nil {
 			return err
 		}
 		fmt.Println()
