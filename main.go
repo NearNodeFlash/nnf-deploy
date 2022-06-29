@@ -327,7 +327,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					serviceTokenPath := configDir
 					tokenNeedsUpdate := false
 					if len(token) != 0 {
-						if err := os.WriteFile("service.token", token, os.ModePerm); err != nil {
+						if err := os.WriteFile("service.token", token, 0644); err != nil {
 							return err
 						}
 
@@ -346,7 +346,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					certFilePath := configDir
 					certNeedsUpdate := false
 					if len(cert) != 0 {
-						if err := os.WriteFile("service.cert", cert, os.ModePerm); err != nil {
+						if err := os.WriteFile("service.cert", cert, 0644); err != nil {
 							return err
 						}
 
@@ -388,7 +388,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					fmt.Printf("\n")
 
 					fmt.Println("  Creating override configuration...")
-					if err := os.WriteFile("override.conf", []byte(execStart), 0666); err != nil {
+					if err := os.WriteFile("override.conf", []byte(execStart), 0644); err != nil {
 						return err
 					}
 
@@ -469,6 +469,11 @@ func currentClusterConfig() (string, error) {
 func checkNeedsUpdate(ctx *Context, name string, compute string, destination string) (bool, error) {
 	fmt.Printf("  Checking Compute Node %s needs update to %s...\n", compute, name)
 
+	if ctx.Force {
+		fmt.Printf("    Update forced by --force option\n")
+		return true, nil
+	}
+
 	compareMD5 := func(first []byte, second []byte) bool {
 		if len(second) < len(first) {
 			return false
@@ -502,12 +507,6 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 	fmt.Printf("%s", dest)
 
 	needsUpdate := !compareMD5(src, dest)
-
-	if ctx.Force {
-		fmt.Printf("    Update forced by --force option\n")
-		needsUpdate = true
-	}
-
 	if needsUpdate {
 		fmt.Printf("  Compute Node %s requires update to %s\n", compute, name)
 	}
