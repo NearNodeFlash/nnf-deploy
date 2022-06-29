@@ -289,7 +289,6 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 						return err
 					}
 
-
 					fmt.Printf("  Installing %s service...", d.Name)
 					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
 					if err := runCommand(ctx, cmd); err != nil {
