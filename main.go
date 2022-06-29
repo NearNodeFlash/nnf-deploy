@@ -390,7 +390,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					fmt.Printf("\n")
 
 					fmt.Println("  Creating override configuration...")
-					if err := os.WriteFile("override.conf", []byte(execStart), os.ModePerm); err != nil {
+					if err := os.WriteFile("override.conf", []byte(execStart), 0666); err != nil {
 						return err
 					}
 
