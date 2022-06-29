@@ -23,6 +23,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -49,6 +50,7 @@ var modules = []string{
 type Context struct {
 	Debug  bool
 	DryRun bool
+	Force  bool
 }
 
 var cli struct {
@@ -141,7 +143,8 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 		}
 
 		fmt.Println("  Running Undeploy...")
-		return runCommand(ctx, cmd)
+		_, err = runCommand(ctx, cmd)
+		return err
 	})
 }
 
@@ -177,15 +180,19 @@ func (cmd *MakeCmd) Run(ctx *Context) error {
 			)
 		}
 
-		return runCommand(ctx, cmd)
+		_, err = runCommand(ctx, cmd)
+		return err
 	})
 }
 
 type InstallCmd struct {
 	Nodes []string `arg:"" optional:"" name:"node" help:"Only use these nodes"`
+	Force bool     `help:"Force updates even if files are the same"`
 }
 
 func (cmd *InstallCmd) Run(ctx *Context) error {
+
+	ctx.Force = cmd.Force
 
 	shouldSkipNode := func(node string) bool {
 		if len(cmd.Nodes) == 0 {
@@ -260,13 +267,11 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 				"GOPRIVATE=github.hpe.com",
 			)
 
-			if ctx.DryRun == false {
-				fmt.Printf("Compile daemon...")
-				if err := cmd.Run(); err != nil {
-					return err
-				}
-				fmt.Printf("DONE\n")
+			fmt.Printf("Compile %s daemon...", d.Bin)
+			if _, err := runCommand(ctx, cmd); err != nil {
+				return err
 			}
+			fmt.Printf("DONE\n")
 
 			for rabbit := range system.Rabbits {
 
@@ -278,46 +283,59 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 					fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
 
-					fmt.Printf("  Stopping %s service...", d.Name)
-					cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
-					if err := runCommand(ctx, cmd); err != nil {
-						return err
-					}
-					fmt.Printf("\n")
-
-					fmt.Printf("  Removing %s service...", d.Name)
-					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
-					if err := runCommand(ctx, cmd); err != nil {
-						return err
-					}
-					fmt.Printf("\n")
-
-					if err := copyToNode(d.Bin, compute, "/usr/bin"); err != nil {
+					binaryNeedsUpdate, err := checkNeedsUpdate(ctx, d.Bin, compute, "/usr/bin")
+					if err != nil {
 						return err
 					}
 
-					fmt.Printf("  Installing %s service...", d.Name)
-					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
-					if err := runCommand(ctx, cmd); err != nil {
-						return err
+					if binaryNeedsUpdate {
+
+						fmt.Printf("  Stopping %s service...", d.Name)
+						cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
+						if _, err := runCommand(ctx, cmd); err != nil {
+							return err
+						}
+						fmt.Printf("\n")
+
+						fmt.Printf("  Removing %s service...", d.Name)
+						cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
+						if _, err := runCommand(ctx, cmd); err != nil {
+							return err
+						}
+						fmt.Printf("\n")
+
+						if err := copyToNode(ctx, d.Bin, compute, "/usr/bin"); err != nil {
+							return err
+						}
+
+						fmt.Printf("  Installing %s service...", d.Name)
+						cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
+						if _, err := runCommand(ctx, cmd); err != nil {
+							return err
+						}
+						fmt.Printf("\n")
 					}
-					fmt.Printf("\n")
 
 					configDir := "/etc/" + d.Bin
 					if len(token) != 0 || len(cert) != 0 {
 						cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
-						if err := runCommand(ctx, cmd); err != nil {
+						if _, err := runCommand(ctx, cmd); err != nil {
 							return err
 						}
 					}
 
 					serviceTokenPath := configDir
+					tokenNeedsUpdate := false
 					if len(token) != 0 {
-						if err := os.WriteFile("service.token", token, os.ModePerm); err != nil {
+						if err := os.WriteFile("service.token", token, 0644); err != nil {
 							return err
 						}
 
-						err = copyToNode("service.token", compute, serviceTokenPath)
+						tokenNeedsUpdate, err = checkNeedsUpdate(ctx, "service.token", compute, serviceTokenPath)
+						if tokenNeedsUpdate {
+							err = copyToNode(ctx, "service.token", compute, serviceTokenPath)
+						}
+
 						os.Remove("service.token")
 
 						if err != nil {
@@ -326,12 +344,17 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					}
 
 					certFilePath := configDir
+					certNeedsUpdate := false
 					if len(cert) != 0 {
-						if err := os.WriteFile("service.cert", cert, os.ModePerm); err != nil {
+						if err := os.WriteFile("service.cert", cert, 0644); err != nil {
 							return err
 						}
 
-						err = copyToNode("service.cert", compute, certFilePath)
+						certNeedsUpdate, err = checkNeedsUpdate(ctx, "service.cert", compute, certFilePath)
+						if certNeedsUpdate {
+							err = copyToNode(ctx, "service.cert", compute, certFilePath)
+						}
+
 						os.Remove("service.cert")
 
 						if err != nil {
@@ -359,37 +382,43 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					fmt.Printf("  Creating override directory...")
 					overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
 					cmd = exec.Command("ssh", compute, "mkdir", "-p", overridePath)
-					if err := runCommand(ctx, cmd); err != nil {
+					if _, err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
 
 					fmt.Println("  Creating override configuration...")
-					if err := os.WriteFile("override.conf", []byte(execStart), os.ModePerm); err != nil {
+					if err := os.WriteFile("override.conf", []byte(execStart), 0644); err != nil {
 						return err
 					}
 
-					err = copyToNode("override.conf", compute, overridePath)
+					overrideNeedsUpdate, err := checkNeedsUpdate(ctx, "override.conf", compute, overridePath)
+					if overrideNeedsUpdate {
+						err = copyToNode(ctx, "override.conf", compute, overridePath)
+					}
+
 					os.Remove("override.conf")
 
 					if err != nil {
 						return err
 					}
 
-					// Reload the daemon to pick up the override.conf.
-					fmt.Printf("  Reloading service...")
-					cmd = exec.Command("ssh", compute, "systemctl daemon-reload")
-					if err := runCommand(ctx, cmd); err != nil {
-						return err
-					}
-					fmt.Printf("\n")
+					if binaryNeedsUpdate || tokenNeedsUpdate || certNeedsUpdate || overrideNeedsUpdate {
+						// Reload the daemon to pick up the override.conf.
+						fmt.Printf("  Reloading service...")
+						cmd = exec.Command("ssh", compute, "systemctl daemon-reload")
+						if _, err := runCommand(ctx, cmd); err != nil {
+							return err
+						}
+						fmt.Printf("\n")
 
-					fmt.Printf("  Starting service...")
-					cmd = exec.Command("ssh", compute, "systemctl", "start", d.Bin)
-					if err := runCommand(ctx, cmd); err != nil {
-						return err
+						fmt.Printf("  Starting service...")
+						cmd = exec.Command("ssh", compute, "systemctl", "start", d.Bin)
+						if _, err := runCommand(ctx, cmd); err != nil {
+							return err
+						}
+						fmt.Printf("\n")
 					}
-					fmt.Printf("\n")
 				}
 			}
 
@@ -437,8 +466,14 @@ func currentClusterConfig() (string, error) {
 	return "", fmt.Errorf("Current Cluster %s not found", current)
 }
 
-func copyToNode(name string, compute string, destination string) error {
-	fmt.Printf("  Copying %s to %s at %s\n", name, compute, destination)
+func checkNeedsUpdate(ctx *Context, name string, compute string, destination string) (bool, error) {
+	fmt.Printf("  Checking Compute Node %s needs update to %s...\n", compute, name)
+
+	if ctx.Force {
+		fmt.Printf("    Update forced by --force option\n")
+		return true, nil
+	}
+
 	compareMD5 := func(first []byte, second []byte) bool {
 		if len(second) < len(first) {
 			return false
@@ -458,29 +493,35 @@ func copyToNode(name string, compute string, destination string) error {
 	}
 
 	fmt.Printf("    Source MD5: ")
-	src, err := exec.Command("md5sum", name).Output()
+	src, err := runCommand(ctx, exec.Command("md5sum", name))
 	if err != nil {
-		return err
+		return false, err
 	}
 	fmt.Printf("%s", src)
 
 	fmt.Printf("    Destination MD5: ")
-	dest, err := exec.Command("ssh", compute, "md5sum "+path.Join(destination, name), " || true").Output()
+	dest, err := runCommand(ctx, exec.Command("ssh", compute, "md5sum "+path.Join(destination, name), " || true"))
 	if err != nil {
-		return err
+		return false, err
 	}
 	fmt.Printf("%s", dest)
 
-	if !compareMD5(src, dest) {
-		fmt.Printf("    Copying...")
-		if err := exec.Command("scp", "-C", name, compute+":"+destination).Run(); err != nil {
-			return err
-		}
-		fmt.Println()
+	needsUpdate := !compareMD5(src, dest)
+	if needsUpdate {
+		fmt.Printf("  Compute Node %s requires update to %s\n", compute, name)
 	}
 
-	return nil
+	return needsUpdate, nil
+}
 
+func copyToNode(ctx *Context, name string, compute string, destination string) error {
+	fmt.Printf("  Copying %s to %s at %s...", name, compute, destination)
+	if _, err := runCommand(ctx, exec.Command("scp", "-C", name, compute+":"+destination)); err != nil {
+		return err
+	}
+
+	fmt.Printf("\n")
+	return nil
 }
 
 func currentContext() (string, error) {
@@ -621,17 +662,26 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 	}
 
 	fmt.Println("  Running Deploy...")
-	return runCommand(ctx, cmd)
+	_, err = runCommand(ctx, cmd)
+	return err
 }
 
-func runCommand(ctx *Context, cmd *exec.Cmd) error {
+func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
 	if ctx.DryRun == false {
 		if stdoutStderr, err := cmd.CombinedOutput(); err != nil {
 			fmt.Printf("%s\n", stdoutStderr)
-			return err
+
+			exitErr := &exec.ExitError{}
+			if errors.As(err, &exitErr) {
+				fmt.Printf("Exit Error: %s (%d)\n", exitErr, exitErr.ExitCode())
+			}
+
+			return stdoutStderr, err
+		} else {
+			return stdoutStderr, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func runInModules(modules []string, runFn func(module string) error) error {
@@ -674,20 +724,23 @@ func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
 func deleteSystemConfig(ctx *Context, system *config.System) error {
 	// Check if the SystemConfiguration resource exists, and return if it doesn't
 	getCmd := exec.Command("kubectl", "get", "systemconfiguration", "default", "--no-headers")
-	if err := runCommand(ctx, getCmd); err != nil {
+	if _, err := runCommand(ctx, getCmd); err != nil {
 		return nil
 	}
 
 	fmt.Println("Deleting SystemConfiguration")
 	deleteCmd := exec.Command("kubectl", "delete", "systemconfiguration", "default")
 
-	if err := runCommand(ctx, deleteCmd); err != nil {
+	if _, err := runCommand(ctx, deleteCmd); err != nil {
 		return err
 	}
 
 	// Wait until the SystemConfiguration resource is completely gone. This may take
 	// some time if there are many compute node namespaces to delete
-	for runCommand(ctx, getCmd) == nil {
+	for true {
+		if _, err := runCommand(ctx, getCmd); err != nil {
+			break
+		}
 		time.Sleep(1 * time.Second)
 	}
 
@@ -731,5 +784,6 @@ func createSystemConfig(ctx *Context, system *config.System) error {
 	}
 
 	cmd := exec.Command("bash", "-c", fmt.Sprintf("cat <<EOF | kubectl apply -f - \n%s", configjson))
-	return runCommand(ctx, cmd)
+	_, err = runCommand(ctx, cmd)
+	return err
 }
