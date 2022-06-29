@@ -278,8 +278,8 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 					fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
 
-					fmt.Printf("  Stopping service...")
-					cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
+					fmt.Printf("  Removing %s service...", d.Name)
+					cmd := exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
 					if err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
@@ -288,6 +288,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					if err := copyToNode(d.Bin, compute, "/usr/bin"); err != nil {
 						return err
 					}
+
 
 					fmt.Printf("  Installing %s service...", d.Name)
 					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
