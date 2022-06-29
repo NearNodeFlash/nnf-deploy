@@ -267,13 +267,11 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 				"GOPRIVATE=github.hpe.com",
 			)
 
-			if ctx.DryRun == false {
-				fmt.Printf("Compile %s daemon...", d.Bin)
-				if err := cmd.Run(); err != nil {
-					return err
-				}
-				fmt.Printf("DONE\n")
+			fmt.Printf("Compile %s daemon...", d.Bin)
+			if _, err := runCommand(ctx, cmd); err != nil {
+				return err
 			}
+			fmt.Printf("DONE\n")
 
 			for rabbit := range system.Rabbits {
 
