@@ -6,6 +6,32 @@ To clone this project, use the additional --recurse-submodules option to retriev
 git clone --recurse-submodules git@github.com:NearNodeFlash/nnf-deploy
 ```
 
+## Updating the Submodules
+
+To update the submdules in this workarea, run the update.sh script in this workarea.  Use this to pick up recent changes in any of the submodules.
+
+**Warning** If the current submodules have already been deployed to a K8s system, then teardown and delete any workflows and run `nnf-deploy undeploy` to remove the old CRDs and pods prior to updating the submodules.  An update may pull in new CRD changes that are incompatible with resources that are already on the K8s system.
+
+The update.sh command will update each submodule directory to the head of its master branch.
+
+```bash
+./update.sh
+```
+
+### Submodule Versions
+
+Any submodule can be set to a specific revision and it will be used by the nnf-deploy command.  Note the warning above prior to setting a submodule to a specific revision.
+
+To set a submodule to a specific revision, change into that submodule's directory and switch to that revision or branch:
+
+```bash
+cd nnf-sos
+git switch branch-with-my-fixes
+cd ..
+```
+
+The update.sh command will switch that submodule back to the head of its master branch.
+
 ## nnf-deploy
 
 nnf-deploy is a golang executable capable of building all of the docker components of the Rabbit software stack locally as well as deploying and undeploying those components to a k8s cluster specified by the current kube config.
