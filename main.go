@@ -500,7 +500,7 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 	fmt.Printf("%s", src)
 
 	fmt.Printf("    Destination MD5: ")
-	dest, err := runCommand(ctx, exec.Command("ssh", compute, "md5sum "+path.Join(destination, name), " || true"))
+	dest, err := runCommand(ctx, exec.Command("ssh", "-q", compute, "md5sum "+path.Join(destination, name), " || true"))
 	if err != nil {
 		return false, err
 	}
