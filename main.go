@@ -234,7 +234,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get serviceaccount %s -n %s -o json | jq -Mr '.secrets[].name | select(contains(\"token\"))'", d.ServiceAccount.Name, d.ServiceAccount.Namespace))
 			secret, err := cmd.CombinedOutput()
 			if err != nil {
-				fmt.Printf("%s\n", secret)
+				fmt.Printf("Failed to load Secret. Output: %s\n", secret)
 				return err
 			}
 			secret = secret[:len(secret)-1]
@@ -257,7 +257,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 		err = runInModules([]string{d.Repository}, func(module string) error {
 
-			fmt.Printf("Module %s\n", module)
+			fmt.Printf("Checking module %s\n", module)
 			if err := os.Chdir(d.Path); err != nil {
 				return err
 			}
@@ -278,10 +278,10 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 			fmt.Printf(" Master is %s\n", system.Master)
 			for rabbit := range system.Rabbits {
-				fmt.Printf(" Clients of rabbit %s\n", rabbit)
+				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
 
 				for _, compute := range system.Rabbits[rabbit] {
-					fmt.Printf(" checking... %s\n", compute)
+					fmt.Printf(" Checking for install on Compute Node %s\n", compute)
 
 					if shouldSkipNode(compute) {
 						continue
@@ -728,7 +728,7 @@ func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
 }
 
 func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module string) error {
-	if ! strings.Contains(module, "nnf-sos") {
+	if !strings.Contains(module, "nnf-sos") {
 		return nil
 	}
 
@@ -760,7 +760,7 @@ func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 // createSystemConfigFromSOS creates a DWS SystemConfiguration resource using
 // information found in the systems.yaml file.
 func createSystemConfigFromSOS(ctx *Context, system *config.System, module string) error {
-	if ! strings.Contains(module, "nnf-sos") {
+	if !strings.Contains(module, "nnf-sos") {
 		return nil
 	}
 
