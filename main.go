@@ -92,14 +92,14 @@ func (cmd *DeployCmd) Run(ctx *Context) error {
 			return err
 		}
 
+		if err := createSystemConfigFromSOS(ctx, system, module); err != nil {
+			return err
+		}
+
 		return nil
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return createSystemConfig(ctx, system)
+	return err
 }
 
 type UndeployCmd struct {
@@ -112,10 +112,6 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	if err := deleteSystemConfig(ctx, system); err != nil {
-		return err
-	}
-
 	reversed := make([]string, len(modules))
 	for i := range modules {
 		reversed[i] = modules[len(modules)-i-1]
@@ -125,6 +121,10 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 
 		if shouldSkipModule(module, cmd.Only) {
 			return nil
+		}
+
+		if err := deleteSystemConfigFromSOS(ctx, system, module); err != nil {
+			return err
 		}
 
 		fmt.Printf("Undeploying Module %s...\n", module)
@@ -231,8 +231,10 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			fmt.Printf("Loading Service Account Cert & Token\n")
 
 			fmt.Print("  Secret...")
-			secret, err := exec.Command("bash", "-c", fmt.Sprintf("kubectl get serviceaccount %s -n %s -o json | jq -Mr '.secrets[].name | select(contains(\"token\"))'", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
+			cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get serviceaccount %s -n %s -o json | jq -Mr '.secrets[].name | select(contains(\"token\"))'", d.ServiceAccount.Name, d.ServiceAccount.Namespace))
+			secret, err := cmd.CombinedOutput()
 			if err != nil {
+				fmt.Printf("%s\n", secret)
 				return err
 			}
 			secret = secret[:len(secret)-1]
@@ -255,6 +257,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 		err = runInModules([]string{d.Repository}, func(module string) error {
 
+			fmt.Printf("Module %s\n", module)
 			if err := os.Chdir(d.Path); err != nil {
 				return err
 			}
@@ -273,9 +276,12 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			}
 			fmt.Printf("DONE\n")
 
+			fmt.Printf(" Master is %s\n", system.Master)
 			for rabbit := range system.Rabbits {
+				fmt.Printf(" Clients of rabbit %s\n", rabbit)
 
 				for _, compute := range system.Rabbits[rabbit] {
+					fmt.Printf(" checking... %s\n", compute)
 
 					if shouldSkipNode(compute) {
 						continue
@@ -721,7 +727,11 @@ func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
 	return true
 }
 
-func deleteSystemConfig(ctx *Context, system *config.System) error {
+func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module string) error {
+	if ! strings.Contains(module, "nnf-sos") {
+		return nil
+	}
+
 	// Check if the SystemConfiguration resource exists, and return if it doesn't
 	getCmd := exec.Command("kubectl", "get", "systemconfiguration", "default", "--no-headers")
 	if _, err := runCommand(ctx, getCmd); err != nil {
@@ -747,9 +757,13 @@ func deleteSystemConfig(ctx *Context, system *config.System) error {
 	return nil
 }
 
-// createSystemConfig creates a DWS SystemConfiguration resource using
+// createSystemConfigFromSOS creates a DWS SystemConfiguration resource using
 // information found in the systems.yaml file.
-func createSystemConfig(ctx *Context, system *config.System) error {
+func createSystemConfigFromSOS(ctx *Context, system *config.System, module string) error {
+	if ! strings.Contains(module, "nnf-sos") {
+		return nil
+	}
+
 	fmt.Println("Creating SystemConfiguration...")
 
 	config := dwsv1alpha1.SystemConfiguration{}
