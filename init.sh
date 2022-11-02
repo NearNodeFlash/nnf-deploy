@@ -37,7 +37,7 @@ dp0)
     WORKER_NODES="$COMPUTE_NODES"
     ;;
 
-dp1)
+htx)
     # The following commands apply to initializing the current DP1 environment
     WORKER_NODES=$(kubectl get nodes --no-headers -o custom-columns=:metadata.name | grep -i 'worker' | paste -d" " -s -)
     RABBIT_NODES=$(kubectl get nodes --no-headers -o custom-columns=:metadata.name | grep -i 'node'   | grep -v master | paste -d" " -s -)
