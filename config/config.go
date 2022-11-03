@@ -107,8 +107,6 @@ type Daemon struct {
 	Path            string `yaml:"path"`
 	SkipNnfNodeName bool   `yaml:"skipNnfNodeName"`
 	ServiceAccount  struct {
-		Token     string `yaml:"token"`
-		Cert      string `yaml:"cert"`
 		Name      string `yaml:"name"`
 		Namespace string `yaml:"namespace"`
 	} `yaml:"serviceAccount,omitempty"`
