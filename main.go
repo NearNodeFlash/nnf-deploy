@@ -379,10 +379,10 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 						execStart += "  --nnf-node-name=" + rabbit + " \\\n"
 					}
 					if len(token) != 0 {
-						execStart += "  --" + d.ServiceAccount.Token + "=" + path.Join(serviceTokenPath, "service.token") + " \\\n"
+						execStart += "  --service-token-file=" + path.Join(serviceTokenPath, "service.token") + " \\\n"
 					}
 					if len(cert) != 0 {
-						execStart += "  --" + d.ServiceAccount.Cert + "=" + path.Join(certFilePath, "service.cert") + " \\\n"
+						execStart += "  --service-cert-file=" + path.Join(certFilePath, "service.cert") + " \\\n"
 					}
 
 					fmt.Printf("  Creating override directory...")
