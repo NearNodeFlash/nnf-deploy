@@ -26,6 +26,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
 )
 
 var _ = Describe("NNF Integration Test", Ordered, func() {
@@ -34,5 +37,24 @@ var _ = Describe("NNF Integration Test", Ordered, func() {
 		Expect(k8sClient.List(ctx, nodes)).Should(Succeed())
 
 		fmt.Println(nodes)
+	})
+
+	It("Creates a Workflow", func() {
+		wf := &dwsv1alpha1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: corev1.NamespaceDefault,
+			},
+			Spec: dwsv1alpha1.WorkflowSpec{
+				DesiredState: dwsv1alpha1.StateProposal.String(),
+				DWDirectives: []string{
+					"#DW jobdw type=gfs2 capacity=10GB name=gfs2",
+				},
+				UserID:  0,
+				GroupID: 0,
+			},
+		}
+
+		Expect(k8sClient.Create(ctx, wf)).Should(Succeed())
 	})
 })
