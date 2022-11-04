@@ -55,6 +55,7 @@ func TestEverything(t *testing.T) {
 	RunSpecs(t, "Integration Test Suite")
 }
 
+// TODO: I believe these should be converted to SynchronizedBeforeSuite/SynchronizedAfterSuite
 var _ = BeforeSuite(func() {
 
 	encoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())

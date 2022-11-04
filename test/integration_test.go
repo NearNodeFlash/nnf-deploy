@@ -20,27 +20,26 @@
 package test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
 )
 
-var _ = Describe("NNF Integration Test", Ordered, func() {
-	It("List NNF Nodes", func() {
-		nodes := &corev1.NodeList{}
-		Expect(k8sClient.List(ctx, nodes)).Should(Succeed())
+func ObjectKeyFromObjectReference(r corev1.ObjectReference) types.NamespacedName {
+	return types.NamespacedName{Name: r.Name, Namespace: r.Namespace}
+}
 
-		fmt.Println(nodes)
-	})
+var _ = Describe("NNF Integration Test", Ordered, func() {
+	var wf *dwsv1alpha1.Workflow
 
 	It("Creates a Workflow", func() {
-		wf := &dwsv1alpha1.Workflow{
+		wf = &dwsv1alpha1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test",
 				Namespace: corev1.NamespaceDefault,
@@ -57,4 +56,19 @@ var _ = Describe("NNF Integration Test", Ordered, func() {
 
 		Expect(k8sClient.Create(ctx, wf)).Should(Succeed())
 	})
+
+	It("Assigns Servers", func() {
+		Eventually(func(g Gomega) bool {
+			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(wf), wf)).Should(Succeed())
+			return wf.Status.Ready
+		}).Should(BeTrue())
+
+		for _, dbRef := range wf.Status.DirectiveBreakdowns {
+			db := &dwsv1alpha1.DirectiveBreakdown{}
+			Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(dbRef), db)).Should(Succeed())
+
+			
+		}
+	})
+
 })
