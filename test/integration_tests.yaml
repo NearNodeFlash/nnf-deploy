@@ -1,0 +1,63 @@
+tests:
+- name: "Simple XFS Test"
+  labels:
+  - xfs
+  directives:
+  - "#DW jobdw type=xfs name=xfs"
+  example: >
+    Describe("Simple XFS Test", Labels("xfs"), Ordered, func() {
+      
+      workflow := &dwsv1alpha1.Workflow{
+        ObjectMeta: metav1.ObjectMeta{
+          Name: "simple_xfs_test"
+        },
+        Spec: dwsv1alpha1.WorkflowSpec{
+          DesiredState: dwsv1alpha1.StateProposal
+          DWDirectives: []string{
+            "#DW jobdw type=xfs capacity=1GB name=simple_xfs_test_xfs"
+          },
+        },
+      }
+      
+      It("Create Workflow", func() { CreateWorkflow(workflow) })
+      It("Setup Workflow",  func() { SetupWorkflow(workflow) })
+      ...
+      It("Teardown Workflow", func() { TeardownWorkflow(workflow) })
+    })
+
+- name: "Complex XFS Test" # w/ custom Storage Profile
+  labels:
+  - xfs
+  - storage profile
+  decorators:
+  - Focused
+  directives:
+  - "#DW jobdw type=xfs storage_profile=my-storage-profile"
+  storage_profiles: 
+  - my-storage-profile: "some example from dean's confluence page"
+  example: >
+    Describe("Complex XFS Test", Labels("xfs", "storage profile"), Ordered | Focused, func() {
+      
+      BeforeEach(func() {
+        CreateStorageProfile("my-storage-profile", "some example from dean's confluence page")
+        DeferCleanup(func() { DeleteStorageProfile("my-storage-profile") ``})
+      })
+      
+      workflow := &dwsv1alpha1.Workflow{
+        ObjectMeta: metav1.ObjectMeta{
+          Name: "complex_xfs_test"
+        },
+        Spec: dwsv1alpha1.WorkflowSpec{
+          DesiredState: dwsv1alpha1.StateProposal
+          DWDirectives: []string{
+            "#DW jobdw type=xfs capacity=1GB name=complex_xfs_test_xfs storage_profile=my-storage-profile"
+          },
+        },
+      }
+      
+      It("Create Workflow", func() { CreateWorkflow(workflow) })
+      It("Setup Workflow",  func() { SetupWorkflow(workflow) })
+      ...
+      It("Teardown Workflow", func() { TeardownWorkflow(workflow) })
+    })
+

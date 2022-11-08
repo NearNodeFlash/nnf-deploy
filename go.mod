@@ -4,32 +4,29 @@ go 1.19
 
 replace (
 	github.com/HewlettPackard/dws => ./dws
-	github.com/NearNodeFlash/lustre-fs-operator => ./lustre-fs-operator
+	github.com/NearNodeFlash/lustre-fs-operator  => ./lustre-fs-operator
 	github.com/NearNodeFlash/nnf-dm => ./nnf-dm
 	github.com/NearNodeFlash/nnf-sos => ./nnf-sos
 )
 
 require (
-	github.com/HewlettPackard/dws v0.0.0-20221027172242-11a787dffb4c
-	github.com/NearNodeFlash/lustre-fs-operator v0.0.0-20221102185815-f537650db1c6
-	github.com/NearNodeFlash/nnf-dm v0.0.0-20221101154007-6c017274a0a9
-	github.com/NearNodeFlash/nnf-sos v0.0.0-20221031190414-4fdc9d4c46f7
-	github.com/alecthomas/kong v0.4.1
-	github.com/onsi/ginkgo/v2 v2.4.0
+	github.com/HewlettPackard/dws v0.0.0-20221110142740-abf44bba3b47
+	github.com/NearNodeFlash/lustre-fs-operator v0.0.0-20221107154613-234f8b6a677c
+	github.com/NearNodeFlash/nnf-dm v0.0.0-20221110213934-14699bac1e45
+	github.com/NearNodeFlash/nnf-sos v0.0.0-20221110215714-a4f531ae72e0
+	github.com/alecthomas/kong v0.7.0
+	github.com/onsi/ginkgo/v2 v2.5.0
 	github.com/onsi/gomega v1.24.0
+	go.uber.org/zap v1.23.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/client-go v0.25.2
-	sigs.k8s.io/controller-runtime v0.13.0
+	k8s.io/api v0.25.4
+	k8s.io/apimachinery v0.25.4
+	k8s.io/client-go v0.25.4
+	sigs.k8s.io/controller-runtime v0.13.1
 )
 
 require (
 	github.com/NearNodeFlash/nnf-ec v0.0.0-20221025155626-ce1ea214349a // indirect
-	github.com/go-logr/zapr v1.2.3 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/multierr v1.8.0 // indirect
-)
-
-require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -37,6 +34,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/go-logr/zapr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.20.0 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
@@ -61,7 +59,8 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	go.uber.org/zap v1.23.0
+	go.uber.org/atomic v1.10.0 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1 // indirect
 	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0 // indirect
@@ -74,9 +73,7 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.25.2
 	k8s.io/apiextensions-apiserver v0.25.2 // indirect
-	k8s.io/apimachinery v0.25.2
 	k8s.io/component-base v0.25.2 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220928191237-829ce0c27909 // indirect
