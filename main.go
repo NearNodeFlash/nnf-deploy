@@ -218,6 +218,8 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		return err
 	}
 
+	fmt.Println("Found Cluster Configuration:", clusterConfig)
+
 	clusterConfig = strings.TrimPrefix(clusterConfig, "https://")
 
 	k8sServerHost := clusterConfig[:strings.Index(clusterConfig, ":")]
@@ -435,15 +437,23 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	})
 }
 
-type k8scluster struct {
+type k8sCluster struct {
 	Name    string
 	Cluster struct {
 		Server string
 	}
 }
+
+type k8sContext struct {
+	Name    string
+	Context struct {
+		Cluster string
+	}
+}
 type k8sConfig struct {
 	Kind     string
-	Clusters []k8scluster
+	Contexts []k8sContext
+	Clusters []k8sCluster
 }
 
 func currentClusterConfig() (string, error) {
@@ -463,13 +473,20 @@ func currentClusterConfig() (string, error) {
 		return "", err
 	}
 
-	for _, cluster := range config.Clusters {
-		if cluster.Name == string(current) {
-			return cluster.Cluster.Server, nil
+	currentContext := string(current)
+	for _, context := range config.Contexts {
+		if context.Name == currentContext {
+			for _, cluster := range config.Clusters {
+				if cluster.Name == context.Context.Cluster {
+					return cluster.Cluster.Server, nil
+				}
+			}
+
+			return "", fmt.Errorf("Cluster Name '%s' not found", context.Context.Cluster)
 		}
 	}
 
-	return "", fmt.Errorf("Current Cluster %s not found", current)
+	return "", fmt.Errorf("Current Context '%s' not found", currentContext)
 }
 
 func checkNeedsUpdate(ctx *Context, name string, compute string, destination string) (bool, error) {
