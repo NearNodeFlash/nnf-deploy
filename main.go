@@ -230,31 +230,23 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		var token []byte
 		var cert []byte
 		if d.ServiceAccount.Name != "" {
-			fmt.Printf("Loading Service Account Cert & Token\n")
+			fmt.Println("Loading Service Account Cert & Token")
 
-			fmt.Print("  Secret...")
-			cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get serviceaccount %s -n %s -o json | jq -Mr '.secrets[].name | select(contains(\"token\"))'", d.ServiceAccount.Name, d.ServiceAccount.Namespace))
-			secret, err := cmd.CombinedOutput()
-			if err != nil {
-				fmt.Printf("Failed to load Secret. Output: %s\n", secret)
-				return err
-			}
-			secret = secret[:len(secret)-1]
-			fmt.Printf("Loaded %s\n", secret)
+			fmt.Println("  Secret:", d.ServiceAccount.Name+"/"+d.ServiceAccount.Namespace)
 
 			fmt.Printf("  Token...")
-			token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 -D", string(secret), d.ServiceAccount.Namespace)).Output()
+			token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 -D", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Loaded REDACTED\n")
+			fmt.Println("Loaded REDACTED")
 
 			fmt.Printf("  Cert...")
-			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data[\"ca.crt\"]' | base64 -D", string(secret), d.ServiceAccount.Namespace)).Output()
+			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 -D", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Loaded REDACTED\n")
+			fmt.Println("Loaded REDACTED")
 		}
 
 		err = runInModules([]string{d.Repository}, func(module string) error {
@@ -534,6 +526,11 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 		fmt.Printf("  Compute Node %s requires update to %s\n", compute, name)
 	}
 
+	if ctx.DryRun {
+		needsUpdate = false
+		fmt.Printf("  Dry-Run: Skipping update of '%s'\n", name)
+	}
+
 	return needsUpdate, nil
 }
 
@@ -690,21 +687,23 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 }
 
 func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
-	if ctx.DryRun == false {
-		if stdoutStderr, err := cmd.CombinedOutput(); err != nil {
-			fmt.Printf("%s\n", stdoutStderr)
+	if ctx.DryRun {
+		fmt.Printf("  Dry-Run: Skipping command '%s'\n", cmd.String())
+		return nil, nil
+	}
 
-			exitErr := &exec.ExitError{}
-			if errors.As(err, &exitErr) {
-				fmt.Printf("Exit Error: %s (%d)\n", exitErr, exitErr.ExitCode())
-			}
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("%s\n", stdoutStderr)
 
-			return stdoutStderr, err
-		} else {
-			return stdoutStderr, nil
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
+			fmt.Printf("Exit Error: %s (%d)\n", exitErr, exitErr.ExitCode())
 		}
 	}
-	return nil, nil
+
+	return stdoutStderr, err
+
 }
 
 func runInModules(modules []string, runFn func(module string) error) error {
