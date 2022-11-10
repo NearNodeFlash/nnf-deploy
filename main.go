@@ -235,14 +235,14 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			fmt.Println("  Secret:", d.ServiceAccount.Name+"/"+d.ServiceAccount.Namespace)
 
 			fmt.Printf("  Token...")
-			token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 -D", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
+			token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
 			if err != nil {
 				return err
 			}
 			fmt.Println("Loaded REDACTED")
 
 			fmt.Printf("  Cert...")
-			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 -D", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
+			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
 			if err != nil {
 				return err
 			}
