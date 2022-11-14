@@ -4,10 +4,10 @@ systems:
   aliases: [kind-kind]
   overlays: [kind, overlays/kind]
   master: kind-control-plane
-  workers:
+  workers: [kind-worker]
   rabbits:
-    kind-worker: {0: compute-01, 1: compute-02, 6: compute-03}
-    kind-worker2: {4: compute-04}
+    kind-worker2: {0: compute-01, 1: compute-02, 6: compute-03}
+    kind-worker3: {4: compute-04}
 - name: craystack-default
   aliases: [craystack]
   overlays: [craystack]
