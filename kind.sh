@@ -30,11 +30,8 @@ fi
 if [[ "$CMD" == "create" ]]; then
     CONFIG=kind-config.yaml
 
-    # Only write the config if it's not present; this allows customization 
-    if ! [[ -f "$CONFIG" ]]; then
-
-      # Rabbit & WLM System Local Controllers (SLC)
-      SLCCONFIG=$(cat << EOF
+    # Rabbit & WLM System Local Controllers (SLC)
+    SLCCONFIG=$(cat << EOF
 
   kubeadmConfigPatches:
   - |
@@ -45,8 +42,8 @@ if [[ "$CMD" == "create" ]]; then
 EOF
 )
 
-      # Rabbit taints/labels, plus some host mounts for data movement
-      RABBITCONFIG=$(cat << EOF
+    # Rabbit taints/labels, plus some host mounts for data movement
+    RABBITCONFIG=$(cat << EOF
 
   extraMounts:
     - hostPath: /tmp/nnf
@@ -65,7 +62,7 @@ EOF
 EOF
 )
 
-      cat > $CONFIG <<EOF
+    cat > $CONFIG <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
@@ -76,8 +73,6 @@ nodes:
 - role: worker $RABBITCONFIG
 - role: worker $RABBITCONFIG
 EOF
-
-    fi
 
     # create a file for data movement
     if [ ! -f /tmp/nnf/file.in ]; then
