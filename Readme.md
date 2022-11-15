@@ -1,4 +1,4 @@
-# NNF Deployment
+****# NNF Deployment
 
 To clone this project, use the additional --recurse-submodules option to retrieve its submodules:
 
@@ -54,6 +54,9 @@ Flags:
       --dry-run    Show what would be run.
 
 Commands:
+  init
+    Initialize cluster nodes with labels/taints and install cert manager.
+
   deploy
     Deploy to current context.
 
@@ -67,9 +70,47 @@ Commands:
     Install daemons (EXPERIMENTAL).
 
 Run "nnf-deploy <command> --help" for more information on a command.
-
 ```
 
+## Init
+
+The `init` subcommand applies the proper labels and taints to the cluster nodes. It also installs
+cert manager via `common.sh`. This only needs to be done once on a new cluster.
+
+Note: This behavior replaces the `init`.sh script, which has been removed.
+
+By default, the manager nodes (defaults to worker nodes) will obtain the following labels:
+
+- `cray.nnf.manager=true`
+- `cray.wlm.manager=true`
+
+Additionally, the NNF nodes (defaults to the rabbit nodes) will obtain the `"cray.nnf.node=true"`
+label and the `"cray.nnf.node=true:NoSchedule"` taint.
+
+These labels/taint will be applied using the `--overwrite=true` option to `kubectl`.
+
+The nodes which receive these labels/taint can be overridden in `config/systems.yaml` with the
+`overrides` object. See the example below:
+
+```yaml
+  - name: kind
+    aliases: [kind-kind]
+    overlays: [kind, overlays/kind]
+    master: kind-control-plane
+    workers: [kind-worker]
+    rabbits:
+      kind-worker2: { 0: compute-01, 1: compute-02, 6: compute-03 }
+      kind-worker3: { 4: compute-04 }
+    overrides:
+      managers: [kind-control-plane]
+      nnfNodes: [kind-worker3]
+```
+
+Once the labels/taint are applied, cert manager will be installed.
+
+```bash
+./nnf-deploy init
+```
 ## Deploy
 
 Deploying will deploy all the submodules to your current kube config context
@@ -112,4 +153,9 @@ Kind clusters are built and deployed using locally compiled images. The followin
 
 ## Install
 
-TBD
+The `install` subcommand will compile and install the daemons on the compute nodes, along with the
+proper certs and tokens. Systemd files are used to manage and start the daemons. This is necessary for data movement.
+
+```bash
+./nnf-deploy install
+```

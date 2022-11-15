@@ -1,41 +1,50 @@
-
 systems:
-- name: kind
-  aliases: [kind-kind]
-  overlays: [kind, overlays/kind]
-  master: kind-control-plane
-  workers: [kind-worker]
-  rabbits:
-    kind-worker2: {0: compute-01, 1: compute-02, 6: compute-03}
-    kind-worker3: {4: compute-04}
-- name: craystack-default
-  aliases: [craystack]
-  overlays: [craystack]
-  master: k3s-master
-  workers: [k3s-master]
-  rabbits:
-    rabbit-01: {0: compute-01}
-    rabbit-02:
-    rabbit-03:
-- name: rabbit-dev
-  aliases: [dp0, rabbit-dev-01, rabbit-lab]
-  overlays: [dp0,overlays/rabbit]
-  master: rabbit-dev-vm-k8s-master
-  workers: [rabbit-dev-cn-02]
-  rabbits:
-    rabbit-dev-01: {0: rabbit-dev-cn-01, 1: rabbit-dev-cn-02, 2: rabbit-dev-cn-03, 3: rabbit-dev-cn-04}
-- name: rabbit-htx
-  aliases: [dp1, dp1a]
-  overlays: [dp0,overlays/rabbit]
-  master: rabbit-k8s-master
-  workers: [rabbit-k8s-worker]
-  rabbits:
-    rabbit-node-0: {0: compute-node-0, 1: compute-node-1}
-    rabbit-node-1: {0: compute-node-3, 1: compute-node-2}   # These computes are physically swapped
-- name: rabbit-htx-2
-  aliases: [htx-2]
-  overlays: [dp0,overlays/rabbit]
-  master: compute-node-4
-  workers: [compute-node-5]
-  rabbits:
-    rabbit-node-2: {0: compute-node-4, 1: compute-node-5}
+  - name: kind
+    aliases: [kind-kind]
+    overlays: [kind, overlays/kind]
+    master: kind-control-plane
+    workers: [kind-worker]
+    rabbits:
+      kind-worker2: { 0: compute-01, 1: compute-02, 6: compute-03 }
+      kind-worker3: { 4: compute-04 }
+    overrides:
+      managers: [kind-control-plane]
+  - name: craystack-default
+    aliases: [craystack]
+    overlays: [craystack]
+    master: k3s-master
+    workers: [k3s-master]
+    rabbits:
+      rabbit-01: { 0: compute-01 }
+      rabbit-02:
+      rabbit-03:
+    overrides:
+      managers: [k3s-master]
+  - name: rabbit-dev
+    aliases: [dp0, rabbit-dev-01, rabbit-lab]
+    overlays: [dp0, overlays/rabbit]
+    master: rabbit-dev-vm-k8s-master
+    workers: [rabbit-dev-cn-02]
+    rabbits:
+      rabbit-dev-01:
+        {
+          0: rabbit-dev-cn-01,
+          1: rabbit-dev-cn-02,
+          2: rabbit-dev-cn-03,
+          3: rabbit-dev-cn-04,
+        }
+  - name: rabbit-htx
+    aliases: [dp1, dp1a]
+    overlays: [dp0, overlays/rabbit]
+    master: rabbit-k8s-master
+    workers: [rabbit-k8s-worker]
+    rabbits:
+      rabbit-node-0: { 0: compute-node-0, 1: compute-node-1 }
+      rabbit-node-1: { 0: compute-node-3, 1: compute-node-2 } # These computes are physically swapped
+  - name: rabbit-htx-2
+    aliases: [htx-2]
+    overlays: [dp0, overlays/rabbit]
+    master: compute-node-4
+    workers: [compute-node-5]
+    rabbits:
+      rabbit-node-2: { 0: compute-node-4, 1: compute-node-5 }
