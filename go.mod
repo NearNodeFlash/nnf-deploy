@@ -4,7 +4,7 @@ go 1.19
 
 replace (
 	github.com/HewlettPackard/dws => ./dws
-	github.com/NearNodeFlash/lustre-fs-operator  => ./lustre-fs-operator
+	github.com/NearNodeFlash/lustre-fs-operator => ./lustre-fs-operator
 	github.com/NearNodeFlash/nnf-dm => ./nnf-dm
 	github.com/NearNodeFlash/nnf-sos => ./nnf-sos
 )
@@ -26,7 +26,7 @@ require (
 )
 
 require (
-	github.com/NearNodeFlash/nnf-ec v0.0.0-20221025155626-ce1ea214349a // indirect
+	github.com/NearNodeFlash/nnf-ec v0.0.0-20221115142605-90bfe8d47356 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
