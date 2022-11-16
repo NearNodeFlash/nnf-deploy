@@ -6,8 +6,6 @@ systems:
     rabbits:
       kind-worker2: { 0: compute-01, 1: compute-02, 6: compute-03 }
       kind-worker3: { 4: compute-04 }
-    overrides:
-      managers: [kind-control-plane]
   - name: craystack-default
     aliases: [craystack]
     overlays: [craystack]
@@ -16,8 +14,6 @@ systems:
       rabbit-01: { 0: compute-01 }
       rabbit-02:
       rabbit-03:
-    overrides:
-      managers: [k3s-master]
   - name: rabbit-dev
     aliases: [dp0, rabbit-dev-01, rabbit-lab]
     overlays: [dp0, overlays/rabbit]

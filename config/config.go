@@ -28,12 +28,11 @@ import (
 )
 
 type System struct {
-	Name      string                    `yaml:"name"`
-	Aliases   []string                  `yaml:"aliases,flow,omitempty"`
-	Overlays  []string                  `yaml:"overlays,omitempty,flow"`
-	Workers   []string                  `yaml:"workers,flow,omitempty"`
-	Rabbits   map[string]map[int]string `yaml:"rabbits,flow"`
-	Overrides map[string][]string       `yaml:"overrides,omitempty"`
+	Name     string                    `yaml:"name"`
+	Aliases  []string                  `yaml:"aliases,flow,omitempty"`
+	Overlays []string                  `yaml:"overlays,omitempty,flow"`
+	Workers  []string                  `yaml:"workers,flow,omitempty"`
+	Rabbits  map[string]map[int]string `yaml:"rabbits,flow"`
 }
 
 type SystemConfigFile struct {

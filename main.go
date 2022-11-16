@@ -61,7 +61,7 @@ var cli struct {
 	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
 	Make     MakeCmd     `cmd:"" help:"Run make [COMMAND] in every repository."`
 	Install  InstallCmd  `cmd:"" help:"Install daemons (EXPERIMENTAL)."`
-	Init     InitCmd     `cmd:"" help:"Initialize cluster nodes with labels/taints and install cert manager."`
+	Init     InitCmd     `cmd:"" help:"Initialize cluster."`
 }
 
 func main() {
@@ -429,9 +429,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	})
 }
 
-type InitCmd struct {
-	Unused string
-}
+type InitCmd struct{}
 
 func (cmd *InitCmd) Run(ctx *Context) error {
 	system, err := loadSystem()
@@ -470,26 +468,14 @@ func applyLabelsTaints(system *config.System, ctx *Context) error {
 		nnfNodes = append(nnfNodes, rabbit)
 	}
 
-	// Use overrides from system config, if present
-	if len(system.Overrides) > 0 {
-		if list, found := system.Overrides["managers"]; found && len(list) > 0 {
-			managers = system.Overrides["managers"]
-			fmt.Printf("Using manager overrides from config: %s\n", strings.Join(managers, ", "))
-		}
-		if list, found := system.Overrides["nnfNodes"]; found && len(list) > 0 {
-			nnfNodes = system.Overrides["nodes"]
-			fmt.Printf("Using NNF node overrides from config: %s\n", strings.Join(nnfNodes, ", "))
-		}
-	}
-
-	fmt.Printf("Applying manager labels to nodes: %s...\n", strings.Join(managers, ", "))
+	fmt.Printf("Applying manager labels to worker nodes: %s...\n", strings.Join(managers, ", "))
 	for _, node := range managers {
 		if err := runKubectlLabelOrTaint(ctx, node, "label", managerLabels); err != nil {
 			return err
 		}
 	}
 
-	fmt.Printf("Applying NNF node labels and taints to nodes: %s...\n", strings.Join(nnfNodes, ", "))
+	fmt.Printf("Applying NNF node labels and taints to rabbit nodes: %s...\n", strings.Join(nnfNodes, ", "))
 	for _, node := range nnfNodes {
 		if err := runKubectlLabelOrTaint(ctx, node, "label", nnfNodeLabels); err != nil {
 			return err
