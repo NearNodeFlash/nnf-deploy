@@ -271,7 +271,6 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			}
 			fmt.Printf("DONE\n")
 
-			fmt.Printf(" Master is %s\n", system.Master)
 			for rabbit := range system.Rabbits {
 				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
 
