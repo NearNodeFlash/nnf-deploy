@@ -61,6 +61,7 @@ var cli struct {
 	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
 	Make     MakeCmd     `cmd:"" help:"Run make [COMMAND] in every repository."`
 	Install  InstallCmd  `cmd:"" help:"Install daemons (EXPERIMENTAL)."`
+	Init     InitCmd     `cmd:"" help:"Initialize cluster."`
 }
 
 func main() {
@@ -270,7 +271,6 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			}
 			fmt.Printf("DONE\n")
 
-			fmt.Printf(" Master is %s\n", system.Master)
 			for rabbit := range system.Rabbits {
 				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
 
@@ -427,6 +427,86 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 		return err
 	})
+}
+
+type InitCmd struct{}
+
+func (cmd *InitCmd) Run(ctx *Context) error {
+	system, err := loadSystem()
+	if err != nil {
+		return err
+	}
+
+	if err := applyLabelsTaints(system, ctx); err != nil {
+		return err
+	}
+
+	if err := installCertManager(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func applyLabelsTaints(system *config.System, ctx *Context) error {
+	// Labels/Taints to apply to manager nodes and nnf nodes
+	managerLabels := []string{
+		"cray.nnf.manager=true",
+		"cray.wlm.manager=true",
+	}
+	nnfNodeLabels := []string{
+		"cray.nnf.node=true",
+	}
+	nnfNodeTaints := []string{
+		"cray.nnf.node=true:NoSchedule",
+	}
+
+	// By default, managers are workers; nodes are rabbits
+	managers := system.Workers
+	nnfNodes := []string{}
+	for rabbit := range system.Rabbits {
+		nnfNodes = append(nnfNodes, rabbit)
+	}
+
+	fmt.Printf("Applying manager labels to worker nodes: %s...\n", strings.Join(managers, ", "))
+	for _, node := range managers {
+		if err := runKubectlLabelOrTaint(ctx, node, "label", managerLabels); err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("Applying NNF node labels and taints to rabbit nodes: %s...\n", strings.Join(nnfNodes, ", "))
+	for _, node := range nnfNodes {
+		if err := runKubectlLabelOrTaint(ctx, node, "label", nnfNodeLabels); err != nil {
+			return err
+		}
+
+		if err := runKubectlLabelOrTaint(ctx, node, "taint", nnfNodeTaints); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func runKubectlLabelOrTaint(ctx *Context, node string, kctlCmd string, labelsOrTaints []string) error {
+	args := []string{kctlCmd, "--overwrite=true", "node", node}
+	args = append(args, labelsOrTaints...)
+	cmd := exec.Command("kubectl", args...)
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+	return nil
+}
+
+func installCertManager(ctx *Context) error {
+	fmt.Println("Installing cert manager...")
+	cmd := exec.Command("bash", "-c", "source common.sh; install_cert_manager")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type k8sCluster struct {
