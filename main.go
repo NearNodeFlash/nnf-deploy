@@ -187,8 +187,9 @@ func (cmd *MakeCmd) Run(ctx *Context) error {
 }
 
 type InstallCmd struct {
-	Nodes []string `arg:"" optional:"" name:"node" help:"Only use these nodes"`
-	Force bool     `help:"Force updates even if files are the same"`
+	Nodes   []string `arg:"" optional:"" name:"node" help:"Only use these nodes"`
+	NoBuild bool     `help:"Skip building the daemon"`
+	Force   bool     `help:"Force updates even if files are the same"`
 }
 
 func (cmd *InstallCmd) Run(ctx *Context) error {
@@ -257,19 +258,21 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 				return err
 			}
 
-			cmd := exec.Command("go", "build", "-o", d.Bin)
-			cmd.Env = append(os.Environ(),
-				"CGO_ENABLED=0",
-				"GOOS=linux",
-				"GOARCH=amd64",
-				"GOPRIVATE=github.hpe.com",
-			)
+			if !cmd.NoBuild {
+				cmd := exec.Command("go", "build", "-o", d.Bin)
+				cmd.Env = append(os.Environ(),
+					"CGO_ENABLED=0",
+					"GOOS=linux",
+					"GOARCH=amd64",
+					"GOPRIVATE=github.hpe.com",
+				)
 
-			fmt.Printf("Compile %s daemon...", d.Bin)
-			if _, err := runCommand(ctx, cmd); err != nil {
-				return err
+				fmt.Printf("Compile %s daemon...", d.Bin)
+				if _, err := runCommand(ctx, cmd); err != nil {
+					return err
+				}
+				fmt.Printf("DONE\n")
 			}
-			fmt.Printf("DONE\n")
 
 			for rabbit := range system.Rabbits {
 				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
@@ -381,7 +384,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 					fmt.Printf("  Creating override directory...")
 					overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
-					cmd = exec.Command("ssh", compute, "mkdir", "-p", overridePath)
+					cmd := exec.Command("ssh", compute, "mkdir", "-p", overridePath)
 					if _, err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
