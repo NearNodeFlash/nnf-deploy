@@ -38,7 +38,7 @@ if [[ "$CMD" == "create" ]]; then
     kind: JoinConfiguration
     nodeRegistration:
       kubeletExtraArgs:
-        node-labels: cray.nnf.manager=true,cray.wlm.manager=true
+        node-labels: cray.nnf.manager=true
 EOF
 )
 
