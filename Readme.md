@@ -82,7 +82,6 @@ Note: This behavior replaces the `init`.sh script, which has been removed.
 The manager nodes (worker nodes) will obtain the following labels:
 
 - `cray.nnf.manager=true`
-- `cray.wlm.manager=true`
 
 Additionally, the NNF nodes (rabbit nodes) will obtain the `"cray.nnf.node=true"`
 label and the `"cray.nnf.node=true:NoSchedule"` taint.

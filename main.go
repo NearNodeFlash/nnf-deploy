@@ -455,7 +455,6 @@ func applyLabelsTaints(system *config.System, ctx *Context) error {
 	// Labels/Taints to apply to manager nodes and nnf nodes
 	managerLabels := []string{
 		"cray.nnf.manager=true",
-		"cray.wlm.manager=true",
 	}
 	nnfNodeLabels := []string{
 		"cray.nnf.node=true",
