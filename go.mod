@@ -10,13 +10,13 @@ replace (
 )
 
 require (
-	github.com/HewlettPackard/dws v0.0.0-20230120203803-669e57232455
+	github.com/HewlettPackard/dws v0.0.0-20230207214424-016335e15075
 	github.com/NearNodeFlash/lustre-fs-operator v0.0.0-20221107154613-234f8b6a677c
 	github.com/NearNodeFlash/nnf-dm v0.0.0-20221110213934-14699bac1e45
 	github.com/NearNodeFlash/nnf-sos v0.0.0-20221110215714-a4f531ae72e0
 	github.com/alecthomas/kong v0.7.0
-	github.com/onsi/ginkgo/v2 v2.5.0
-	github.com/onsi/gomega v1.24.0
+	github.com/onsi/ginkgo/v2 v2.8.0
+	github.com/onsi/gomega v1.25.0
 	go.uber.org/zap v1.23.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.25.4
@@ -26,7 +26,7 @@ require (
 )
 
 require (
-	github.com/NearNodeFlash/nnf-ec v0.0.0-20230111193528-18bafb87b268 // indirect
+	github.com/NearNodeFlash/nnf-ec v0.0.0-20230126164635-a87929e88089 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -61,12 +61,12 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/net v0.5.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1 // indirect
-	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0 // indirect
-	golang.org/x/sys v0.1.0 // indirect
-	golang.org/x/term v0.1.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/term v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.8-0.20220404170424-ca3835e9b4d6 // indirect

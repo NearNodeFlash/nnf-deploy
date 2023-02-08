@@ -51,9 +51,18 @@ func ObjectKeyFromObjectReference(r corev1.ObjectReference) types.NamespacedName
 // ----------------------------------- EXAMPLE ------------------------------------
 
 type T struct {
-	name       string
-	labels     []string
+	// Name is the name of your test case. Name gets formulated into the workflow and
+	// related objects as part of test execution.
+	name string
+
+	// Labels apply to a test case and can be used by the gingko runner to execute
+	// test. See more at TODO LINK TO GINGKO LABEL EXAMPLES
+	labels []string
+
+	// Decorators are ginkgo decorators that can be applied to an individual test case
+	// TODO: Examples (Focused)
 	decorators []interface{}
+
 	directives []string
 
 	config  TConfig
@@ -61,7 +70,7 @@ type T struct {
 }
 
 type TConfig struct {
-	// Similar stuff to what dwsutil uses as configuration options
+	// Similar stuff to what dwsutil uses as configuration options. i.e. Target specific nodes
 }
 
 type TOptions struct {
@@ -115,31 +124,33 @@ var _ = Describe("NNF Integration Test", func() {
 		test := test
 
 		execFn := func() {
-			BeforeEach(func() {
-				Expect(SetupTestOptions(test.options)).Should(Succeed())
-				DeferCleanup(func() { Expect(CleanupTestOptions(test.options)).Should(Succeed()) })
+			test := test
+
+			BeforeAll(func() {
+				Expect(setupTestOptions(test.options)).Should(Succeed())
+				DeferCleanup(func() { Expect(cleanupTestOptions(test.options)).Should(Succeed()) })
 			})
 
 			workflow := &dwsv1alpha1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      test.WorkflowName(),
+					Name:      test.workflowName(),
 					Namespace: corev1.NamespaceDefault,
 				},
 				Spec: dwsv1alpha1.WorkflowSpec{
 					DesiredState: dwsv1alpha1.StateProposal,
-					DWDirectives: test.WorkflowDirectives(),
+					DWDirectives: test.workflowDirectives(),
 					JobID:        GinkgoParallelProcess(),
 					WLMID:        strconv.Itoa(GinkgoParallelProcess()),
 				},
 			}
 
-			BeforeEach(func() {
-				Expect(CreateWorkflow(workflow)).Should(Succeed())
-				DeferCleanup(func() { Expect(TeardownWorkflow(workflow)).Should(Succeed()) })
+			BeforeAll(func() {
+				Expect(test.createWorkflow(workflow)).Should(Succeed())
+				DeferCleanup(func() { Expect(test.teardownWorkflow(workflow)).Should(Succeed()) })
 			})
 
-			When("Setup", Ordered, func() { SetupWorkflow(workflow) })
-			When("DataIn", Ordered, func() {})
+			When("Setup", Ordered, func() { test.setup(workflow) })
+			When("DataIn", Ordered, func() { test.dataIn(workflow) })
 			When("PreRun", func() {})
 			When("PostRun", func() {})
 			When("DataOut", func() {})
@@ -157,12 +168,16 @@ var _ = Describe("NNF Integration Test", func() {
 	}
 })
 
-func (t T) WorkflowName() string {
-	return strings.ReplaceAll(t.name, " ", "-")
+// Helper methods to Setup/Cleanup the various test options
+func setupTestOptions(o TOptions) error   { return nil }
+func cleanupTestOptions(o TOptions) error { return nil }
+
+func (t T) workflowName() string {
+	return strings.ToLower(strings.ReplaceAll(t.name, " ", "-"))
 }
 
 // Retrieve the #DW Directives from the test case
-func (t T) WorkflowDirectives() []string {
+func (t T) workflowDirectives() []string {
 
 	for idx, directive := range t.directives {
 		args, err := dwdparse.BuildArgsMap(directive)
@@ -172,7 +187,7 @@ func (t T) WorkflowDirectives() []string {
 		name := args["name"]
 		Expect(name).NotTo(BeNil())
 
-		directive = strings.Replace(directive, "name="+name, "name="+name+"-"+t.WorkflowName(), 1)
+		directive = strings.Replace(directive, "name="+name, "name="+name+"-"+t.workflowName(), 1)
 
 		t.directives[idx] = directive
 	}
@@ -180,11 +195,7 @@ func (t T) WorkflowDirectives() []string {
 	return t.directives
 }
 
-// Helper methods to Setup/Cleanup the various test options
-func SetupTestOptions(o TOptions) error   { return nil }
-func CleanupTestOptions(o TOptions) error { return nil }
-
-func CreateWorkflow(workflow *dwsv1alpha1.Workflow) error {
+func (t T) createWorkflow(workflow *dwsv1alpha1.Workflow) error {
 	Expect(k8sClient.Create(ctx, workflow)).Should(Succeed())
 
 	Eventually(func(g Gomega) bool {
@@ -196,10 +207,12 @@ func CreateWorkflow(workflow *dwsv1alpha1.Workflow) error {
 }
 
 // Helper methods do all the heavy lifting for the test case
-func SetupWorkflow(workflow *dwsv1alpha1.Workflow) {
+func (t T) setup(workflow *dwsv1alpha1.Workflow) {
 
 	systemConfig := &dwsv1alpha1.SystemConfiguration{}
-	Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "default", Namespace: corev1.NamespaceDefault}, systemConfig)).Should(Succeed())
+	It("Gets System Configuration", func() {
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "default", Namespace: corev1.NamespaceDefault}, systemConfig)).Should(Succeed())
+	})
 
 	It("Assigns Computes", func() {
 		// Assign Compute Resources (only if jobdw or persistentdw is present in workflow())
@@ -223,15 +236,14 @@ func SetupWorkflow(workflow *dwsv1alpha1.Workflow) {
 
 		for _, directiveBreakdownRef := range workflow.Status.DirectiveBreakdowns {
 			directiveBreakdown := &dwsv1alpha1.DirectiveBreakdown{}
-			Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdownRef), directiveBreakdown)).Should(Succeed())
-
-			Expect(directiveBreakdown.Status.Ready).To(BeTrue())
-
-			// Assign Rabbit Resources
-			Expect(directiveBreakdown.Status.Storage).NotTo(BeNil())
+			Eventually(func(g Gomega) bool {
+				g.Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdownRef), directiveBreakdown)).Should(Succeed())
+				return directiveBreakdown.Status.Ready
+			}).Should(BeTrue())
 
 			// If Lustre, there should be 3 allocation sets unless combined mgtmdt is set in the storage profile. Otherwise 1.
 			// TODO: Lustre
+			Expect(directiveBreakdown.Status.Storage).NotTo(BeNil())
 			Expect(directiveBreakdown.Status.Storage.AllocationSets).To(HaveLen(1))
 
 			servers := &dwsv1alpha1.Servers{}
@@ -266,17 +278,28 @@ func SetupWorkflow(workflow *dwsv1alpha1.Workflow) {
 	})
 
 	It("Advances to Setup State", func() {
-		AdvanceStateCheckReady(workflow, dwsv1alpha1.StateSetup)
+		advanceStateCheckReady(workflow, dwsv1alpha1.StateSetup)
 	})
+}
+
+func (t T) dataIn(workflow *dwsv1alpha1.Workflow) {
+	It("Advances to DataIn State", func() {
+		advanceStateCheckReady(workflow, dwsv1alpha1.StateDataIn)
+	})
+}
+
+func (t T) preRun(workflow *dwsv1alpha1.Workflow) {
+
 }
 
 // func DataIn...
 // func PreRun...
 // func PostRun...
 // func DataOut...
-func TeardownWorkflow(workflow *dwsv1alpha1.Workflow) error { return nil }
 
-func AdvanceStateCheckReady(workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
+func (t T) teardownWorkflow(workflow *dwsv1alpha1.Workflow) error { return nil }
+
+func advanceStateCheckReady(workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
 
 	Eventually(func() error {
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
@@ -289,39 +312,3 @@ func AdvanceStateCheckReady(workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.Wo
 		return workflow.Status.Ready && workflow.Status.State == state
 	}).Should(BeTrue(), fmt.Sprintf("State '%s' Ready", state))
 }
-
-// ----------------------------------- OLD ------------------------------------
-
-// Plan:
-// 1. Define list of #DWs, ginkgo labels, ginkgo decorators, and options in a simple file format (yaml/plaintext?)
-// 2. Write a go generator that generates the _test.go file **RUN AS PRE-COMMIT CHECK**
-//    a. Each and every test follows the same format
-//
-//  Describe("Test A", Label("Test A Labels"), Ordered | MyDecorators, func() {
-//
-//    options := &{ Your Test Options Go Here } // i.e. Create Storage Profile
-//
-//    BeforeEach(func() {
-//      SetupTestOptions(options)
-//      DeferCleanup(func() { CleanupTestOptions(options)}) })
-//    })
-//
-//    cfg := &{ Your Test Configuration }
-//
-//    workflow := &{ Name: "Test A", dws: []string { "#DW name=test_a" }}
-//
-//    Describe("Create Workflow", func()   { CreateWorkflow(workflow, cfg) })
-//    Describe("Setup Workflow", func()    { SetupWorkflow(workflow, cfg) })
-//    ...
-//    Describe("Teardown Workflow", func() { TeardownWorkflow(workflow, cfg) })
-//
-//  })
-//
-//  Notes:
-//    Describe() allows tests to be randomized and parallelized
-//    Label("") allows for filtering of tests based on labels
-//    Ordered decorator ensures specs are run sequentially
-//    MyDecoraters permits you to add ginkgo's built in decorators Pending, Focused, Skipped
-//
-// 3. Helper functions (CreateWorkflow, SetupWorkflow, ...) all are wise enough
-//    to handle the different workflow types.
