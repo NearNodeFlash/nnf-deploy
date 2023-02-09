@@ -16,7 +16,7 @@ require (
 	github.com/NearNodeFlash/nnf-sos v0.0.0-20221110215714-a4f531ae72e0
 	github.com/alecthomas/kong v0.7.0
 	github.com/onsi/ginkgo/v2 v2.8.0
-	github.com/onsi/gomega v1.25.0
+	github.com/onsi/gomega v1.26.0
 	go.uber.org/zap v1.23.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.25.4

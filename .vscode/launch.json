@@ -5,44 +5,21 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug install",
+            "name": "Test Current File",
             "type": "go",
             "request": "launch",
-            "mode": "auto",
-            "program": "${fileDirname}",
+            "mode": "test",
+            "program": "${relativeFileDirname}",
             "args": [
-                "install"
+                "-ginkgo.fail-fast",
+                "-ginkgo.progress"
             ],
+            "env": {
+                "KUBEBUILDER_ASSETS": "${workspaceFolder}/bin/k8s/1.25.0-darwin-amd64",
+                "GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT": "10m",
+                "GOMEGA_DEFAULT_EVENTUALLY_POLLING_INTERVAL": "100ms"
+            },
+            "showLog": true
         },
-        {
-            "name": "Debug deploy",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${fileDirname}",
-            "args": [
-                "deploy"
-            ],
-        },
-        {
-            "name": "Debug undeploy",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${fileDirname}",
-            "args": [
-                "undeploy"
-            ],
-        },
-        {
-            "name": "Debug init",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${fileDirname}",
-            "args": [
-                "init"
-            ],
-        }
     ]
 }

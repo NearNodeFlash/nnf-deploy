@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
+	nnfv1alpha1 "github.com/NearNodeFlash/nnf-sos/api/v1alpha1"
+
 	"github.com/HewlettPackard/dws/utils/dwdparse"
 )
 
@@ -60,7 +63,19 @@ type T struct {
 	labels []string
 
 	// Decorators are ginkgo decorators that can be applied to an individual test case
-	// TODO: Examples (Focused)
+	// Supported decorators are...
+	//
+	// Focus
+	//   The Focus decorator will force Ginkgo to run this test case and other test cases with the
+	//   Focus decorater while skipping all other test cases. Ginkgo does not considered any test
+	//   suite with a programatic focus decorator as passing the entirity of the test. While
+	//   the test suite might pass, the final exit status will be in error.
+	//
+	// Pending
+	//   The Pending decorator will instruct Ginkgo to skip the case. This is useful if a test is
+	//   under development, or perhaps is flaky.
+	//
+	// For more details, see
 	decorators []interface{}
 
 	directives []string
@@ -81,40 +96,39 @@ type TOptions struct {
 }
 
 type TStorageProfile struct {
-	name       string
-	parameters string
+	name string
 }
 
 var Tests = []T{
 	// Simple XFS Test
 	{
 
-		name:       "Simple XFS Test",
-		labels:     []string{"xfs", "simple"},
+		name:   "XFS",
+		labels: []string{"xfs", "simple"},
+		//decorators: []interface{}{Focus},
 		directives: []string{"#DW jobdw type=xfs name=xfs capacity=1TB"},
 	},
 	// Complex XFS Test with a unique storage profile created as part of the test
 	{
 
-		name:       "Complex XFS Test",
-		labels:     []string{"xfs", "complex", "storageprofiles"},
-		directives: []string{"#DW jobdw type=xfs name=xfs capacity=1TB storage_profile=my-storage-profile"},
+		name:       "XFS with custom Storage Profile",
+		labels:     []string{"xfs", "storageprofile"},
+		decorators: []interface{}{Focus},
+		directives: []string{"#DW jobdw type=xfs name=xfs capacity=1TB profile=my-storage-profile"},
 
 		options: TOptions{
 			storageProfile: &TStorageProfile{
-				name:       "my-storage-profile",
-				parameters: "some example from dean's confluence page",
+				name: "my-storage-profile",
 			},
 		},
 	},
+
 	// Example Lustre
 	{
-		name:       "Lustre Test",
-		labels:     []string{"lustre"},
-		decorators: []interface{}{},
+		name:   "Lustre Test",
+		labels: []string{"lustre"},
+		//decorators: []interface{}{Focus},
 		directives: []string{"#DW jobdw type=lustre name=lustre capacity=1TB"},
-		config:     TConfig{},
-		options:    TOptions{},
 	},
 }
 
@@ -124,11 +138,11 @@ var _ = Describe("NNF Integration Test", func() {
 		test := test
 
 		execFn := func() {
-			test := test
+			//test := test
 
 			BeforeAll(func() {
-				Expect(setupTestOptions(test.options)).Should(Succeed())
-				DeferCleanup(func() { Expect(cleanupTestOptions(test.options)).Should(Succeed()) })
+				Expect(setupTestOptions(test.options)).To(Succeed())
+				DeferCleanup(func() { Expect(cleanupTestOptions(test.options)).To(Succeed()) })
 			})
 
 			workflow := &dwsv1alpha1.Workflow{
@@ -145,21 +159,26 @@ var _ = Describe("NNF Integration Test", func() {
 			}
 
 			BeforeAll(func() {
-				Expect(test.createWorkflow(workflow)).Should(Succeed())
-				DeferCleanup(func() { Expect(test.teardownWorkflow(workflow)).Should(Succeed()) })
+				Expect(test.createWorkflow(workflow)).To(Succeed())
+				DeferCleanup(func() { Expect(test.teardownWorkflow(workflow)).To(Succeed()) })
 			})
 
 			When("Setup", Ordered, func() { test.setup(workflow) })
 			When("DataIn", Ordered, func() { test.dataIn(workflow) })
-			When("PreRun", func() {})
-			When("PostRun", func() {})
-			When("DataOut", func() {})
+			When("PreRun", Ordered, func() { test.preRun(workflow) })
+			When("PostRun", Ordered, func() { test.postRun(workflow) })
+			When("DataOut", Ordered, func() { test.dataOut(workflow) })
 		}
 
 		// Formulate the test arguments; this effectively results in
 		// return []interface{}{ Label(test.Labels...), Ordered, test.Decorators..., execFn }
 		args := func() []interface{} {
-			args := []interface{}{Label(test.labels...), Ordered}
+			args := make([]interface{}, 0)
+
+			if len(test.labels) != 0 {
+				args = append(args, Label(test.labels...))
+			}
+			args = append(args, Ordered)
 			args = append(args, test.decorators...)
 			return append(args, execFn)
 		}()
@@ -169,8 +188,51 @@ var _ = Describe("NNF Integration Test", func() {
 })
 
 // Helper methods to Setup/Cleanup the various test options
-func setupTestOptions(o TOptions) error   { return nil }
-func cleanupTestOptions(o TOptions) error { return nil }
+func setupTestOptions(o TOptions) error {
+
+	if o.storageProfile != nil {
+		// Clone the placeholder profile
+		placeholder := &nnfv1alpha1.NnfStorageProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "placeholder",
+				Namespace: "nnf-system",
+			},
+		}
+
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(placeholder), placeholder)).To(Succeed())
+
+		profile := &nnfv1alpha1.NnfStorageProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      o.storageProfile.name,
+				Namespace: corev1.NamespaceDefault,
+			},
+		}
+
+		placeholder.Data.DeepCopyInto(&profile.Data)
+		profile.Data.Default = false
+
+		Expect(k8sClient.Create(ctx, profile)).To(Succeed())
+	}
+
+	return nil
+}
+
+func cleanupTestOptions(o TOptions) error {
+
+	if o.storageProfile != nil {
+
+		profile := &nnfv1alpha1.NnfStorageProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      o.storageProfile.name,
+				Namespace: corev1.NamespaceDefault,
+			},
+		}
+
+		Expect(k8sClient.Delete(ctx, profile)).To(Succeed())
+	}
+
+	return nil
+}
 
 func (t T) workflowName() string {
 	return strings.ToLower(strings.ReplaceAll(t.name, " ", "-"))
@@ -196,10 +258,10 @@ func (t T) workflowDirectives() []string {
 }
 
 func (t T) createWorkflow(workflow *dwsv1alpha1.Workflow) error {
-	Expect(k8sClient.Create(ctx, workflow)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
 
 	Eventually(func(g Gomega) bool {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).To(Succeed())
 		return workflow.Status.State == dwsv1alpha1.StateProposal && workflow.Status.Ready
 	}).Should(BeTrue())
 
@@ -211,7 +273,7 @@ func (t T) setup(workflow *dwsv1alpha1.Workflow) {
 
 	systemConfig := &dwsv1alpha1.SystemConfiguration{}
 	It("Gets System Configuration", func() {
-		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "default", Namespace: corev1.NamespaceDefault}, systemConfig)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "default", Namespace: corev1.NamespaceDefault}, systemConfig)).To(Succeed())
 	})
 
 	It("Assigns Computes", func() {
@@ -219,7 +281,7 @@ func (t T) setup(workflow *dwsv1alpha1.Workflow) {
 		// create_persistent & destroy_persistent do not need compute resources
 		//Expect(directiveBreakdown.Status.Compute).NotTo(BeNil())
 		computes := &dwsv1alpha1.Computes{}
-		Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(workflow.Status.Computes), computes)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(workflow.Status.Computes), computes)).To(Succeed())
 
 		Expect(computes.Data).To(HaveLen(0))
 
@@ -229,7 +291,7 @@ func (t T) setup(workflow *dwsv1alpha1.Workflow) {
 			// TODO: Filter out unwanted compute nodes
 		}
 
-		Expect(k8sClient.Update(ctx, computes)).Should(Succeed())
+		Expect(k8sClient.Update(ctx, computes)).To(Succeed())
 	})
 
 	It("Assigns Servers", func() {
@@ -237,42 +299,48 @@ func (t T) setup(workflow *dwsv1alpha1.Workflow) {
 		for _, directiveBreakdownRef := range workflow.Status.DirectiveBreakdowns {
 			directiveBreakdown := &dwsv1alpha1.DirectiveBreakdown{}
 			Eventually(func(g Gomega) bool {
-				g.Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdownRef), directiveBreakdown)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdownRef), directiveBreakdown)).To(Succeed())
 				return directiveBreakdown.Status.Ready
 			}).Should(BeTrue())
 
-			// If Lustre, there should be 3 allocation sets unless combined mgtmdt is set in the storage profile. Otherwise 1.
-			// TODO: Lustre
 			Expect(directiveBreakdown.Status.Storage).NotTo(BeNil())
-			Expect(directiveBreakdown.Status.Storage.AllocationSets).To(HaveLen(1))
+			Expect(directiveBreakdown.Status.Storage.AllocationSets).NotTo(BeEmpty())
 
+			//
 			servers := &dwsv1alpha1.Servers{}
-			Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdown.Status.Storage.Reference), servers))
-			Expect(servers.Spec.AllocationSets).To(HaveLen(1))
+			Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdown.Status.Storage.Reference), servers)).To(Succeed())
+			Expect(servers.Spec.AllocationSets).To(BeEmpty())
 
-			storage := make([]dwsv1alpha1.ServersSpecStorage, 0)
-			for _, node := range systemConfig.Spec.StorageNodes {
-				storage = append(storage, dwsv1alpha1.ServersSpecStorage{
-					Name:            node.Name,
-					AllocationCount: len(node.ComputesAccess),
-				})
+			// Copy the allocation sets from the directive breakdown to the servers resource, assigning servers
+			// as storage resources as necessary.
+
+			// TODO We should assign storage nodes based on the current capabilities of the system and the label. For simple file systems
+			// like XFS and GFS2, we can use any Rabbit. But for Lustre, we have to watch where we land the MDT/MGT, and ensure those are
+			// exclusive to the Rabbit nodes.
+			findStorageServers := func(set *dwsv1alpha1.StorageAllocationSet) []dwsv1alpha1.ServersSpecStorage {
+				storages := make([]dwsv1alpha1.ServersSpecStorage, len(systemConfig.Spec.StorageNodes))
+				for index, node := range systemConfig.Spec.StorageNodes {
+					storages[index].Name = node.Name
+					storages[index].AllocationCount = len(node.ComputesAccess)
+				}
+
+				return storages
 			}
 
-			allocationSet := directiveBreakdown.Status.Storage.AllocationSets[0]
-
-			servers.Spec.AllocationSets = []dwsv1alpha1.ServersSpecAllocationSet{
-				{
+			servers.Spec.AllocationSets = make([]dwsv1alpha1.ServersSpecAllocationSet, len(directiveBreakdown.Status.Storage.AllocationSets))
+			for index, allocationSet := range directiveBreakdown.Status.Storage.AllocationSets {
+				servers.Spec.AllocationSets[index] = dwsv1alpha1.ServersSpecAllocationSet{
 					AllocationSize: allocationSet.MinimumCapacity,
 					Label:          allocationSet.Label,
-					Storage:        storage,
-				},
+					Storage:        findStorageServers(&allocationSet),
+				}
 			}
 
 			// TODO: If Lustre - we need to identify the MGT and MDT nodes (and combine them if necessary); and we
 			//       can't colocate MGT nodes with other lustre's that might be in test.
 			//       OST nodes can go anywhere
 
-			Expect(k8sClient.Update(ctx, servers)).Should(Succeed())
+			Expect(k8sClient.Update(ctx, servers)).To(Succeed())
 		}
 
 	})
@@ -289,7 +357,21 @@ func (t T) dataIn(workflow *dwsv1alpha1.Workflow) {
 }
 
 func (t T) preRun(workflow *dwsv1alpha1.Workflow) {
+	It("Advances to PreRun State", func() {
+		advanceStateCheckReady(workflow, dwsv1alpha1.StatePreRun)
+	})
+}
 
+func (t T) postRun(workflow *dwsv1alpha1.Workflow) {
+	It("Advances to PostRun State", func() {
+		advanceStateCheckReady(workflow, dwsv1alpha1.StatePostRun)
+	})
+}
+
+func (t T) dataOut(workflow *dwsv1alpha1.Workflow) {
+	It("Advances to DataOut State", func() {
+		advanceStateCheckReady(workflow, dwsv1alpha1.StateDataOut)
+	})
 }
 
 // func DataIn...
@@ -297,7 +379,11 @@ func (t T) preRun(workflow *dwsv1alpha1.Workflow) {
 // func PostRun...
 // func DataOut...
 
-func (t T) teardownWorkflow(workflow *dwsv1alpha1.Workflow) error { return nil }
+func (t T) teardownWorkflow(workflow *dwsv1alpha1.Workflow) error {
+	advanceStateCheckReady(workflow, dwsv1alpha1.StateTeardown)
+
+	return k8sClient.Delete(ctx, workflow)
+}
 
 func advanceStateCheckReady(workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
 
@@ -305,10 +391,10 @@ func advanceStateCheckReady(workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.Wo
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
 		workflow.Spec.DesiredState = state
 		return k8sClient.Update(ctx, workflow)
-	}).Should(Succeed(), fmt.Sprintf("Updates the Desired State '%s'", state))
+	}).Should(Succeed(), fmt.Sprintf("updates state to '%s'", state))
 
 	Eventually(func() bool {
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
 		return workflow.Status.Ready && workflow.Status.State == state
-	}).Should(BeTrue(), fmt.Sprintf("State '%s' Ready", state))
+	}).WithTimeout(time.Minute).Should(BeTrue(), fmt.Sprintf("wait for ready in state %s", state))
 }
