@@ -271,6 +271,7 @@ func (t T) createWorkflow(workflow *dwsv1alpha1.Workflow) error {
 // Helper methods do all the heavy lifting for the test case
 func (t T) setup(workflow *dwsv1alpha1.Workflow) {
 
+	// TODO: Move this to a global variable and initialized in the test suite.
 	systemConfig := &dwsv1alpha1.SystemConfiguration{}
 	It("Gets System Configuration", func() {
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "default", Namespace: corev1.NamespaceDefault}, systemConfig)).To(Succeed())
