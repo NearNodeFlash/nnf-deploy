@@ -1,7 +1,6 @@
 name: NNF Test
 
-on:
-  push:
+on: [push, pull_request]
 
 jobs:
   test:
@@ -16,6 +15,5 @@ jobs:
       with:
         go-version-file: 'go.mod'
     - name: Setup Ginkgo
-      run: go install github.com/onsi/ginkgo/v2/ginkgo && go get github.com/onsi/gomega/...
-    - name: Test
-      run: ginkgo run -p --vv ./test/...
+      run: go get github.com/onsi/ginkgo/v2/ginkgo && go install github.com/onsi/ginkgo/v2/ginkgo && go get github.com/onsi/gomega/...
+    - run: ginkgo run -p --vv ./test/...
