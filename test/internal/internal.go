@@ -1,4 +1,4 @@
-package test
+package internal
 
 import (
 	"context"
@@ -132,7 +132,7 @@ func (t *T) Decorators() []interface{} {
 	return t.decorators
 }
 
-func (t *T) Setup(ctx context.Context, k8sClient client.Client) error {
+func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 	o := t.options
 
 	if o.storageProfile != nil {
