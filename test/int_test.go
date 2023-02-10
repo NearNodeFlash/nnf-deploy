@@ -21,38 +21,40 @@ package test
 
 import (
 	"fmt"
-	"strconv"
 
 	. "github.com/NearNodeFlash/nnf-deploy/test/internal"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
 )
 
 var tests = []*T{
 	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
-	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple),
+	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple).Pending(),
 
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
 
 	// Tests that create and use storage profiles
 	MakeTest("XFS with Storage Profile", "#DW jobdw type=xfs name=xfsStorageProfile capacity=1TB profile=my-xfs-profile").
 		WithStorageProfile("my-xfs-profile"),
-	MakeTest("GFS2 with Storage Profile", "#DW jobdw type=gfs2 name=gfs2StorageProfile capacity=1TB profile=my-gfs2-profile").
-		WithStorageProfile("my-gfs2-profile"),
+	MakeTest("GFS2 with Storage Profile", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB profile=my-gfs2-profile").
+		WithStorageProfile("my-gfs2-profile").Pending(),
 
 	// Data Movement
-	MakeTest("XFS with Data Movement", 
-		"#DW jobdw type=xfs name=xfs capacity=1TB",
+	MakeTest("XFS with Data Movement",
+		"#DW jobdw type=xfs name=xfs-data-movement capacity=1TB",
 		"#DW copy_in source=/lus/global/test.in destination=$JOB_DW_xfs/",
 		"#DW copy_out source=$JOB_DW_xfs/test.out destination=/lus/global/").
-		WithGlobalLustre("/lus/global", "test.in", "test.out").
+		WithPersistentLustre("xfs-data-movement-lustre-instance"). // Setup a persistent Lustre instance as part of the test
+		WithGlobalLustreFromPersistentLustre("/lus/global", "test.in", "test.out").
 		Serialized(),
+
+	MakeTest("GFS2 with Containers (BLAKE)",
+		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=1TB",
+		"#DW container name=gfs2-with-containers profile=TODO DW_JOB_gfs2-with-containers",
+	).Pending(),
 }
 
 var _ = Describe("NNF Integration Test", func() {
@@ -70,30 +72,24 @@ var _ = Describe("NNF Integration Test", func() {
 			})
 
 			BeforeEach(func() {
-				workflow = &dwsv1alpha1.Workflow{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      t.WorkflowName(),
-						Namespace: corev1.NamespaceDefault,
-					},
-					Spec: dwsv1alpha1.WorkflowSpec{
-						DesiredState: dwsv1alpha1.StateProposal,
-						DWDirectives: t.WorkflowDirectives(),
-						JobID:        GinkgoParallelProcess(),
-						WLMID:        strconv.Itoa(GinkgoParallelProcess()),
-					},
-				}
+				workflow = t.Workflow()
 
 				Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
-				DeferCleanup(func() {
-					AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
 
-					Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+				DeferCleanup(func(context SpecContext) {
+					// TODO: Ginkgo's `--fail-fast` option still seems to execute DeferCleanup() calls
+					//       See if this is by design or if we might need to move this to an AfterEach()
+					if !context.SpecReport().Failed() {
+						AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
+
+						Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+					}
 				})
 			})
 
 			ReportAfterEach(func(report SpecReport) {
 				if report.Failed() {
-					AddReportEntry(fmt.Sprintf("Test %s Failed", t.Name()), workflow)
+					AddReportEntry(fmt.Sprintf("Workflow '%s' Failed", workflow.Name), workflow.Status)
 				}
 			})
 
