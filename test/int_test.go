@@ -41,10 +41,18 @@ var tests = []*T{
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
 
 	// Tests that create and use storage profiles
-	MakeTest("XFS with Storage Profile", "#DW jobdw type=xfs name=xfs capacity=1TB profile=my-xfs-profile").
+	MakeTest("XFS with Storage Profile", "#DW jobdw type=xfs name=xfsStorageProfile capacity=1TB profile=my-xfs-profile").
 		WithStorageProfile("my-xfs-profile"),
-	MakeTest("GFS2 with Storage Profile", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB profile=my-gfs2-profile").
+	MakeTest("GFS2 with Storage Profile", "#DW jobdw type=gfs2 name=gfs2StorageProfile capacity=1TB profile=my-gfs2-profile").
 		WithStorageProfile("my-gfs2-profile"),
+
+	// Data Movement
+	MakeTest("XFS with Data Movement", 
+		"#DW jobdw type=xfs name=xfs capacity=1TB",
+		"#DW copy_in source=/lus/global/test.in destination=$JOB_DW_xfs/",
+		"#DW copy_out source=$JOB_DW_xfs/test.out destination=/lus/global/").
+		WithGlobalLustre("/lus/global", "test.in", "test.out").
+		Serialized(),
 }
 
 var _ = Describe("NNF Integration Test", func() {

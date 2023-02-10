@@ -82,12 +82,18 @@ func MakeTest(name string, directives ...string) *T {
 	}
 }
 
+// WithStorageProfile will ensure that a 
 func (t *T) WithStorageProfile(name string) *T {
 	t.options.storageProfile = &TStorageProfile{
 		name: name,
 	}
 
 	return t.WithLabels("storage-profile")
+}
+
+// WithGlobalLustre will ensure that a global lustre instance with path 'path'
+func (t *T) WithGlobalLustre(path string, in string, out string) *T {
+
 }
 
 // To apply a set of labels for a particular test, use the withLables() method. Labels
@@ -97,8 +103,9 @@ const (
 
 func (t *T) WithLabels(labels ...string) *T { t.labels = append(t.labels, labels...); return t }
 
-func (t *T) Focused() *T { t.decorators = append(t.decorators, Focus); return t }
-func (t *T) Pending() *T { t.decorators = append(t.decorators, Pending); return t }
+func (t *T) Focused() *T    { t.decorators = append(t.decorators, Focus); return t }
+func (t *T) Pending() *T    { t.decorators = append(t.decorators, Pending); return t }
+func (t *T) Serialized() *T { t.decorators = append(t.decorators, Serial); return t }
 
 func (t *T) Name() string { return t.name }
 
@@ -186,19 +193,5 @@ func (t *T) WorkflowName() string {
 
 // Retrieve the #DW Directives from the test case
 func (t *T) WorkflowDirectives() []string {
-
-	for idx, directive := range t.directives {
-		args, err := dwdparse.BuildArgsMap(directive)
-		Expect(err).NotTo(HaveOccurred())
-
-		// Make each "#DW jobdw name=[name]" unique so there are no collisions running test in parallel
-		name := args["name"]
-		Expect(name).NotTo(BeNil())
-
-		directive = strings.Replace(directive, "name="+name, "name="+name+"-"+t.WorkflowName(), 1)
-
-		t.directives[idx] = directive
-	}
-
 	return t.directives
 }
