@@ -85,7 +85,7 @@ var _ = Describe("NNF Integration Test", func() {
 
 			ReportAfterEach(func(report SpecReport) {
 				if report.Failed() {
-					AddReportEntry(fmt.Sprintf("Test %s Failed", t.Name()), workflow)
+					AddReportEntry(fmt.Sprintf("Workflow '%s' Failed", workflow.Name), workflow.Status)
 				}
 			})
 
