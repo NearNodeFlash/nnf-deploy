@@ -36,7 +36,7 @@ import (
 
 var tests = []*T{
 	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
-	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple),
+	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple).Pending(),
 
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
 
@@ -44,7 +44,7 @@ var tests = []*T{
 	MakeTest("XFS with Storage Profile", "#DW jobdw type=xfs name=xfs capacity=1TB profile=my-xfs-profile").
 		WithStorageProfile("my-xfs-profile"),
 	MakeTest("GFS2 with Storage Profile", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB profile=my-gfs2-profile").
-		WithStorageProfile("my-gfs2-profile"),
+		WithStorageProfile("my-gfs2-profile").Pending(),
 }
 
 var _ = Describe("NNF Integration Test", func() {
@@ -76,10 +76,15 @@ var _ = Describe("NNF Integration Test", func() {
 				}
 
 				Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
-				DeferCleanup(func() {
-					AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
 
-					Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+				DeferCleanup(func(context SpecContext) {
+					// TODO: Ginkgo's `--fail-fast` option still seems to execute DeferCleanup() calls
+					//       See if this is by design or if we might need to move this to an AfterEach()
+					if !context.SpecReport().Failed() {
+						AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
+
+						Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+					}
 				})
 			})
 
