@@ -35,7 +35,7 @@ import (
 )
 
 var tests = []*T{
-	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple).Focused(),
+	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
 	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple),
 
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
@@ -91,7 +91,6 @@ var _ = Describe("NNF Integration Test", func() {
 
 			// Run the workflow from Setup through Teardown
 			It("Executes", func() {
-
 				for _, fn := range []StateHandler{t.Proposal, t.Setup, t.DataIn, t.PreRun, t.PostRun, t.DataOut, t.Teardown} {
 					fn(ctx, k8sClient, workflow)
 				}
