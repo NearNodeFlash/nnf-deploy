@@ -30,14 +30,15 @@ type TStorageProfile struct {
 func (t *T) WithStorageProfile(name string) *T {
 	t.options.storageProfile = &TStorageProfile{name: name}
 
-	return t.WithLabels("storage-profile")
+	return t.WithLabels("storage_profile")
 }
 
 type TPersistentLustre struct {
 	name string
 
-	test     *T
-	workflow *dwsv1alpha1.Workflow
+	// Use internal tests to drive the persistent lustre workflow
+	create *T
+	destroy *T
 }
 
 func (t *T) WithPersistentLustre(name string) *T {
@@ -66,7 +67,7 @@ func (t *T) WithGlobalLustreFromPersistentLustre(path string, in string, out str
 		out:        out,
 	}
 
-	return t.WithLabels("global-lustre")
+	return t.WithLabels("global_lustre")
 }
 
 func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
@@ -100,12 +101,17 @@ func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 		// Create a persistent lustre instance all the way to pre-run
 		name := o.persistentLustre.name
 
-		o.persistentLustre.test = MakeTest(name, fmt.Sprintf("#DW create_persistent type=lustre name=%s capacity=1TB", name))
+		o.persistentLustre.create = MakeTest(name + "-create", 
+			fmt.Sprintf("#DW create_persistent type=lustre name=%s capacity=1TB", name))
+		o.persistentLustre.destroy = MakeTest(name + "-destroy",
+			fmt.Sprintf("#DW destroy_persistent name=%s"))
 
-		for _, fn := range []StateHandler{t.Proposal, t.Setup, t.DataIn, t.PreRun} {
-			fn(ctx, k8sClient, o.persistentLustre.test.workflow)
-		}
+		// Create the persistent lustre instance
+		Expect(k8sClient.Create(ctx, o.persistentLustre.create.Workflow())).To(Succeed())
+		o.persistentLustre.create.Execute(ctx, k8sClient)
 	}
+
+
 
 	return nil
 }
@@ -123,6 +129,15 @@ func (t *T) Cleanup(ctx context.Context, k8sClient client.Client) error {
 		}
 
 		Expect(k8sClient.Delete(ctx, profile)).To(Succeed())
+	}
+
+	if o.persistentLustre != nil {
+		
+		Expect(k8sClient.Create(ctx, o.persistentLustre.destroy.Workflow())).To(Succeed())
+		o.persistentLustre.destroy.Execute(ctx, k8sClient)
+
+		Expect(k8sClient.Delete(ctx, o.persistentLustre.create.Workflow())).To(Succeed())
+		Expect(k8sClient.Delete(ctx, o.persistentLustre.destroy.Workflow())).To(Succeed())
 	}
 
 	return nil

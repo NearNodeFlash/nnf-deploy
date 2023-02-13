@@ -49,7 +49,7 @@ var tests = []*T{
 		"#DW copy_out source=$JOB_DW_xfs/test.out destination=/lus/global/").
 		WithPersistentLustre("xfs-data-movement-lustre-instance"). // Setup a persistent Lustre instance as part of the test
 		WithGlobalLustreFromPersistentLustre("/lus/global", "test.in", "test.out").
-		Serialized(),
+		Serialized().Focused(),
 
 	MakeTest("GFS2 with Containers (BLAKE)",
 		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=1TB",
@@ -63,7 +63,6 @@ var _ = Describe("NNF Integration Test", func() {
 		t := t
 
 		Describe(t.Name(), append(t.Args(), func() {
-			var workflow *dwsv1alpha1.Workflow
 
 			// Prepare any necessary test conditions prior to creating the workflow
 			BeforeEach(func() {
@@ -71,8 +70,9 @@ var _ = Describe("NNF Integration Test", func() {
 				DeferCleanup(func() { Expect(t.Cleanup(ctx, k8sClient)).To(Succeed()) })
 			})
 
+			// Create the workflow and delete it on cleanup
 			BeforeEach(func() {
-				workflow = t.Workflow()
+				workflow := t.Workflow()
 
 				Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
 
@@ -88,17 +88,15 @@ var _ = Describe("NNF Integration Test", func() {
 			})
 
 			ReportAfterEach(func(report SpecReport) {
+				workflow := t.Workflow()
+
 				if report.Failed() {
 					AddReportEntry(fmt.Sprintf("Workflow '%s' Failed", workflow.Name), workflow.Status)
 				}
 			})
 
 			// Run the workflow from Setup through Teardown
-			It("Executes", func() {
-				for _, fn := range []StateHandler{t.Proposal, t.Setup, t.DataIn, t.PreRun, t.PostRun, t.DataOut, t.Teardown} {
-					fn(ctx, k8sClient, workflow)
-				}
-			})
+			It("Executes", func() { t.Execute(ctx, k8sClient) })
 
 		})...)
 	}

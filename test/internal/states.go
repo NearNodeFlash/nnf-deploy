@@ -38,6 +38,12 @@ import (
 // StateHandler defines a method that handles a particular state in the workflow
 type StateHandler func(context.Context, client.Client, *dwsv1alpha1.Workflow)
 
+func (t *T) Execute(ctx context.Context, k8sClient client.Client) {
+	for _, fn := range []StateHandler{t.Proposal, t.Setup, t.DataIn, t.PreRun, t.PostRun, t.DataOut, t.Teardown} {
+		fn(ctx, k8sClient, t.workflow)
+	}
+}
+
 func (t *T) Proposal(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 	Eventually(func(g Gomega) bool {
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).To(Succeed())
