@@ -33,23 +33,33 @@ import (
 var tests = []*T{
 	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
 	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple).Pending(),
-
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
 
 	// Tests that create and use storage profiles
-	MakeTest("XFS with Storage Profile", "#DW jobdw type=xfs name=xfsStorageProfile capacity=1TB profile=my-xfs-profile").
-		WithStorageProfile("my-xfs-profile"),
-	MakeTest("GFS2 with Storage Profile", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB profile=my-gfs2-profile").
-		WithStorageProfile("my-gfs2-profile").Pending(),
+	MakeTest("XFS with Storage Profile",
+		"#DW jobdw type=xfs name=xfs-storage-profile capacity=1TB profile=my-xfs-storage-profile").
+		WithStorageProfile(),
+	MakeTest("GFS2 with Storage Profile",
+		"#DW jobdw type=gfs2 name=gfs2-storage-profile capacity=1TB profile=my-gfs2-storage-profile").
+		WithStorageProfile().
+		Pending(),
 
+	// Persistent
+	MakeTest("Persistent Lustre",
+		"#DW create_persistent type=lustre name=persistent-lustre capacity=1TB").
+		WithDestroyPersistentInstance().
+		Focused(),
+	
+	
 	// Data Movement
 	MakeTest("XFS with Data Movement",
 		"#DW jobdw type=xfs name=xfs-data-movement capacity=1TB",
-		"#DW copy_in source=/lus/global/test.in destination=$JOB_DW_xfs/",
-		"#DW copy_out source=$JOB_DW_xfs/test.out destination=/lus/global/").
-		WithPersistentLustre("xfs-data-movement-lustre-instance"). // Setup a persistent Lustre instance as part of the test
-		WithGlobalLustreFromPersistentLustre("/lus/global", "test.in", "test.out").
-		Serialized().Focused(),
+		"#DW copy_in source=/lus/global/test.in destination=$JOB_DW_xfs/",    // TODO: Create a file "test.in" in the global lustre directory
+		"#DW copy_out source=$JOB_DW_xfs/test.out destination=/lus/global/"). // TODO: Validate file "test.out" in the global lustre directory
+		WithPersistentLustre("xfs-data-movement-lustre-instance").            // Manage a persistent Lustre instance as part of the test
+		WithGlobalLustreFromPersistentLustre("/lus/global").
+		Serialized().
+		Pending(),
 
 	MakeTest("GFS2 with Containers (BLAKE)",
 		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=1TB",
