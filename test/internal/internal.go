@@ -50,8 +50,8 @@ type T struct {
 	//
 	// Focus
 	//   The Focus decorator will force Ginkgo to run this test case and other test cases with the
-	//   Focus decorater while skipping all other test cases. Ginkgo does not considered any test
-	//   suite with a programatic focus decorator as passing the entirity of the test. While
+	//   Focus decorator while skipping all other test cases. Ginkgo does not considered any test
+	//   suite with a programmatic focus decorator as passing the entirety of the test. While
 	//   the test suite might pass, the final exit status will be in error.
 	//
 	// Pending
