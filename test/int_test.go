@@ -31,11 +31,19 @@ import (
 )
 
 var tests = []*T{
+	// Examples
+	//
+	// Make a test that is the focus of the Ginkgo runner. Ginkgo will only run tests that have the Focus decorator
+	// MakeTest("Focused", "...").Focused(),
+	//
+	// Make a test that will stop the workflow after achieving the desired state (i.e. PreRun)
+	// MakeTest("Stop After", "...").StopAfter(wsv1alpha1.StatePreRun)
+
 	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
 	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple).Pending(),
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
 
-	// Tests that create and use storage profiles
+	// Storage Profiles
 	MakeTest("XFS with Storage Profile",
 		"#DW jobdw type=xfs name=xfs-storage-profile capacity=1TB profile=my-xfs-storage-profile").
 		WithStorageProfile(),
@@ -47,10 +55,9 @@ var tests = []*T{
 	// Persistent
 	MakeTest("Persistent Lustre",
 		"#DW create_persistent type=lustre name=persistent-lustre capacity=1TB").
-		WithDestroyPersistentInstance().
-		Focused(),
-	
-	
+		AndCleanupPersistentInstance().
+		Serialized(),
+
 	// Data Movement
 	MakeTest("XFS with Data Movement",
 		"#DW jobdw type=xfs name=xfs-data-movement capacity=1TB",
@@ -87,20 +94,22 @@ var _ = Describe("NNF Integration Test", func() {
 				Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
 
 				DeferCleanup(func(context SpecContext) {
-					// TODO: Ginkgo's `--fail-fast` option still seems to execute DeferCleanup() calls
-					//       See if this is by design or if we might need to move this to an AfterEach()
-					if !context.SpecReport().Failed() {
-						AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
+					if t.ShouldTeardown() {
+						// TODO: Ginkgo's `--fail-fast` option still seems to execute DeferCleanup() calls
+						//       See if this is by design or if we might need to move this to an AfterEach()
+						if !context.SpecReport().Failed() {
+							AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
 
-						Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+							Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+						}
 					}
 				})
 			})
 
+			// Report additional workflow datafor each failed test
 			ReportAfterEach(func(report SpecReport) {
-				workflow := t.Workflow()
-
 				if report.Failed() {
+					workflow := t.Workflow()
 					AddReportEntry(fmt.Sprintf("Workflow '%s' Failed", workflow.Name), workflow.Status)
 				}
 			})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
 	"github.com/HewlettPackard/dws/utils/dwdparse"
 	. "github.com/onsi/gomega"
 
@@ -19,10 +20,25 @@ import (
 // TOptions let you configure things prior to a test running or during test
 // execution. Nil values represent no configuration of that type.
 type TOptions struct {
+	stopAfter         *TStopAfter
 	storageProfile    *TStorageProfile
 	persistentLustre  *TPersistentLustre
 	globalLustre      *TGlobalLustre
-	persistentDestroy *TPersistentDestroy
+	cleanupPersistent *TCleanupPersistentInstance
+}
+
+type TStopAfter struct {
+	state dwsv1alpha1.WorkflowState
+}
+
+// Stop after lets you stop a test after a given state is reached
+func (t *T) StopAfter(state dwsv1alpha1.WorkflowState) *T {
+	t.options.stopAfter = &TStopAfter{state: state}
+	return t
+}
+
+func (t *T) ShouldTeardown() bool {
+	return t.options.stopAfter == nil
 }
 
 type TStorageProfile struct {
@@ -62,18 +78,18 @@ func (t *T) WithPersistentLustre(name string) *T {
 	return t.WithLabels("persistent", "lustre")
 }
 
-type TPersistentDestroy struct {
+type TCleanupPersistentInstance struct {
 	name string
 }
 
-// WithDestroyPersistentInstance will automatically destroy the persistent instance. It is useful
+// AndCleanupPersistentInstance will automatically destroy the persistent instance. It is useful
 // if you have a create_persistent directive that you wish to destroy after the test has finished.
-func (t *T) WithDestroyPersistentInstance() *T {
+func (t *T) AndCleanupPersistentInstance() *T {
 	for _, directive := range t.directives {
 		args, _ := dwdparse.BuildArgsMap(directive)
 
 		if args["command"] == "create_persistent" {
-			t.options.persistentDestroy = &TPersistentDestroy{
+			t.options.cleanupPersistent = &TCleanupPersistentInstance{
 				name: args["name"],
 			}
 
@@ -141,7 +157,7 @@ func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 		Expect(k8sClient.Create(ctx, profile)).To(Succeed())
 	}
 
-	if o.persistentDestroy != nil {
+	if o.cleanupPersistent != nil {
 		// Nothing to do in Prepare()
 	}
 
@@ -212,6 +228,15 @@ func (t *T) Cleanup(ctx context.Context, k8sClient client.Client) error {
 		}).ShouldNot(Succeed(), "lustre file system resource should delete")
 	}
 
+	if o.cleanupPersistent != nil {
+		name := o.cleanupPersistent.name
+
+		test := MakeTest(name+"-destroy", fmt.Sprintf("#DW destroy_persistent name=%s", name))
+		Expect(k8sClient.Create(ctx, test.Workflow())).To(Succeed())
+		test.Execute(ctx, k8sClient)
+		Expect(k8sClient.Delete(ctx, test.Workflow())).To(Succeed())
+	}
+
 	if o.persistentLustre != nil {
 
 		// Destroy the persistent lustre instance we previously created
@@ -220,15 +245,6 @@ func (t *T) Cleanup(ctx context.Context, k8sClient client.Client) error {
 
 		Expect(k8sClient.Delete(ctx, o.persistentLustre.create.Workflow())).To(Succeed())
 		Expect(k8sClient.Delete(ctx, o.persistentLustre.destroy.Workflow())).To(Succeed())
-	}
-
-	if o.persistentDestroy != nil {
-		name := o.persistentDestroy.name
-
-		test := MakeTest(name+"-destroy", fmt.Sprintf("#DW destroy_persistent name=%s", name))
-		Expect(k8sClient.Create(ctx, test.Workflow())).To(Succeed())
-		test.Execute(ctx, k8sClient)
-		Expect(k8sClient.Delete(ctx, test.Workflow())).To(Succeed())
 	}
 
 	if t.options.storageProfile != nil {
