@@ -128,24 +128,19 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 			return err
 		}
 
-		fmt.Printf("Undeploying Module %s...\n", module)
+		// Uninstall first to ensure the CRDs, and therefore all related custom
+		// resources, are deleted while the controllers are still running.
+		if module != "lustre-csi-driver" {
+			if err := runMakeCommand(ctx, system, module, "uninstall"); err != nil {
+				return err
+			}
+		}
 
-		overlay, err := getOverlay(system, module)
-		if err != nil {
+		if err := runMakeCommand(ctx, system, module, "undeploy"); err != nil {
 			return err
 		}
 
-		cmd := exec.Command("make", "undeploy")
-
-		if len(overlay) != 0 {
-			cmd.Env = append(os.Environ(),
-				"OVERLAY="+overlay,
-			)
-		}
-
-		fmt.Println("  Running Undeploy...")
-		_, err = runCommand(ctx, cmd)
-		return err
+		return nil
 	})
 }
 
@@ -166,24 +161,28 @@ func (cmd *MakeCmd) Run(ctx *Context) error {
 			return nil
 		}
 
-		fmt.Printf("Running Make %s in %s...\n", cmd.Command, module)
-
-		cmd := exec.Command("make", cmd.Command)
-
-		overlay, err := getOverlay(system, module)
-		if err != nil {
-			return err
-		}
-
-		if len(overlay) != 0 {
-			cmd.Env = append(os.Environ(),
-				"OVERLAY="+overlay,
-			)
-		}
-
-		_, err = runCommand(ctx, cmd)
-		return err
+		return runMakeCommand(ctx, system, module, cmd.Command)
 	})
+}
+
+func runMakeCommand(ctx *Context, system *config.System, module string, command string) error {
+	fmt.Printf("  Running `make %s` in %s...\n", command, module)
+
+	cmd := exec.Command("make", command)
+
+	overlay, err := getOverlay(system, module)
+	if err != nil {
+		return err
+	}
+
+	if len(overlay) != 0 {
+		cmd.Env = append(os.Environ(),
+			"OVERLAY="+overlay,
+		)
+	}
+
+	_, err = runCommand(ctx, cmd)
+	return err
 }
 
 type InstallCmd struct {
@@ -660,7 +659,6 @@ func lastLocalCommit() (string, error) {
 
 func getOverlay(system *config.System, module string) (string, error) {
 
-	fmt.Println("  Finding Overlay...")
 	repo, err := config.FindRepository(module)
 	if err != nil {
 		return "", err
