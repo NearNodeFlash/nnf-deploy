@@ -3,9 +3,9 @@ package internal
 import (
 	"context"
 	"fmt"
+	"time"
 
-	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
-	"github.com/HewlettPackard/dws/utils/dwdparse"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,8 +13,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
 	lusv1alpha1 "github.com/NearNodeFlash/lustre-fs-operator/api/v1alpha1"
 	nnfv1alpha1 "github.com/NearNodeFlash/nnf-sos/api/v1alpha1"
+
+	"github.com/HewlettPackard/dws/utils/dwdparse"
 )
 
 // TOptions let you configure things prior to a test running or during test
@@ -171,12 +174,27 @@ func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 			fmt.Sprintf("#DW destroy_persistent name=%s", name))
 
 		// Create the persistent lustre instance
+		By(fmt.Sprintf("Creating persistent lustre instance '%s'", name))
 		Expect(k8sClient.Create(ctx, o.persistentLustre.create.Workflow())).To(Succeed())
 		o.persistentLustre.create.Execute(ctx, k8sClient)
 
-		// TODO: Extract the File System Name and MGSNids from the persistent lustre instance
-		o.persistentLustre.fsName = "TODO"
-		o.persistentLustre.mgsNids = "TODO"
+		// Extract the File System Name and MGSNids from the persistent lustre instance. This
+		// assumes an NNF Storage resource is created in the same name as the persistent instance
+		storage := &nnfv1alpha1.NnfStorage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: corev1.NamespaceDefault,
+			},
+		}
+
+		By(fmt.Sprintf("Retrieving Storage Resource %s", client.ObjectKeyFromObject(storage)))
+		Eventually(func(g Gomega) bool {
+			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(storage), storage)).To(Succeed())
+			return storage.Status.Status == nnfv1alpha1.ResourceReady
+		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeTrue())
+
+		o.persistentLustre.fsName = storage.Spec.AllocationSets[0].FileSystemName
+		o.persistentLustre.mgsNids = storage.Status.MgsNode
 	}
 
 	if o.globalLustre != nil {
@@ -200,6 +218,7 @@ func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 			panic("reference to an existing global lustre file system is not yet implemented")
 		}
 
+		By(fmt.Sprintf("Creating a global lustre file system '%s'", client.ObjectKeyFromObject(lustre)))
 		Expect(k8sClient.Create(ctx, lustre)).To(Succeed())
 	}
 

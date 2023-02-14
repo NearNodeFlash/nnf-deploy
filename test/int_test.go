@@ -64,9 +64,9 @@ var tests = []*T{
 	// Data Movement
 	MakeTest("XFS with Data Movement",
 		"#DW jobdw type=xfs name=xfs-data-movement capacity=1TB",
-		"#DW copy_in source=/lus/global/test.in destination=$JOB_DW_xfs/",    // TODO: Create a file "test.in" in the global lustre directory
-		"#DW copy_out source=$JOB_DW_xfs/test.out destination=/lus/global/"). // TODO: Validate file "test.out" in the global lustre directory
-		WithPersistentLustre("xfs-data-movement-lustre-instance").            // Manage a persistent Lustre instance as part of the test
+		"#DW copy_in source=/lus/global/test.in destination=$DW_JOB_xfs-data-movement/",    // TODO: Create a file "test.in" in the global lustre directory
+		"#DW copy_out source=$DW_JOB_xfs-data-movement/test.out destination=/lus/global/"). // TODO: Validate file "test.out" in the global lustre directory
+		WithPersistentLustre("xfs-data-movement-lustre-instance").                          // Manage a persistent Lustre instance as part of the test
 		WithGlobalLustreFromPersistentLustre("/lus/global").
 		Serialized().
 		Pending(),
