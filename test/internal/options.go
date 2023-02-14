@@ -129,7 +129,7 @@ func (t *T) WithGlobalLustreFromPersistentLustre(mountRoot string) *T {
 	return t.WithLabels("global_lustre")
 }
 
-// Prepare a test with the programmed test options
+// Prepare a test with the programmed test options.
 func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 	o := t.options
 
@@ -201,16 +201,14 @@ func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 		}
 
 		Expect(k8sClient.Create(ctx, lustre)).To(Succeed())
-
 	}
 
 	return nil
 }
 
-// Cleanup a test with the programmed test options.
-// NOTE: The order in which test options are cleanup is the opposite order of
-//
-//	their creation to ensure dependencies between options are correct.
+// Cleanup a test with the programmed test options. Note that the order in which test
+// options are cleanup is the opposite order of their creation to ensure dependencies
+// between options are correct.
 func (t *T) Cleanup(ctx context.Context, k8sClient client.Client) error {
 	o := t.options
 
