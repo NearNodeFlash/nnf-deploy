@@ -37,8 +37,13 @@ type T struct {
 	// related objects as part of test execution.
 	name string
 
-	// Labels apply to a test case and can be used by the gingko runner to execute
-	// test. See more at TODO LINK TO GINGKO LABEL EXAMPLES
+	// Directives are the actual #DW directives used to in the workflow.
+	directives []string
+
+	// Labels are simply textual tags that can be attached to a particular test case. Labels
+	// provide filter capabilities using via the `ginkgo --label-filter=QUERY` flag.
+	//
+	// For more details on labels, see https://onsi.github.io/ginkgo/#spec-labels
 	labels []string
 
 	// Decorators are ginkgo decorators that can be applied to an individual test case
@@ -54,14 +59,18 @@ type T struct {
 	//   The Pending decorator will instruct Ginkgo to skip the case. This is useful if a test is
 	//   under development, or perhaps is flaky.
 	//
-	// For more details, see
+	// Serial
+	//   The Serial decorator allows the user to mark specs and containers of specs as only eligible
+	//   to run in serial. Ginkgo will guarantee that these specs never run in parallel with other specs.
+	//
+	// For more details on decorators, see https://onsi.github.io/ginkgo/#decorator-reference
 	decorators []interface{}
 
-	directives []string
-
-	options TOptions
-
+	// Workflow defines the DWS Workflow resource that is the target of the test.
 	workflow *dwsv1alpha1.Workflow
+
+	// Options let you modify the test case with a variety of options and customizations
+	options TOptions
 }
 
 func MakeTest(name string, directives ...string) *T {

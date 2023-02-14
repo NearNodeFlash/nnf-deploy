@@ -31,13 +31,16 @@ import (
 )
 
 var tests = []*T{
-	// Examples
+	// Examples:
 	//
-	// Make a test that is the focus of the Ginkgo runner. Ginkgo will only run tests that have the Focus decorator
-	// MakeTest("Focused", "...").Focused(),
+	// Mark a test case as Focused(). Ginkgo will only run tests that have the Focus decorator.
+	//   MakeTest("Focused", "#DW ...").Focused(),
 	//
-	// Make a test that will stop the workflow after achieving the desired state (i.e. PreRun)
-	// MakeTest("Stop After", "...").StopAfter(wsv1alpha1.StatePreRun)
+	// Mark a test case as Pending(). Ginkgo will not run any tests that have the Pending decorator
+	//   MakeTest("Pending", "#DW ...").Pending()
+	//
+	// Mark a test case so it will stop after the workflow achieves the desired state of PreRun
+	//   MakeTest("Stop After", "#DW ...").StopAfter(wsv1alpha1.StatePreRun),
 
 	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
 	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple).Pending(),
@@ -106,7 +109,7 @@ var _ = Describe("NNF Integration Test", func() {
 				})
 			})
 
-			// Report additional workflow datafor each failed test
+			// Report additional workflow data for each failed test
 			ReportAfterEach(func(report SpecReport) {
 				if report.Failed() {
 					workflow := t.Workflow()
