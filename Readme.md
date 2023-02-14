@@ -145,7 +145,7 @@ proper certs and tokens. Systemd files are used to manage and start the daemons.
 
 # Testing
 
-NNF test infrastructure and individualized tests reside in the `/test` directory. Tests are expected to run against a fully deployed cluster reachable via your current k8s configuration context. NNF test uses the [Ginkgo](https://onsi.github.io/ginkgo) test framework.
+NNF test infrastructure and individualized tests reside in the [/test](./test/) directory. Tests are expected to run against a fully deployed cluster reachable via your current k8s configuration context. NNF test uses the [Ginkgo](https://onsi.github.io/ginkgo) test framework.
 
 Various Ginkgo options can be passed into `go test`. Common options include `-ginkgo.fail-fast`,  `-ginkgo.progress`,  and `-gingo.v`
 
@@ -157,4 +157,8 @@ Ginkgo also provides the [Ginkgo CLI](https://onsi.github.io/ginkgo/#ginkgo-cli-
 
 ## Test Definitions
 
-Individual tests are listed in `/test/int_test.go`. Tests are written from the perspective of a workload manager and should operate only on DWS resources when possible.
+Individual tests are listed in [/test/int_test.go](./test/int_test.go). Tests are written from the perspective of a workload manager and should operate only on DWS resources when possible.
+
+## Test Options
+
+[Test Options](./test/internal/options.go) allow the user extend test definitions with various options. Administrative controls, like creating NNF Storage Profiles or NNF Container profiles, configuring a global Lustre File System, or extracting Lustre parameters from a persistent Lustre instance, are some example test options.
