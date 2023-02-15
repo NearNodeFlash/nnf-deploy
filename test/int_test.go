@@ -41,10 +41,21 @@ var tests = []*T{
 	//
 	// Mark a test case so it will stop after the workflow achieves the desired state of PreRun
 	//   MakeTest("Stop After", "#DW ...").StopAfter(wsv1alpha1.StatePreRun),
+	//
+	// Duplicate a test case 20 times.
+	//   DuplicateTest(
+	//      MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB"),
+	//      20,
+	//   ),
 
 	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
 	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple).Pending(),
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
+
+	DuplicateTest(
+		MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").Focused(),
+		5,
+	),
 
 	// Storage Profiles
 	MakeTest("XFS with Storage Profile",
@@ -79,7 +90,9 @@ var tests = []*T{
 
 var _ = Describe("NNF Integration Test", func() {
 
-	for _, t := range tests {
+	iterator := TestIterator(tests)
+	for t := iterator.Next(); t != nil; t = iterator.Next() {
+
 		t := t
 
 		Describe(t.Name(), append(t.Args(), func() {
