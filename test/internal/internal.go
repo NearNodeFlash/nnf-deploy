@@ -152,3 +152,79 @@ func (t *T) Args() []interface{} {
 
 	return args
 }
+
+func DuplicateTest(t *T, count int) *T {
+
+	if len(t.directives) != 1 {
+		// To support more than one directive, we'd have to know how to copy
+		// directives over from the base test
+		panic("Duplicate can only take a test with one directive")
+	}
+
+	if t.options.hasComplexOptions() {
+		// Duplicating a test with options is not possible since those
+		// options take parameters that are unique to the test and there
+		// is no simple way to port them to duplicate test cases
+		panic("Can not duplicate tests with options at this time")
+	}
+
+	directive := t.directives[0]
+	args, _ := dwdparse.BuildArgsMap(directive)
+
+	if args["command"] != "jobdw" {
+		panic("Can only duplicate jobdw's at this time")
+	}
+
+	// Duplicate the test, ensuring that both the test name and the
+	// #DW jobdw dw are unique
+	nameArg := "name=" + args["name"]
+
+	tests := make([]*T, count)
+	for index := 0; index < count; index++ {
+
+		tests[index] = MakeTest(
+			fmt.Sprintf("%s-%d", t.name, index),
+			strings.Replace(directive, nameArg, fmt.Sprintf("%s-%d", nameArg, index), 1),
+		)
+
+		tests[index].decorators = t.decorators
+		tests[index].labels = t.labels
+	}
+
+	t.options.duplicate = &TDuplicate{
+		t:     t,
+		tests: tests,
+		index: 0,
+	}
+
+	return t
+}
+
+type iterator struct {
+	tests []*T
+	index int
+}
+
+func TestIterator(tests []*T) *iterator {
+	return &iterator{tests: tests, index: 0}
+}
+
+func (itr *iterator) Next() *T {
+	if itr.index >= len(itr.tests) {
+		return nil
+	}
+
+	t := itr.tests[itr.index]
+	if t.options.duplicate != nil {
+		if t.options.duplicate.index < len(t.options.duplicate.tests) {
+			t.options.duplicate.index++
+			return t.options.duplicate.tests[t.options.duplicate.index-1]
+		}
+
+		itr.index++
+		return itr.Next()
+	}
+
+	itr.index++
+	return t
+}

@@ -28,6 +28,12 @@ type TOptions struct {
 	persistentLustre  *TPersistentLustre
 	globalLustre      *TGlobalLustre
 	cleanupPersistent *TCleanupPersistentInstance
+	duplicate         *TDuplicate
+}
+
+// Complex options that can not be duplicated
+func (o *TOptions) hasComplexOptions() bool {
+	return o.storageProfile != nil || o.persistentLustre != nil || o.globalLustre != nil || o.cleanupPersistent != nil
 }
 
 type TStopAfter struct {
@@ -130,6 +136,12 @@ func (t *T) WithGlobalLustreFromPersistentLustre(mountRoot string) *T {
 	}
 
 	return t.WithLabels("global_lustre")
+}
+
+type TDuplicate struct {
+	t     *T
+	tests []*T
+	index int
 }
 
 // Prepare a test with the programmed test options.
