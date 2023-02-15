@@ -21,10 +21,13 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	. "github.com/NearNodeFlash/nnf-deploy/test/internal"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -88,9 +91,20 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	// Check if the system is currently in need of tirage and prevent test execution if so
+	if IsSystemInNeedOfTriage(ctx, k8sClient) {
+		AbortSuite(fmt.Sprintf("System requires triage. Delete the '%s' namespace when finished", TriageNamespaceName))
+	}
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
+
+	// Mark the system as needing triage if any spec failed
+	if ctx.SpecReport().Failed() {
+		SetSystemInNeedOfTriage(ctx, k8sClient)
+	}
+
 	cancel()
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
