@@ -57,10 +57,7 @@ func (t *T) Execute(ctx context.Context, k8sClient client.Client) {
 }
 
 func (t *T) proposal(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	Eventually(func(g Gomega) bool {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).To(Succeed())
-		return workflow.Status.State == dwsv1alpha1.StateProposal && workflow.Status.Ready
-	}).Should(BeTrue())
+	waitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateProposal)
 }
 
 func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
@@ -174,17 +171,32 @@ func (t *T) teardown(ctx context.Context, k8sClient client.Client, workflow *dws
 // func DataOut...
 
 func AdvanceStateAndWaitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
-
 	Eventually(func() error {
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
 		workflow.Spec.DesiredState = state
 		return k8sClient.Update(ctx, workflow)
 	}).Should(Succeed(), fmt.Sprintf("updates state to '%s'", state))
 
-	Eventually(func() bool {
+	waitForReady(ctx, k8sClient, workflow, state)
+}
+
+func waitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
+
+	achieveState := func(state dwsv1alpha1.WorkflowState) OmegaMatcher {
+		return And(
+			HaveField("Ready", BeTrue()),
+			HaveField("State", Equal(state)),
+			HaveField("Status", Equal(dwsv1alpha1.StatusCompleted)),
+		)
+	}
+
+	Eventually(func() dwsv1alpha1.WorkflowStatus {
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
-		return workflow.Status.Ready && workflow.Status.State == state
-	}).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeTrue(), fmt.Sprintf("wait for ready in state %s", state))
+		return workflow.Status
+	}).
+		WithTimeout(time.Minute).
+		WithPolling(time.Second).
+		Should(achieveState(state), fmt.Sprintf("achieve state '%s'", state))
 }
 
 func ObjectKeyFromObjectReference(r corev1.ObjectReference) types.NamespacedName {
