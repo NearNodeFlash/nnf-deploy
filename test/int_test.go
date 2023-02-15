@@ -93,6 +93,10 @@ var _ = Describe("NNF Integration Test", func() {
 	iterator := TestIterator(tests)
 	for t := iterator.Next(); t != nil; t = iterator.Next() {
 
+		// Note that you must assign a copy of the loop variable to a local variable - otherwise
+		// the closure will capture the mutating loop variable and all the specs will run against
+		// the last element in the loop. It is idiomatic to give the local copy the same name as
+		// the loop variable.
 		t := t
 
 		Describe(t.Name(), append(t.Args(), func() {
