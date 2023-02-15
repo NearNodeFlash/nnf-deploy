@@ -28,7 +28,7 @@ type TOptions struct {
 	persistentLustre  *TPersistentLustre
 	globalLustre      *TGlobalLustre
 	cleanupPersistent *TCleanupPersistentInstance
-	duplicate		  *TDuplicate
+	duplicate         *TDuplicate
 }
 
 // Complex options that can not be duplicated
@@ -139,7 +139,7 @@ func (t *T) WithGlobalLustreFromPersistentLustre(mountRoot string) *T {
 }
 
 type TDuplicate struct {
-	t *T
+	t     *T
 	tests []*T
 	index int
 }
