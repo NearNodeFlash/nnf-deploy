@@ -22,6 +22,9 @@ package internal
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"runtime"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,14 +41,29 @@ import (
 // StateHandler defines a method that handles a particular state in the workflow
 type StateHandler func(context.Context, client.Client, *dwsv1alpha1.Workflow)
 
-func (t *T) Proposal(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) Execute(ctx context.Context, k8sClient client.Client) {
+	for _, fn := range []StateHandler{t.proposal, t.setup, t.dataIn, t.preRun, t.postRun, t.dataOut, t.teardown} {
+		fn(ctx, k8sClient, t.workflow)
+
+		if t.options.stopAfter != nil {
+			fnName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name() // This will return something like `full-import-path.(*T).Function-fm`
+			fnName = fnName[strings.Index(fnName, "(*T).")+5 : len(fnName)-3] // Extract the function name
+			state := dwsv1alpha1.WorkflowState(strings.Title(fnName))
+			if state == t.options.stopAfter.state {
+				break
+			}
+		}
+	}
+}
+
+func (t *T) proposal(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 	Eventually(func(g Gomega) bool {
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).To(Succeed())
 		return workflow.Status.State == dwsv1alpha1.StateProposal && workflow.Status.Ready
 	}).Should(BeTrue())
 }
 
-func (t *T) Setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 
 	// TODO: Move this to a global variable and initialized in the test suite.
 	systemConfig := &dwsv1alpha1.SystemConfiguration{}
@@ -125,27 +143,27 @@ func (t *T) Setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateSetup)
 }
 
-func (t *T) DataIn(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) dataIn(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 	By("Advances to DataIn State")
 	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateDataIn)
 }
 
-func (t *T) PreRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) preRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 	By("Advances to PreRun State")
 	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StatePreRun)
 }
 
-func (t *T) PostRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) postRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 	By("Advances to PostRun State")
 	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StatePostRun)
 }
 
-func (t *T) DataOut(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) dataOut(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 	By("Advances to DataOut State")
 	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateDataOut)
 }
 
-func (t *T) Teardown(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) teardown(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 	By("Advances to Teardown State")
 	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
 }

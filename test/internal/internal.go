@@ -20,19 +20,15 @@
 package internal
 
 import (
-	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	nnfv1alpha1 "github.com/NearNodeFlash/nnf-sos/api/v1alpha1"
-
+	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
 	"github.com/HewlettPackard/dws/utils/dwdparse"
 )
 
@@ -41,8 +37,13 @@ type T struct {
 	// related objects as part of test execution.
 	name string
 
-	// Labels apply to a test case and can be used by the gingko runner to execute
-	// test. See more at TODO LINK TO GINGKO LABEL EXAMPLES
+	// Directives are the actual #DW directives used to in the workflow.
+	directives []string
+
+	// Labels are simply textual tags that can be attached to a particular test case. Labels
+	// provide filter capabilities using via the `ginkgo --label-filter=QUERY` flag.
+	//
+	// For more details on labels, see https://onsi.github.io/ginkgo/#spec-labels
 	labels []string
 
 	// Decorators are ginkgo decorators that can be applied to an individual test case
@@ -58,22 +59,18 @@ type T struct {
 	//   The Pending decorator will instruct Ginkgo to skip the case. This is useful if a test is
 	//   under development, or perhaps is flaky.
 	//
-	// For more details, see
+	// Serial
+	//   The Serial decorator allows the user to mark specs and containers of specs as only eligible
+	//   to run in serial. Ginkgo will guarantee that these specs never run in parallel with other specs.
+	//
+	// For more details on decorators, see https://onsi.github.io/ginkgo/#decorator-reference
 	decorators []interface{}
 
-	directives []string
+	// Workflow defines the DWS Workflow resource that is the target of the test.
+	workflow *dwsv1alpha1.Workflow
 
+	// Options let you modify the test case with a variety of options and customizations
 	options TOptions
-}
-
-// TOptions let you configure things prior to a test running
-type TOptions struct {
-	// Create a storage profile for the test case
-	storageProfile *TStorageProfile
-}
-
-type TStorageProfile struct {
-	name string
 }
 
 func MakeTest(name string, directives ...string) *T {
@@ -93,20 +90,40 @@ func MakeTest(name string, directives ...string) *T {
 		}
 	}
 
-	return &T{
+	t := &T{
 		name:       name,
 		directives: directives,
 		labels:     labels,
 		decorators: make([]interface{}, 0),
 	}
-}
 
-func (t *T) WithStorageProfile(name string) *T {
-	t.options.storageProfile = &TStorageProfile{
-		name: name,
+	t.workflow = &dwsv1alpha1.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      t.WorkflowName(),
+			Namespace: corev1.NamespaceDefault,
+		},
+		Spec: dwsv1alpha1.WorkflowSpec{
+			DesiredState: dwsv1alpha1.StateProposal,
+			DWDirectives: t.WorkflowDirectives(),
+			JobID:        GinkgoParallelProcess(),
+			WLMID:        strconv.Itoa(GinkgoParallelProcess()),
+		},
 	}
 
-	return t.WithLabels("storage-profile")
+	return t
+}
+
+func (t *T) WorkflowName() string {
+	return strings.ToLower(strings.ReplaceAll(t.name, " ", "-"))
+}
+
+// Retrieve the #DW Directives from the test case
+func (t *T) WorkflowDirectives() []string {
+	return t.directives
+}
+
+func (t *T) Workflow() *dwsv1alpha1.Workflow {
+	return t.workflow
 }
 
 // To apply a set of labels for a particular test, use the withLables() method. Labels
@@ -116,8 +133,9 @@ const (
 
 func (t *T) WithLabels(labels ...string) *T { t.labels = append(t.labels, labels...); return t }
 
-func (t *T) Focused() *T { t.decorators = append(t.decorators, Focus); return t }
-func (t *T) Pending() *T { t.decorators = append(t.decorators, Pending); return t }
+func (t *T) Focused() *T    { t.decorators = append(t.decorators, Focus); return t }
+func (t *T) Pending() *T    { t.decorators = append(t.decorators, Pending); return t }
+func (t *T) Serialized() *T { t.decorators = append(t.decorators, Serial); return t }
 
 func (t *T) Name() string { return t.name }
 
@@ -133,91 +151,4 @@ func (t *T) Args() []interface{} {
 	}
 
 	return args
-}
-
-func (t *T) Labels() interface{} {
-	if len(t.labels) == 0 {
-		return nil
-	}
-
-	return Labels(t.labels)
-}
-
-func (t *T) Decorators() []interface{} {
-	if len(t.decorators) == 0 {
-		return nil
-	}
-
-	return t.decorators
-}
-
-func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
-	o := t.options
-
-	if o.storageProfile != nil {
-		// Clone the placeholder profile
-		placeholder := &nnfv1alpha1.NnfStorageProfile{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "placeholder",
-				Namespace: "nnf-system",
-			},
-		}
-
-		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(placeholder), placeholder)).To(Succeed())
-
-		profile := &nnfv1alpha1.NnfStorageProfile{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      o.storageProfile.name,
-				Namespace: "nnf-system",
-			},
-		}
-
-		placeholder.Data.DeepCopyInto(&profile.Data)
-		profile.Data.Default = false
-
-		Expect(k8sClient.Create(ctx, profile)).To(Succeed())
-	}
-
-	return nil
-}
-
-func (t *T) Cleanup(ctx context.Context, k8sClient client.Client) error {
-	o := t.options
-
-	if t.options.storageProfile != nil {
-
-		profile := &nnfv1alpha1.NnfStorageProfile{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      o.storageProfile.name,
-				Namespace: "nnf-system",
-			},
-		}
-
-		Expect(k8sClient.Delete(ctx, profile)).To(Succeed())
-	}
-
-	return nil
-}
-
-func (t *T) WorkflowName() string {
-	return strings.ToLower(strings.ReplaceAll(t.name, " ", "-"))
-}
-
-// Retrieve the #DW Directives from the test case
-func (t *T) WorkflowDirectives() []string {
-
-	for idx, directive := range t.directives {
-		args, err := dwdparse.BuildArgsMap(directive)
-		Expect(err).NotTo(HaveOccurred())
-
-		// Make each "#DW jobdw name=[name]" unique so there are no collisions running test in parallel
-		name := args["name"]
-		Expect(name).NotTo(BeNil())
-
-		directive = strings.Replace(directive, "name="+name, "name="+name+"-"+t.WorkflowName(), 1)
-
-		t.directives[idx] = directive
-	}
-
-	return t.directives
 }

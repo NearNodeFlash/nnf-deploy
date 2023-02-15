@@ -21,30 +21,60 @@ package test
 
 import (
 	"fmt"
-	"strconv"
 
 	. "github.com/NearNodeFlash/nnf-deploy/test/internal"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
 )
 
 var tests = []*T{
+	// Examples:
+	//
+	// Mark a test case as Focused(). Ginkgo will only run tests that have the Focus decorator.
+	//   MakeTest("Focused", "#DW ...").Focused(),
+	//
+	// Mark a test case as Pending(). Ginkgo will not run any tests that have the Pending decorator
+	//   MakeTest("Pending", "#DW ...").Pending()
+	//
+	// Mark a test case so it will stop after the workflow achieves the desired state of PreRun
+	//   MakeTest("Stop After", "#DW ...").StopAfter(wsv1alpha1.StatePreRun),
+
 	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
 	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple).Pending(),
-
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
 
-	// Tests that create and use storage profiles
-	MakeTest("XFS with Storage Profile", "#DW jobdw type=xfs name=xfs capacity=1TB profile=my-xfs-profile").
-		WithStorageProfile("my-xfs-profile"),
-	MakeTest("GFS2 with Storage Profile", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB profile=my-gfs2-profile").
-		WithStorageProfile("my-gfs2-profile").Pending(),
+	// Storage Profiles
+	MakeTest("XFS with Storage Profile",
+		"#DW jobdw type=xfs name=xfs-storage-profile capacity=1TB profile=my-xfs-storage-profile").
+		WithStorageProfile(),
+	MakeTest("GFS2 with Storage Profile",
+		"#DW jobdw type=gfs2 name=gfs2-storage-profile capacity=1TB profile=my-gfs2-storage-profile").
+		WithStorageProfile().
+		Pending(),
+
+	// Persistent
+	MakeTest("Persistent Lustre",
+		"#DW create_persistent type=lustre name=persistent-lustre capacity=1TB").
+		AndCleanupPersistentInstance().
+		Serialized(),
+
+	// Data Movement
+	MakeTest("XFS with Data Movement",
+		"#DW jobdw type=xfs name=xfs-data-movement capacity=1TB",
+		"#DW copy_in source=/lus/global/test.in destination=$JOB_DW_xfs/",    // TODO: Create a file "test.in" in the global lustre directory
+		"#DW copy_out source=$JOB_DW_xfs/test.out destination=/lus/global/"). // TODO: Validate file "test.out" in the global lustre directory
+		WithPersistentLustre("xfs-data-movement-lustre-instance").            // Manage a persistent Lustre instance as part of the test
+		WithGlobalLustreFromPersistentLustre("/lus/global").
+		Serialized().
+		Pending(),
+
+	MakeTest("GFS2 with Containers (BLAKE)",
+		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=1TB",
+		"#DW container name=gfs2-with-containers profile=TODO DW_JOB_gfs2-with-containers",
+	).Pending(),
 }
 
 var _ = Describe("NNF Integration Test", func() {
@@ -53,7 +83,6 @@ var _ = Describe("NNF Integration Test", func() {
 		t := t
 
 		Describe(t.Name(), append(t.Args(), func() {
-			var workflow *dwsv1alpha1.Workflow
 
 			// Prepare any necessary test conditions prior to creating the workflow
 			BeforeEach(func() {
@@ -61,45 +90,35 @@ var _ = Describe("NNF Integration Test", func() {
 				DeferCleanup(func() { Expect(t.Cleanup(ctx, k8sClient)).To(Succeed()) })
 			})
 
+			// Create the workflow and delete it on cleanup
 			BeforeEach(func() {
-				workflow = &dwsv1alpha1.Workflow{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      t.WorkflowName(),
-						Namespace: corev1.NamespaceDefault,
-					},
-					Spec: dwsv1alpha1.WorkflowSpec{
-						DesiredState: dwsv1alpha1.StateProposal,
-						DWDirectives: t.WorkflowDirectives(),
-						JobID:        GinkgoParallelProcess(),
-						WLMID:        strconv.Itoa(GinkgoParallelProcess()),
-					},
-				}
+				workflow := t.Workflow()
 
 				Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
 
 				DeferCleanup(func(context SpecContext) {
-					// TODO: Ginkgo's `--fail-fast` option still seems to execute DeferCleanup() calls
-					//       See if this is by design or if we might need to move this to an AfterEach()
-					if !context.SpecReport().Failed() {
-						AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
+					if t.ShouldTeardown() {
+						// TODO: Ginkgo's `--fail-fast` option still seems to execute DeferCleanup() calls
+						//       See if this is by design or if we might need to move this to an AfterEach()
+						if !context.SpecReport().Failed() {
+							AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
 
-						Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+							Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+						}
 					}
 				})
 			})
 
+			// Report additional workflow data for each failed test
 			ReportAfterEach(func(report SpecReport) {
 				if report.Failed() {
+					workflow := t.Workflow()
 					AddReportEntry(fmt.Sprintf("Workflow '%s' Failed", workflow.Name), workflow.Status)
 				}
 			})
 
 			// Run the workflow from Setup through Teardown
-			It("Executes", func() {
-				for _, fn := range []StateHandler{t.Proposal, t.Setup, t.DataIn, t.PreRun, t.PostRun, t.DataOut, t.Teardown} {
-					fn(ctx, k8sClient, workflow)
-				}
-			})
+			It("Executes", func() { t.Execute(ctx, k8sClient) })
 
 		})...)
 	}
