@@ -94,7 +94,7 @@ var _ = BeforeSuite(func() {
 
 	// Check if the system is currently in need of tirage and prevent test execution if so
 	if IsSystemInNeedOfTriage(ctx, k8sClient) {
-		AbortSuite(fmt.Sprintf("System requires triage. Delete the '%s' namespace when finished", TirageNamespaceName))
+		AbortSuite(fmt.Sprintf("System requires triage. Delete the '%s' namespace when finished", TriageNamespaceName))
 	}
 })
 

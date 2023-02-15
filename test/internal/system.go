@@ -29,12 +29,12 @@ import (
 )
 
 const (
-	TirageNamespaceName = "nnf-system-needs-triage"
+	TriageNamespaceName = "nnf-system-needs-triage"
 )
 
 func IsSystemInNeedOfTriage(ctx context.Context, k8sClient client.Client) bool {
 
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: TirageNamespaceName}}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: TriageNamespaceName}}
 	err := k8sClient.Get(ctx, client.ObjectKeyFromObject(ns), ns)
 
 	return !errors.IsNotFound(err)
@@ -42,7 +42,7 @@ func IsSystemInNeedOfTriage(ctx context.Context, k8sClient client.Client) bool {
 
 func SetSystemInNeedOfTriage(ctx context.Context, k8sClient client.Client) error {
 
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: TirageNamespaceName}}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: TriageNamespaceName}}
 	if err := k8sClient.Create(ctx, ns); err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
