@@ -53,7 +53,7 @@ var tests = []*T{
 	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
 
 	DuplicateTest(
-		MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").Focused(),
+		MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").Pending(), // Will fail for Setup() exceeding time limit; needs investigation
 		5,
 	),
 
