@@ -8,7 +8,7 @@ git clone --recurse-submodules git@github.com:NearNodeFlash/nnf-deploy
 
 ## Updating the Submodules
 
-To update the submdules in this workarea, run the update.sh script in this workarea.  Use this to pick up recent changes in any of the submodules.
+To update the submodules in this work area, run the [update.sh](./update.sh) script.  Use this to pick up recent changes in any of the submodules.
 
 **Warning** If the current submodules have already been deployed to a K8s system, then teardown and delete any workflows and run `nnf-deploy undeploy` to remove the old CRDs and pods prior to updating the submodules.  An update may pull in new CRD changes that are incompatible with resources that are already on the K8s system.
 
@@ -34,7 +34,7 @@ The update.sh command will switch that submodule back to the head of its master 
 
 ## nnf-deploy
 
-nnf-deploy is a golang executable capable of building all of the docker components of the Rabbit software stack locally as well as deploying and undeploying those components to a k8s cluster specified by the current kube config.
+nnf-deploy is a golang executable capable of building components of the Rabbit software stack locally as well as deploying and un-deploying those components to a k8s cluster specified by the current kube config.
 
 ### Build
 
@@ -96,18 +96,36 @@ Once the labels/taint are applied, cert manager will be installed.
 
 ## Deploy
 
-Deploying will deploy all the submodules to your current kube config context
+Deploy all the submodules using the `deploy` command
 
 ```bash
 ./nnf-deploy deploy
 ```
 
+To only deploy specific repositories, include the desired modules after `deploy` command. For example, to only deploy `dws` and `nnf-sos` repositories, use
+```bash
+./nnf-deploy deploy dws nnf-sos
+```
+
 ## Undeploy
 
-Undeploy all the submodules
+**WARNING!** Undeploy should be preceded by deleting any user or administrator created resources such as `lustrefilesystems` and `workflows` using kubectl commands
+
+```bash
+kubectl delete workflows.dws.cray.hpe.com --all
+kubectl delete lustrefilesystems.cray.hpe.com --all
+```
+
+Undeploy all the submodules using the `undeploy` command.
 
 ```bash
 ./nnf-deploy undeploy
+```
+
+Similar to deploy, undeploy specific repositories by including the desired modules after the `undeploy` command. For example, to only undeploy `dws` and `nnf-sos`, use
+
+```bash
+./nnf-deploy undeploy dws nnf-sos
 ```
 
 ## Make
@@ -147,7 +165,7 @@ proper certs and tokens. Systemd files are used to manage and start the daemons.
 
 NNF test infrastructure and individualized tests reside in the [/test](./test/) directory. Tests are expected to run against a fully deployed cluster reachable via your current k8s configuration context. NNF test uses the [Ginkgo](https://onsi.github.io/ginkgo) test framework.
 
-Various Ginkgo options can be passed into `go test`. Common options include `-ginkgo.fail-fast`,  `-ginkgo.progress`,  and `-gingo.v`
+Various Ginkgo options can be passed into `go test`. Common options include `-ginkgo.fail-fast`,  `-ginkgo.progress`,  and `-ginkgo.v`
 
 ```bash
 go test -v ./test/... -ginkgo.fail-fast -ginkgo.progress -ginkgo.v
