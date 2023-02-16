@@ -34,7 +34,7 @@ The update.sh command will switch that submodule back to the head of its master 
 
 ## nnf-deploy
 
-nnf-deploy is a golang executable capable of building components of the Rabbit software stack locally as well as deploying and un-deploying those components to a k8s cluster specified by the current kube config.
+nnf-deploy is a golang executable capable of building components of the Rabbit software stack locally as well as deploying and un-deploying those components to a k8s cluster specified by the current kubeconfig.
 
 ### Build
 
@@ -102,14 +102,14 @@ Deploy all the submodules using the `deploy` command
 ./nnf-deploy deploy
 ```
 
-To only deploy specific repositories, include the desired modules after `deploy` command. For example, to only deploy `dws` and `nnf-sos` repositories, use
+To deploy only specific repositories, include the desired modules after `deploy` command. For example, to deploy only `dws` and `nnf-sos` repositories, use
 ```bash
 ./nnf-deploy deploy dws nnf-sos
 ```
 
 ## Undeploy
 
-**WARNING!** Undeploy should be preceded by deleting any user or administrator created resources such as `lustrefilesystems` and `workflows` using kubectl commands
+**WARNING!** Before you undeploy, delete any user or administrator created resources such as `lustrefilesystems` and `workflows` using kubectl commands
 
 ```bash
 kubectl delete workflows.dws.cray.hpe.com --all
@@ -122,7 +122,7 @@ Undeploy all the submodules using the `undeploy` command.
 ./nnf-deploy undeploy
 ```
 
-Similar to deploy, undeploy specific repositories by including the desired modules after the `undeploy` command. For example, to only undeploy `dws` and `nnf-sos`, use
+Similar to deploy, you may undeploy specific repositories by including the desired modules after the `undeploy` command. For example, to undeploy only `dws` and `nnf-sos`, use
 
 ```bash
 ./nnf-deploy undeploy dws nnf-sos
