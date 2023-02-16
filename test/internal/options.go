@@ -25,6 +25,7 @@ import (
 type TOptions struct {
 	stopAfter         *TStopAfter
 	storageProfile    *TStorageProfile
+	containerProfile  *TContainerProfile
 	persistentLustre  *TPersistentLustre
 	globalLustre      *TGlobalLustre
 	cleanupPersistent *TCleanupPersistentInstance
@@ -33,7 +34,7 @@ type TOptions struct {
 
 // Complex options that can not be duplicated
 func (o *TOptions) hasComplexOptions() bool {
-	return o.storageProfile != nil || o.persistentLustre != nil || o.globalLustre != nil || o.cleanupPersistent != nil
+	return o.storageProfile != nil || o.containerProfile != nil || o.persistentLustre != nil || o.globalLustre != nil || o.cleanupPersistent != nil
 }
 
 type TStopAfter struct {
@@ -51,6 +52,9 @@ func (t *T) ShouldTeardown() bool {
 }
 
 type TStorageProfile struct {
+	name string
+}
+type TContainerProfile struct {
 	name string
 }
 
@@ -71,8 +75,26 @@ func (t *T) WithStorageProfile() *T {
 	panic(fmt.Sprintf("profile argument required but not found in test '%s'", t.Name()))
 }
 
+// WithContainerProfile will manage a container profile of of name 'name'
+func (t *T) WithContainerProfile() *T {
+
+	for _, directive := range t.directives {
+		args, _ := dwdparse.BuildArgsMap(directive)
+
+		if args["command"] == "container" {
+			if name, found := args["profile"]; found {
+				t.options.containerProfile = &TContainerProfile{name: name}
+				return t.WithLabels("container_profile")
+			}
+		}
+	}
+
+	panic(fmt.Sprintf("profile argument required but not found in test '%s'", t.Name()))
+}
+
 type TPersistentLustre struct {
-	name string
+	name     string
+	capacity string
 
 	// Use internal tests to drive the persistent lustre workflow
 	create  *T
@@ -82,8 +104,8 @@ type TPersistentLustre struct {
 	mgsNids string
 }
 
-func (t *T) WithPersistentLustre(name string) *T {
-	t.options.persistentLustre = &TPersistentLustre{name: name}
+func (t *T) WithPersistentLustre(name, capacity string) *T {
+	t.options.persistentLustre = &TPersistentLustre{name: name, capacity: capacity}
 	return t.WithLabels("persistent", "lustre")
 }
 
@@ -172,6 +194,29 @@ func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 		Expect(k8sClient.Create(ctx, profile)).To(Succeed())
 	}
 
+	if o.containerProfile != nil {
+		// Clone the placeholder profile
+		placeholder := &nnfv1alpha1.NnfContainerProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "example-success",
+				Namespace: "nnf-system",
+			},
+		}
+
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(placeholder), placeholder)).To(Succeed())
+
+		profile := &nnfv1alpha1.NnfContainerProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      o.containerProfile.name,
+				Namespace: "nnf-system",
+			},
+		}
+
+		placeholder.Data.DeepCopyInto(&profile.Data)
+
+		Expect(k8sClient.Create(ctx, profile)).To(Succeed())
+	}
+
 	if o.cleanupPersistent != nil {
 		// Nothing to do in Prepare()
 	}
@@ -179,9 +224,10 @@ func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 	if o.persistentLustre != nil {
 		// Create a persistent lustre instance all the way to pre-run
 		name := o.persistentLustre.name
+		capacity := o.persistentLustre.capacity
 
 		o.persistentLustre.create = MakeTest(name+"-create",
-			fmt.Sprintf("#DW create_persistent type=lustre name=%s capacity=1TB", name))
+			fmt.Sprintf("#DW create_persistent type=lustre name=%s capacity=%s", name, capacity))
 		o.persistentLustre.destroy = MakeTest(name+"-destroy",
 			fmt.Sprintf("#DW destroy_persistent name=%s", name))
 
@@ -281,6 +327,18 @@ func (t *T) Cleanup(ctx context.Context, k8sClient client.Client) error {
 		profile := &nnfv1alpha1.NnfStorageProfile{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      o.storageProfile.name,
+				Namespace: "nnf-system",
+			},
+		}
+
+		Expect(k8sClient.Delete(ctx, profile)).To(Succeed())
+	}
+
+	if t.options.containerProfile != nil {
+
+		profile := &nnfv1alpha1.NnfContainerProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      o.containerProfile.name,
 				Namespace: "nnf-system",
 			},
 		}
