@@ -189,6 +189,7 @@ func DuplicateTest(t *T, count int) *T {
 
 		tests[index].decorators = t.decorators
 		tests[index].labels = t.labels
+		tests[index].options = t.options
 	}
 
 	t.options.duplicate = &TDuplicate{
