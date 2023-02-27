@@ -14,6 +14,7 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version-file: 'go.mod'
+        cache: true
     - name: Setup Ginkgo
       run: go get github.com/onsi/ginkgo/v2/ginkgo@v2.8.1 && go install github.com/onsi/ginkgo/v2/ginkgo && go get github.com/onsi/gomega/...
     - run: ginkgo run -p --vv ./test/...
