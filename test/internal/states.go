@@ -98,6 +98,7 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 			// persistentdw directives do not have StorageBreakdowns (Status.Storage)
 			args, _ := dwdparse.BuildArgsMap(directiveBreakdown.Spec.Directive)
 			if args["command"] == "persistentdw" {
+				Expect(directiveBreakdown.Status.Storage).To(BeNil())
 				continue
 			}
 
