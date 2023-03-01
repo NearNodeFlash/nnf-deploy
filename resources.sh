@@ -46,11 +46,11 @@ for_all_resources() {
     for CRD in $CRDS
     do
         echo "Processing CRD $CRD"
-        IFS=$'\n' RESOURCES=$(kubectl get $CRD --all-namespaces --no-headers)
+        IFS=$'\n' RESOURCES=$(kubectl get "$CRD" --all-namespaces --no-headers)
         for RESOURCE in $RESOURCES
         do
-            NAMESPACE=$(echo $RESOURCE | awk '{print $1}')
-            NAME=$(echo $RESOURCE | awk '{print $2}')
+            NAMESPACE=$(echo "$RESOURCE" | awk '{print $1}')
+            NAME=$(echo "$RESOURCE" | awk '{print $2}')
 
             echo "  Resource $NAMESPACE/$NAME"
             "$FUNCTION" "$CRD" "$NAME" "$NAMESPACE" "${ARGS[@]}"
