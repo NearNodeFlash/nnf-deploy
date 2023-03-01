@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
+	"github.com/HewlettPackard/dws/utils/dwdparse"
 )
 
 // StateHandler defines a method that handles a particular state in the workflow
@@ -94,10 +95,16 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 				return directiveBreakdown.Status.Ready
 			}).Should(BeTrue())
 
+			// persistentdw directives do not have StorageBreakdowns (Status.Storage)
+			args, _ := dwdparse.BuildArgsMap(directiveBreakdown.Spec.Directive)
+			if args["command"] == "persistentdw" {
+				Expect(directiveBreakdown.Status.Storage).To(BeNil())
+				continue
+			}
+
 			Expect(directiveBreakdown.Status.Storage).NotTo(BeNil())
 			Expect(directiveBreakdown.Status.Storage.AllocationSets).NotTo(BeEmpty())
 
-			//
 			servers := &dwsv1alpha1.Servers{}
 			Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdown.Status.Storage.Reference), servers)).To(Succeed())
 			Expect(servers.Spec.AllocationSets).To(BeEmpty())
@@ -133,7 +140,6 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 
 			Expect(k8sClient.Update(ctx, servers)).To(Succeed())
 		}
-
 	}
 
 	By("Advances to Setup State")

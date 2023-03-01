@@ -72,7 +72,8 @@ func (t *T) WithStorageProfile() *T {
 }
 
 type TPersistentLustre struct {
-	name string
+	name     string
+	capacity string
 
 	// Use internal tests to drive the persistent lustre workflow
 	create  *T
@@ -83,7 +84,7 @@ type TPersistentLustre struct {
 }
 
 func (t *T) WithPersistentLustre(name string) *T {
-	t.options.persistentLustre = &TPersistentLustre{name: name}
+	t.options.persistentLustre = &TPersistentLustre{name: name, capacity: "50GB"}
 	return t.WithLabels("persistent", "lustre")
 }
 
@@ -179,9 +180,10 @@ func (t *T) Prepare(ctx context.Context, k8sClient client.Client) error {
 	if o.persistentLustre != nil {
 		// Create a persistent lustre instance all the way to pre-run
 		name := o.persistentLustre.name
+		capacity := o.persistentLustre.capacity
 
 		o.persistentLustre.create = MakeTest(name+"-create",
-			fmt.Sprintf("#DW create_persistent type=lustre name=%s capacity=1TB", name))
+			fmt.Sprintf("#DW create_persistent type=lustre name=%s capacity=%s", name, capacity))
 		o.persistentLustre.destroy = MakeTest(name+"-destroy",
 			fmt.Sprintf("#DW destroy_persistent name=%s", name))
 

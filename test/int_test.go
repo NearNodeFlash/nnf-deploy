@@ -82,10 +82,18 @@ var tests = []*T{
 		Serialized().
 		Pending(),
 
-	MakeTest("GFS2 with Containers (BLAKE)",
-		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=1TB",
-		"#DW container name=gfs2-with-containers profile=TODO DW_JOB_gfs2-with-containers",
-	).Pending(),
+	// Containers
+	MakeTest("GFS2 with Containers",
+		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=100GB",
+		"#DW container name=gfs2-with-containers profile=example-success DW_JOB_foo-local-storage=gfs2-with-containers").
+		Pending(),
+
+	MakeTest("GFS2 and Lustre with Containers",
+		"#DW jobdw name=containers-local-storage type=gfs2 capacity=100GB",
+		"#DW persistentdw name=containers-persistent-storage",
+		"#DW container name=gfs2-lustre-with-containers profile=example-success DW_JOB_foo-local-storage=containers-local-storage DW_PERSISTENT_foo-persistent-storage=containers-persistent-storage").
+		WithPersistentLustre("containers-persistent-storage").
+		Pending(),
 }
 
 var _ = Describe("NNF Integration Test", func() {
@@ -111,6 +119,7 @@ var _ = Describe("NNF Integration Test", func() {
 			BeforeEach(func() {
 				workflow := t.Workflow()
 
+				By(fmt.Sprintf("Creating workflow '%s'", workflow.Name))
 				Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
 
 				DeferCleanup(func(context SpecContext) {
