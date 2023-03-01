@@ -77,25 +77,22 @@ var tests = []*T{
 		"#DW jobdw type=xfs name=xfs-data-movement capacity=1TB",
 		"#DW copy_in source=/lus/global/test.in destination=$DW_JOB_xfs-data-movement/",    // TODO: Create a file "test.in" in the global lustre directory
 		"#DW copy_out source=$DW_JOB_xfs-data-movement/test.out destination=/lus/global/"). // TODO: Validate file "test.out" in the global lustre directory
-		WithPersistentLustre("xfs-data-movement-lustre-instance", "1TB").                   // Manage a persistent Lustre instance as part of the test
+		WithPersistentLustre("xfs-data-movement-lustre-instance").                          // Manage a persistent Lustre instance as part of the test
 		WithGlobalLustreFromPersistentLustre("/lus/global").
 		Serialized().
 		Pending(),
 
 	// Containers
-	// TODO: requires nnf-sos deployed with `feature/containers` branch
 	MakeTest("GFS2 with Containers",
-		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=50TB",
-		"#DW container name=gfs2-with-containers profile=my-gfs2-container-profile DW_JOB_foo-local-storage=gfs2-with-containers").
-		WithContainerProfile().
+		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=100GB",
+		"#DW container name=gfs2-with-containers profile=example-success DW_JOB_foo-local-storage=gfs2-with-containers").
 		Pending(),
 
 	MakeTest("GFS2 and Lustre with Containers",
-		"#DW jobdw name=containers-local-storage type=gfs2 capacity=50GB",
+		"#DW jobdw name=containers-local-storage type=gfs2 capacity=100GB",
 		"#DW persistentdw name=containers-persistent-storage",
-		"#DW container name=gfs2-lustre-with-containers profile=my-gfs2-lustre-container-profile DW_JOB_foo-local-storage=containers-local-storage DW_PERSISTENT_foo-persistent-storage=containers-persistent-storage").
-		WithContainerProfile().
-		WithPersistentLustre("containers-persistent-storage", "50GB").
+		"#DW container name=gfs2-lustre-with-containers profile=example-success DW_JOB_foo-local-storage=containers-local-storage DW_PERSISTENT_foo-persistent-storage=containers-persistent-storage").
+		WithPersistentLustre("containers-persistent-storage").
 		Pending(),
 }
 
