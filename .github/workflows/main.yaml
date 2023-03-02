@@ -15,5 +15,8 @@ jobs:
       with:
         go-version-file: 'go.mod'
     - name: Setup Ginkgo
-      run: go get github.com/onsi/ginkgo/v2/ginkgo@v2.8.4 && go install github.com/onsi/ginkgo/v2/ginkgo && go get github.com/onsi/gomega/...
+      run: >
+        GINKGO_PATH=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1}')
+        GINKGO_MOD=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1 "@" $2}')
+        go get $GINKGO_MOD && go install $GINKGO_PATH && go get github.com/onsi/gomega/...
     - run: ginkgo run -p --vv ./test/...
