@@ -48,7 +48,7 @@ func TestAuthorizedDevelopers(t *testing.T) {
 			},
 		}
 
-		reserved, developer, err := isReserved(&namespaces)
+		reserved, _, err := isReserved(&namespaces)
 		if err != nil {
 			t.Errorf("error %t", err)
 		}
@@ -56,8 +56,6 @@ func TestAuthorizedDevelopers(t *testing.T) {
 		if !reserved {
 			t.Errorf("reservation '%s' not found", name)
 		}
-
-		t.Logf("reservation '%s' found for '%s'", name, developer)
 	}
 
 }
