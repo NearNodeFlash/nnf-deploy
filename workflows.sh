@@ -41,7 +41,7 @@ if [ $# -lt 1 ]; then
     exit 1
 fi
 
-declare -A NEXTSTATEARRAY=(["Proposal"]="Setup" ["Setup"]="DataIn" ["DataIn"]="PreRun" ["PreRun"]="DataOut" ["DataOut"]="Teardown" ["Teardown"]="Teardown")
+declare -A NEXTSTATEARRAY=(["Proposal"]="Setup" ["Setup"]="DataIn" ["DataIn"]="PreRun" ["PreRun"]="PostRun" ["PostRun"]="DataOut" ["DataOut"]="Teardown" ["Teardown"]="Teardown")
 
 case $1 in
     advance)
