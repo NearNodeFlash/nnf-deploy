@@ -12,7 +12,8 @@
             "program": "${relativeFileDirname}",
             "args": [
                 "-ginkgo.fail-fast",
-                "-ginkgo.progress"
+                "-ginkgo.progress",
+                "-ginkgo.v",
             ],
             "env": {
                 "KUBEBUILDER_ASSETS": "${workspaceFolder}/bin/k8s/1.25.0-darwin-amd64",
