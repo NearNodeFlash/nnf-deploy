@@ -54,7 +54,7 @@ var (
 )
 
 func TestEverything(t *testing.T) {
-	RegisterFailHandler(Fail)
+	RegisterFailHandler(FailHandler)
 	RunSpecs(t, "Integration Test Suite")
 }
 
@@ -98,14 +98,18 @@ var _ = BeforeSuite(func() {
 	}
 })
 
-var _ = AfterSuite(func(ctx SpecContext) {
-
-	// Mark the system as needing triage if any spec failed
-	if ctx.SpecReport().Failed() {
-		SetSystemInNeedOfTriage(ctx, k8sClient)
-	}
-
+var _ = AfterSuite(func() {
 	cancel()
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func FailHandler(message string, callerSkip ...int) {
+	if ctx != nil && k8sClient != nil {
+		if err := SetSystemInNeedOfTriage(ctx, k8sClient); err != nil {
+			log.Log.Error(err, "Failed to configure the system for triage")
+		}
+	}
+
+	Fail(message, callerSkip...)
+}
