@@ -21,6 +21,7 @@ package test
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"testing"
 
@@ -45,6 +46,8 @@ import (
 )
 
 var (
+	ignoreReservation bool
+
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -52,6 +55,10 @@ var (
 
 	k8sClient client.Client
 )
+
+func init() {
+	flag.BoolVar(&ignoreReservation, "ignore-reservation", false, "Ignore any reservations on the system that might prevent test execution")
+}
 
 func TestEverything(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -96,6 +103,18 @@ var _ = BeforeSuite(func() {
 	if IsSystemInNeedOfTriage(ctx, k8sClient) {
 		AbortSuite(fmt.Sprintf("System requires triage. Delete the '%s' namespace when finished", TriageNamespaceName))
 	}
+
+	// Check if the system is being reserved by a developer
+	if !ignoreReservation {
+		By("Checking for system reservation")
+		reserved, developer, err := IsSystemReserved(ctx, k8sClient)
+		Expect(err).NotTo(HaveOccurred())
+
+		if reserved {
+			AbortSuite(fmt.Sprintf("System is current reserved by '%s'", developer))
+		}
+	}
+
 })
 
 var _ = AfterSuite(func(ctx SpecContext) {
