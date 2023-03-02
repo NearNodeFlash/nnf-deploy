@@ -96,6 +96,13 @@ var _ = BeforeSuite(func() {
 	if IsSystemInNeedOfTriage(ctx, k8sClient) {
 		AbortSuite(fmt.Sprintf("System requires triage. Delete the '%s' namespace when finished", TriageNamespaceName))
 	}
+
+	reserved, developer, err := IsSystemReserved(ctx, k8sClient)
+	Expect(err).NotTo(HaveOccurred())
+
+	if reserved {
+		AbortSuite(fmt.Sprintf("System is current reserved by '%s'", developer))
+	}
 })
 
 var _ = AfterSuite(func(ctx SpecContext) {

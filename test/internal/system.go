@@ -21,6 +21,9 @@ package internal
 
 import (
 	"context"
+	"fmt"
+	"regexp"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -48,4 +51,49 @@ func SetSystemInNeedOfTriage(ctx context.Context, k8sClient client.Client) error
 	}
 
 	return nil
+}
+
+// IsSystemReserved checks if the system under test is reserved by a known developer.
+func IsSystemReserved(ctx context.Context, k8sClient client.Client) (bool, string, error) {
+
+	namespaces := &corev1.NamespaceList{}
+	if err := k8sClient.List(ctx, namespaces); err != nil {
+		return false, "", err
+	}
+
+	return isReserved(namespaces)
+}
+
+var authorizedDevelopers = []string{
+	"Abhishek Girish",
+	"Ben Landsteiner",
+	"Blake Devcich",
+	"Bryce Devcich",
+	"Dean Roehrich",
+	"Matt Richerson",
+	"Tom Albers",
+	"Tony Floeder",
+	"Tim McCree",
+}
+
+func isReserved(namespaces *corev1.NamespaceList) (bool, string, error) {
+
+	// Reservations are of the form "firstName-?(lastName|lastInitial)?"
+
+	for _, developer := range authorizedDevelopers {
+		first, last, _ := strings.Cut(strings.ToLower(developer), " ")
+		re, err := regexp.Compile(fmt.Sprintf("^(%s-?(%s|%c)?)", first, last, last[0]))
+		if err != nil {
+			return false, "", err
+		}
+
+		for _, ns := range namespaces.Items {
+			if re.MatchString(ns.Name) {
+				return true, developer, nil
+			}
+		}
+
+	}
+
+	return false, "", nil
 }
