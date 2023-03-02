@@ -49,13 +49,8 @@ var tests = []*T{
 	//   ),
 
 	MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").WithLabels(Simple),
-	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple).Pending(),
-	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple).Pending(),
-
-	DuplicateTest(
-		MakeTest("XFS", "#DW jobdw type=xfs name=xfs capacity=1TB").Pending(), // Will fail for Setup() exceeding time limit; needs investigation
-		5,
-	),
+	MakeTest("GFS2", "#DW jobdw type=gfs2 name=gfs2 capacity=1TB").WithLabels(Simple),
+	MakeTest("Lustre", "#DW jobdw type=lustre name=lustre capacity=1TB").WithLabels(Simple),
 
 	// Storage Profiles
 	MakeTest("XFS with Storage Profile",
@@ -63,8 +58,7 @@ var tests = []*T{
 		WithStorageProfile(),
 	MakeTest("GFS2 with Storage Profile",
 		"#DW jobdw type=gfs2 name=gfs2-storage-profile capacity=1TB profile=my-gfs2-storage-profile").
-		WithStorageProfile().
-		Pending(),
+		WithStorageProfile(),
 
 	// Persistent
 	MakeTest("Persistent Lustre",
@@ -80,20 +74,19 @@ var tests = []*T{
 		WithPersistentLustre("xfs-data-movement-lustre-instance").                          // Manage a persistent Lustre instance as part of the test
 		WithGlobalLustreFromPersistentLustre("/lus/global").
 		Serialized().
-		Pending(),
+		Pending(), // Requires CopyIn/Out infrastructure
 
 	// Containers
 	MakeTest("GFS2 with Containers",
 		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=100GB",
-		"#DW container name=gfs2-with-containers profile=example-success DW_JOB_foo-local-storage=gfs2-with-containers").
-		Pending(),
+		"#DW container name=gfs2-with-containers profile=example-success DW_JOB_foo-local-storage=gfs2-with-containers"),
 
 	MakeTest("GFS2 and Lustre with Containers",
 		"#DW jobdw name=containers-local-storage type=gfs2 capacity=100GB",
 		"#DW persistentdw name=containers-persistent-storage",
 		"#DW container name=gfs2-lustre-with-containers profile=example-success DW_JOB_foo-local-storage=containers-local-storage DW_PERSISTENT_foo-persistent-storage=containers-persistent-storage").
 		WithPersistentLustre("containers-persistent-storage").
-		Pending(),
+		Serialized(),
 }
 
 var _ = Describe("NNF Integration Test", func() {
