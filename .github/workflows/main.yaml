@@ -19,6 +19,8 @@ jobs:
       run: >
         GINKGO_MOD=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1 "@" $2}')
         GINKGO_PATH=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1}')
-        echo "Using $GINKGO_MOD" &&
-        go get $GINKGO_MOD && go install $GINKGO_PATH && go get github.com/onsi/gomega/...
+        echo $GINKGO_MOD &&
+        go get $GINKGO_MOD && 
+        go install $GINKGO_PATH && 
+        go get github.com/onsi/gomega/...
     - run: ginkgo run -p --vv ./test/...
