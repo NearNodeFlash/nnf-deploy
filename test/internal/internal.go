@@ -69,6 +69,12 @@ type T struct {
 	// Workflow defines the DWS Workflow resource that is the target of the test.
 	workflow *dwsv1alpha1.Workflow
 
+	// User Id to use for the workflow
+	userId int
+
+	// Group Id to use for the workflow
+	groupId int
+
 	// Options let you modify the test case with a variety of options and customizations
 	options TOptions
 }
