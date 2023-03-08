@@ -4,7 +4,7 @@ daemons:
     repository: nnf-dm
     path: daemons/compute/server
     serviceAccount:
-      name: nnf-dm-controller-manager
+      name: nnf-dm-daemon
       namespace: nnf-dm-system
   - name: client-mount
     bin: clientmount
@@ -12,5 +12,5 @@ daemons:
     path: mount-daemon
     skipNnfNodeName: true
     serviceAccount:
-      name: dws-operator-controller-manager
+      name: dws-operator-clientmount
       namespace: dws-operator-system
