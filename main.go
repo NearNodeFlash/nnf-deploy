@@ -253,11 +253,14 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		err = runInModules([]string{d.Repository}, func(module string) error {
 
 			fmt.Printf("Checking module %s\n", module)
-			if err := os.Chdir(d.Path); err != nil {
-				return err
+			
+			if d.Path != "" {
+				if err := os.Chdir(d.Path); err != nil {
+					return err
+				}
 			}
 
-			if !cmd.NoBuild {
+			if !cmd.NoBuild && d.Bin != "" {
 				cmd := exec.Command("go", "build", "-o", d.Bin)
 				cmd.Env = append(os.Environ(),
 					"CGO_ENABLED=0",
@@ -285,40 +288,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 					fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
 
-					binaryNeedsUpdate, err := checkNeedsUpdate(ctx, d.Bin, compute, "/usr/bin")
-					if err != nil {
-						return err
-					}
-
-					if binaryNeedsUpdate {
-
-						fmt.Printf("  Stopping %s service...", d.Name)
-						cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-						fmt.Printf("\n")
-
-						fmt.Printf("  Removing %s service...", d.Name)
-						cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-						fmt.Printf("\n")
-
-						if err := copyToNode(ctx, d.Bin, compute, "/usr/bin"); err != nil {
-							return err
-						}
-
-						fmt.Printf("  Installing %s service...", d.Name)
-						cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-						fmt.Printf("\n")
-					}
-
-					configDir := "/etc/" + d.Bin
+					configDir := "/etc/" + d.Name
 					if len(token) != 0 || len(cert) != 0 {
 						cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
 						if _, err := runCommand(ctx, cmd); err != nil {
@@ -362,6 +332,43 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 						if err != nil {
 							return err
 						}
+					}
+
+					if d.Bin == "" {
+						continue
+					}
+
+					binaryNeedsUpdate, err := checkNeedsUpdate(ctx, d.Bin, compute, "/usr/bin")
+					if err != nil {
+						return err
+					}
+
+					if binaryNeedsUpdate {
+
+						fmt.Printf("  Stopping %s service...", d.Name)
+						cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
+						if _, err := runCommand(ctx, cmd); err != nil {
+							return err
+						}
+						fmt.Printf("\n")
+
+						fmt.Printf("  Removing %s service...", d.Name)
+						cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
+						if _, err := runCommand(ctx, cmd); err != nil {
+							return err
+						}
+						fmt.Printf("\n")
+
+						if err := copyToNode(ctx, d.Bin, compute, "/usr/bin"); err != nil {
+							return err
+						}
+
+						fmt.Printf("  Installing %s service...", d.Name)
+						cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
+						if _, err := runCommand(ctx, cmd); err != nil {
+							return err
+						}
+						fmt.Printf("\n")
 					}
 
 					execStart := ""
