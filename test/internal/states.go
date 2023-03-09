@@ -59,7 +59,7 @@ func (t *T) Execute(ctx context.Context, k8sClient client.Client) {
 
 func (t *T) proposal(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
 	// We're not ready to advance out of proposal yet, but check for expected error
-	if t.options.shouldError != nil && t.options.shouldError.state == dwsv1alpha1.StateProposal {
+	if t.options.expectError != nil && t.options.expectError.state == dwsv1alpha1.StateProposal {
 		By("Waiting for Error status")
 		waitForError(ctx, k8sClient, workflow, dwsv1alpha1.StateProposal)
 		return
@@ -188,7 +188,7 @@ func (t *T) AdvanceStateAndWaitForReady(ctx context.Context, k8sClient client.Cl
 	}).Should(Succeed(), fmt.Sprintf("updates state to '%s'", state))
 
 	// If expecting an Error in this state, check for that instead
-	if t.options.shouldError != nil && t.options.shouldError.state == state {
+	if t.options.expectError != nil && t.options.expectError.state == state {
 		By("Waiting for Error status")
 		waitForError(ctx, k8sClient, workflow, state)
 		return

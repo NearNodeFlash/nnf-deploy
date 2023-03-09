@@ -24,7 +24,7 @@ import (
 // execution. Nil values represent no configuration of that type.
 type TOptions struct {
 	stopAfter         *TStopAfter
-	shouldError       *TShouldError
+	expectError       *TExpectError
 	storageProfile    *TStorageProfile
 	persistentLustre  *TPersistentLustre
 	globalLustre      *TGlobalLustre
@@ -47,19 +47,19 @@ func (t *T) StopAfter(state dwsv1alpha1.WorkflowState) *T {
 	return t
 }
 
-type TShouldError struct {
+type TExpectError struct {
 	state dwsv1alpha1.WorkflowState
 }
 
 // Expect an error at the designed state; Proceed to teardown
-func (t *T) ShouldError(state dwsv1alpha1.WorkflowState) *T {
-	t.options.shouldError = &TShouldError{state: state}
+func (t *T) ExpectError(state dwsv1alpha1.WorkflowState) *T {
+	t.options.expectError = &TExpectError{state: state}
 	t.options.stopAfter = &TStopAfter{state: state}
 	return t
 }
 
 func (t *T) ShouldTeardown() bool {
-	if t.options.shouldError != nil {
+	if t.options.expectError != nil {
 		return true
 	}
 

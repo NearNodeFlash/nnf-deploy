@@ -92,11 +92,11 @@ var tests = []*T{
 	MakeTest("XFS with Containers",
 		"#DW jobdw type=xfs name=xfs-with-containers capacity=100GB",
 		"#DW container name=xfs-with-containers profile=example-success DW_JOB_foo-local-storage=xfs-with-containers").
-		ShouldError(dwsv1alpha1.StateProposal),
+		ExpectError(dwsv1alpha1.StateProposal),
 	MakeTest("Raw with Containers",
 		"#DW jobdw type=raw name=raw-with-containers capacity=100GB",
 		"#DW container name=raw-with-containers profile=example-success DW_JOB_foo-local-storage=raw-with-containers").
-		ShouldError(dwsv1alpha1.StateProposal),
+		ExpectError(dwsv1alpha1.StateProposal),
 
 	// TODO: The timing on this one needs some work, hence Pending()
 	MakeTest("GFS2 and Lustre with Containers",
