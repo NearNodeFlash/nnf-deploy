@@ -1,4 +1,9 @@
 daemons:
+  - name: nnf-fence
+    repository: nnf-sos
+    serviceAccount:
+      name: nnf-fencing-agent
+      namespace: nnf-system
   - name: nnf-data-movement
     bin: nnf-dm
     repository: nnf-dm
