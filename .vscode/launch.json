@@ -12,7 +12,6 @@
             "program": "${relativeFileDirname}",
             "args": [
                 "-ginkgo.fail-fast",
-                "-ginkgo.progress",
                 "-ginkgo.v",
             ],
             "env": {

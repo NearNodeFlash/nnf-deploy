@@ -13,7 +13,7 @@ require (
 	github.com/HewlettPackard/dws v0.0.0-20230224185520-92a8916979a7
 	github.com/NearNodeFlash/lustre-fs-operator v0.0.0-20221107154613-234f8b6a677c
 	github.com/NearNodeFlash/nnf-dm v0.0.0-20221110213934-14699bac1e45
-	github.com/NearNodeFlash/nnf-sos v0.0.0-20221110215714-a4f531ae72e0
+	github.com/NearNodeFlash/nnf-sos v0.0.0-20230301192820-b2c4363218b9
 	github.com/alecthomas/kong v0.7.1
 	github.com/onsi/ginkgo/v2 v2.8.4
 	github.com/onsi/gomega v1.27.1
@@ -26,7 +26,7 @@ require (
 )
 
 require (
-	github.com/NearNodeFlash/nnf-ec v0.0.0-20230228220541-47eb7a4dbe07 // indirect
+	github.com/NearNodeFlash/nnf-ec v0.0.0-20230308165737-09068457bd09 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

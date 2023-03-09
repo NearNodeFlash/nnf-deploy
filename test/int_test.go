@@ -86,8 +86,19 @@ var tests = []*T{
 	MakeTest("GFS2 with Containers",
 		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=100GB",
 		"#DW container name=gfs2-with-containers profile=example-success DW_JOB_foo-local-storage=gfs2-with-containers").
-		Pending(),
+		WithPermissions(1000, 2000),
 
+	// These two test should fail as xfs/raw filesystems are not supported for containers
+	MakeTest("XFS with Containers",
+		"#DW jobdw type=xfs name=xfs-with-containers capacity=100GB",
+		"#DW container name=xfs-with-containers profile=example-success DW_JOB_foo-local-storage=xfs-with-containers").
+		ExpectError(dwsv1alpha1.StateProposal),
+	MakeTest("Raw with Containers",
+		"#DW jobdw type=raw name=raw-with-containers capacity=100GB",
+		"#DW container name=raw-with-containers profile=example-success DW_JOB_foo-local-storage=raw-with-containers").
+		ExpectError(dwsv1alpha1.StateProposal),
+
+	// TODO: The timing on this one needs some work, hence Pending()
 	MakeTest("GFS2 and Lustre with Containers",
 		"#DW jobdw name=containers-local-storage type=gfs2 capacity=100GB",
 		"#DW persistentdw name=containers-persistent-storage",
@@ -127,7 +138,7 @@ var _ = Describe("NNF Integration Test", func() {
 						// TODO: Ginkgo's `--fail-fast` option still seems to execute DeferCleanup() calls
 						//       See if this is by design or if we might need to move this to an AfterEach()
 						if !context.SpecReport().Failed() {
-							AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
+							t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
 
 							Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
 						}

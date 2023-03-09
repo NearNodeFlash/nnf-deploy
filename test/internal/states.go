@@ -58,6 +58,13 @@ func (t *T) Execute(ctx context.Context, k8sClient client.Client) {
 }
 
 func (t *T) proposal(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+	// We're not ready to advance out of proposal yet, but check for expected error
+	if t.options.expectError != nil && t.options.expectError.state == dwsv1alpha1.StateProposal {
+		By("Waiting for Error status")
+		waitForError(ctx, k8sClient, workflow, dwsv1alpha1.StateProposal)
+		return
+	}
+
 	waitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateProposal)
 }
 
@@ -142,33 +149,27 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 		}
 	}
 
-	By("Advances to Setup State")
-	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateSetup)
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateSetup)
 }
 
 func (t *T) dataIn(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	By("Advances to DataIn State")
-	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateDataIn)
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateDataIn)
 }
 
 func (t *T) preRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	By("Advances to PreRun State")
-	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StatePreRun)
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StatePreRun)
 }
 
 func (t *T) postRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	By("Advances to PostRun State")
-	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StatePostRun)
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StatePostRun)
 }
 
 func (t *T) dataOut(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	By("Advances to DataOut State")
-	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateDataOut)
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateDataOut)
 }
 
 func (t *T) teardown(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	By("Advances to Teardown State")
-	AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
 }
 
 // func DataIn...
@@ -176,12 +177,22 @@ func (t *T) teardown(ctx context.Context, k8sClient client.Client, workflow *dws
 // func PostRun...
 // func DataOut...
 
-func AdvanceStateAndWaitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
+func (t *T) AdvanceStateAndWaitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
+	By(fmt.Sprintf("Advances to %s State", state))
+
+	// Set the desired State
 	Eventually(func() error {
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
 		workflow.Spec.DesiredState = state
 		return k8sClient.Update(ctx, workflow)
 	}).Should(Succeed(), fmt.Sprintf("updates state to '%s'", state))
+
+	// If expecting an Error in this state, check for that instead
+	if t.options.expectError != nil && t.options.expectError.state == state {
+		By("Waiting for Error status")
+		waitForError(ctx, k8sClient, workflow, state)
+		return
+	}
 
 	waitForReady(ctx, k8sClient, workflow, state)
 }
@@ -203,6 +214,25 @@ func waitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 		WithTimeout(time.Minute).
 		WithPolling(time.Second).
 		Should(achieveState(state), fmt.Sprintf("achieve state '%s'", state))
+}
+
+func waitForError(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
+	achieveState := func(state dwsv1alpha1.WorkflowState) OmegaMatcher {
+		return And(
+			HaveField("Ready", BeFalse()),
+			HaveField("State", Equal(state)),
+			HaveField("Status", Equal(dwsv1alpha1.StatusError)),
+		)
+	}
+
+	By("Expect an Error Status")
+	Eventually(func() dwsv1alpha1.WorkflowStatus {
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
+		return workflow.Status
+	}).
+		WithTimeout(time.Minute).
+		WithPolling(time.Second).
+		Should(achieveState(state), fmt.Sprintf("error in state '%s'", state))
 }
 
 func ObjectKeyFromObjectReference(r corev1.ObjectReference) types.NamespacedName {

@@ -24,6 +24,7 @@ import (
 // execution. Nil values represent no configuration of that type.
 type TOptions struct {
 	stopAfter         *TStopAfter
+	expectError       *TExpectError
 	storageProfile    *TStorageProfile
 	persistentLustre  *TPersistentLustre
 	globalLustre      *TGlobalLustre
@@ -46,7 +47,22 @@ func (t *T) StopAfter(state dwsv1alpha1.WorkflowState) *T {
 	return t
 }
 
+type TExpectError struct {
+	state dwsv1alpha1.WorkflowState
+}
+
+// Expect an error at the designed state; Proceed to teardown
+func (t *T) ExpectError(state dwsv1alpha1.WorkflowState) *T {
+	t.options.expectError = &TExpectError{state: state}
+	t.options.stopAfter = &TStopAfter{state: state}
+	return t
+}
+
 func (t *T) ShouldTeardown() bool {
+	if t.options.expectError != nil {
+		return true
+	}
+
 	return t.options.stopAfter == nil
 }
 
@@ -143,6 +159,13 @@ type TDuplicate struct {
 	t     *T
 	tests []*T
 	index int
+}
+
+func (t *T) WithPermissions(userId, groupId uint32) *T {
+	t.workflow.Spec.UserID = userId
+	t.workflow.Spec.GroupID = groupId
+
+	return t
 }
 
 // Prepare a test with the programmed test options.
