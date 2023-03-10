@@ -11,6 +11,7 @@ daemons:
     serviceAccount:
       name: nnf-dm-daemon
       namespace: nnf-dm-system
+    extraArgs: "--kubernetes-qps 5 --kubernetes-burst 10"
   - name: client-mount
     bin: clientmount
     repository: dws
