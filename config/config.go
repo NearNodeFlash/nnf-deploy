@@ -109,6 +109,7 @@ type Daemon struct {
 		Name      string `yaml:"name"`
 		Namespace string `yaml:"namespace"`
 	} `yaml:"serviceAccount,omitempty"`
+	ExtraArgs string `yaml:"extraArgs,omitempty"`
 }
 
 type DaemonConfigFile struct {

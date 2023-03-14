@@ -253,7 +253,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		err = runInModules([]string{d.Repository}, func(module string) error {
 
 			fmt.Printf("Checking module %s\n", module)
-			
+
 			if d.Path != "" {
 				if err := os.Chdir(d.Path); err != nil {
 					return err
@@ -386,6 +386,9 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					}
 					if len(cert) != 0 {
 						execStart += "  --service-cert-file=" + path.Join(certFilePath, "service.cert") + " \\\n"
+					}
+					if len(d.ExtraArgs) > 0 {
+						execStart += "  " + d.ExtraArgs + " \\\n"
 					}
 
 					fmt.Printf("  Creating override directory...")
