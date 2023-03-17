@@ -1,0 +1,22 @@
+releases:
+- version: v0.0.1
+  components:
+  - repository: git@github.com:NearNodeFlash/nnf-deploy
+    tag: v0.0.1
+    branch: releases
+    name: nnf-deploy
+  - repository: git@github.com:HewlettPackard/dws.git
+    tag: v0.0.1
+    name: dws
+  - repository: git@github.com:HewlettPackard/lustre-csi-driver.git
+    tag: v0.0.1
+    name: lustre-csi-driver
+  - repository: git@github.com:NearNodeFlash/lustre-fs-operator.git
+    tag: v0.0.1
+    name: lustre-fs-operator
+  - repository: git@github.com:NearNodeFlash/nnf-sos.git
+    tag: v0.0.1
+    name: nnf-sos
+  - repository: git@github.com:NearNodeFlash/nnf-dm.git
+    tag: v0.0.1
+    name: nnf-dm
