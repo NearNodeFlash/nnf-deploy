@@ -443,7 +443,7 @@ type ReleaseCmd struct {
 	List   ReleaseListCmd   `cmd:"" name:"list" help:"List the available releases."`
 	Info   ReleaseInfoCmd   `cmd:"" name:"info" help:"Information about a single release."`
 	Create ReleaseCreateCmd `cmd:"" name:"create" help:"Create a release using the current repository versions."`
-	Set    ReleaseSetCmd    `cmd:"" name:"set" help:"Set the release and checkout the correct submodule commits"`
+	Set    ReleaseSetCmd    `cmd:"" name:"set" help:"Set the release and checkout the correct submodule commits."`
 }
 
 type ReleaseListCmd struct{}
@@ -454,7 +454,13 @@ func (cmd *ReleaseListCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	fmt.Printf("Current Version: %s\n", manifest.CurrentVersion)
+	currentVersion := manifest.CurrentVersion
+	if currentVersion == "" {
+		currentVersion = "[none]"
+	}
+
+	fmt.Printf("Current Version: %s\n", currentVersion)
+	fmt.Printf("Available Versions:\n")
 	for _, release := range manifest.Releases {
 		fmt.Printf("%s\n", release.Version)
 	}
@@ -474,6 +480,10 @@ func (cmd *ReleaseInfoCmd) Run(ctx *Context) error {
 
 	version := cmd.Version
 	if version == "" {
+		if manifest.CurrentVersion == "" {
+			return nil
+		}
+
 		version = manifest.CurrentVersion
 	}
 
