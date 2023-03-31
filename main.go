@@ -62,6 +62,7 @@ var cli struct {
 	Make     MakeCmd     `cmd:"" help:"Run make [COMMAND] in every repository."`
 	Install  InstallCmd  `cmd:"" help:"Install daemons (EXPERIMENTAL)."`
 	Init     InitCmd     `cmd:"" help:"Initialize cluster."`
+	Release  ReleaseCmd  `cmd:"" help:"Create or use a release."`
 }
 
 func main() {
@@ -441,6 +442,374 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	})
 }
 
+type ReleaseCmd struct {
+	List   ReleaseListCmd   `cmd:"" name:"list" help:"List the available releases."`
+	Info   ReleaseInfoCmd   `cmd:"" name:"info" help:"Information about a single release."`
+	Create ReleaseCreateCmd `cmd:"" name:"create" help:"Create a release using the current repository versions."`
+	Set    ReleaseSetCmd    `cmd:"" name:"set" help:"Set the release and checkout the correct submodule commits."`
+}
+
+type ReleaseListCmd struct{}
+
+func (cmd *ReleaseListCmd) Run(ctx *Context) error {
+	manifest, err := ReadReleaseManifest()
+	if err != nil {
+		return err
+	}
+
+	currentVersion := manifest.CurrentVersion
+	if currentVersion == "" {
+		currentVersion = "[none]"
+	}
+
+	fmt.Printf("Current Version: %s\n", currentVersion)
+	fmt.Printf("Available Versions:\n")
+	for _, release := range manifest.Releases {
+		fmt.Printf("%s\n", release.Version)
+	}
+
+	return nil
+}
+
+type ReleaseInfoCmd struct {
+	Version string `name:"version" help:"version of the release to create"`
+}
+
+func (cmd *ReleaseInfoCmd) Run(ctx *Context) error {
+	manifest, err := ReadReleaseManifest()
+	if err != nil {
+		return err
+	}
+
+	version := cmd.Version
+	if version == "" {
+		if manifest.CurrentVersion == "" {
+			return nil
+		}
+
+		version = manifest.CurrentVersion
+	}
+
+	// Find the release that matches the specified version
+	release := func() *Release {
+		for _, release := range manifest.Releases {
+			if release.Version == version {
+				return &release
+			}
+		}
+
+		return nil
+	}()
+
+	if release == nil {
+		return fmt.Errorf("release '%s' not found", cmd.Version)
+	}
+
+	// Print the tag and commit information for each component in the release
+	fmt.Printf("Version: %s\n", version)
+	for _, component := range release.Components {
+		fmt.Printf("%s\n", component.Name)
+		if component.Tag != "" {
+			fmt.Printf("  Tag: %s\n", component.Tag)
+		}
+
+		if component.Commit != "" {
+			fmt.Printf("  Commit: %s\n", component.Commit)
+		}
+	}
+
+	if cmd.Version != "" {
+		return nil
+	}
+
+	// If version wasn't specified, then we're showing information about the current commit. Do
+	// some sanity checking to make sure that all the modules are on the right commit.
+	checkComponentRelease := func(module string) error {
+		for _, component := range release.Components {
+			if component.Name != module {
+				continue
+			}
+
+			if component.Tag != "" {
+				tag, err := currentTag()
+				if err != nil {
+					return err
+				}
+
+				if tag != component.Tag {
+					fmt.Printf("Mismatch for component %s between expected and actual tag\n", module)
+					fmt.Printf("  Version %s expected tag: %s\n", version, component.Tag)
+					fmt.Printf("  Actual tag: %s\n", tag)
+				}
+			} else {
+				commit, err := lastLocalCommit()
+				if err != nil {
+					return err
+				}
+
+				if commit != component.Commit {
+					fmt.Printf("Mismatch for component %s between expected and actual commit\n", module)
+					fmt.Printf("  Version %s expected commit: %s\n", version, component.Commit)
+					fmt.Printf("  Actual commit: %s\n", commit)
+				}
+			}
+		}
+
+		return nil
+	}
+
+	if err := checkComponentRelease("nnf-deploy"); err != nil {
+		return err
+	}
+
+	// nnf-deploy might have a different list of "modules" if components were added or deleted. Use
+	// the list of components in the release
+	var moduleList []string
+	for _, component := range release.Components {
+		if component.Name != "nnf-deploy" {
+			moduleList = append(moduleList, component.Name)
+		}
+	}
+
+	if err := runInModules(moduleList, checkComponentRelease); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type ReleaseCreateCmd struct {
+	Version string `name:"version" help:"version of the release to create"`
+	Tag     bool   `name:"tag" optional:"" help:"create a git tag on the nnf-deploy repo"`
+}
+
+func (cmd *ReleaseCreateCmd) Run(ctx *Context) error {
+	manifest, err := ReadReleaseManifest()
+	if err != nil {
+		return err
+	}
+
+	// Check if the version already exists in the manifest
+	for _, release := range manifest.Releases {
+		if release.Version == cmd.Version {
+			return fmt.Errorf("version already exists")
+		}
+	}
+
+	fmt.Printf("Creating version %s\n", cmd.Version)
+
+	// If the tag flag was specified, tag the nnf-deploy repo with the version string
+	if cmd.Tag {
+		fmt.Printf("Tagging nnf-deploy commit with: '%s'", cmd.Version)
+
+		if err := addTag(cmd.Version); err != nil {
+			return err
+		}
+	}
+
+	// Set the release information in the manifest
+	release := new(Release)
+	release.Version = cmd.Version
+
+	addComponentRelease := func(module string) error {
+		component := new(ReleaseComponent)
+		branch, err := currentBranch()
+		if err != nil {
+			return err
+		}
+
+		commit, err := lastLocalCommit()
+		if err != nil {
+			return err
+		}
+
+		url, err := repoURL()
+		if err != nil {
+			return err
+		}
+
+		tag, err := currentTag()
+		if err != nil {
+			return err
+		}
+
+		component.Name = module
+		component.Repository = url
+		component.Branch = branch
+
+		if tag != "" {
+			component.Tag = tag
+			fmt.Printf("Finding %s tag... %s\n", module, tag)
+		} else {
+			component.Commit = commit
+			fmt.Printf("Finding %s commit... %s\n", module, commit)
+		}
+
+
+		release.Components = append(release.Components, *component)
+		return nil
+	}
+
+	if err := addComponentRelease("nnf-deploy"); err != nil {
+		return err
+	}
+
+	if err := runInModules(modules, addComponentRelease); err != nil {
+		return err
+	}
+
+	manifest.Releases = append(manifest.Releases, *release)
+
+	// Set the current version in the local manifest file
+	manifest.CurrentVersion = release.Version
+	if err := WriteReleaseManifest(manifest, ".release_manifest.yaml"); err != nil {
+		return err
+	}
+
+	// Don't set the current version in the manifest file that gets checked
+	// into the git repo.
+	manifest.CurrentVersion = ""
+	if err := WriteReleaseManifest(manifest, "release_manifest.yaml"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type ReleaseSetCmd struct {
+	Version string `name:"version" help:"release version to use"`
+}
+
+func (cmd *ReleaseSetCmd) Run(ctx *Context) error {
+	manifest, err := ReadReleaseManifest()
+	if err != nil {
+		return err
+	}
+
+	// Find the release that matches the specified version
+	release := func() *Release {
+		for _, release := range manifest.Releases {
+			if release.Version == cmd.Version {
+				return &release
+			}
+		}
+
+		return nil
+	}()
+
+	if release == nil {
+		return fmt.Errorf("release '%s' not found", cmd.Version)
+	}
+
+	// Checkout the correct commit for each of the submodules. This puts the submodule in
+	// the detached head state
+	setComponentRelease := func(module string) error {
+		for _, component := range release.Components {
+			if component.Name != module {
+				continue
+			}
+
+			if component.Tag != "" {
+				fmt.Printf("Setting %s to tag %s\n", module, component.Tag)
+
+				return checkoutCommit(component.Tag)
+			} else {
+				fmt.Printf("Setting %s to commit %s\n", module, component.Commit)
+
+				return checkoutCommit(component.Commit)
+			}
+		}
+
+		return fmt.Errorf("could not find module %s\n", module)
+	}
+
+	if err := setComponentRelease("nnf-deploy"); err != nil {
+		return err
+	}
+
+	// nnf-deploy might have a different list of "modules" if components were added or deleted. Use
+	// the list of components in the release
+	var moduleList []string
+	for _, component := range release.Components {
+		if component.Name != "nnf-deploy" {
+			moduleList = append(moduleList, component.Name)
+		}
+	}
+
+	if err := runInModules(moduleList, setComponentRelease); err != nil {
+		return err
+	}
+
+	manifest.CurrentVersion = release.Version
+	if err := WriteReleaseManifest(manifest, ".release_manifest.yaml"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type ReleaseComponent struct {
+	Repository string `yaml:"repository"`
+	Commit     string `yaml:"commit,omitempty"`
+	Tag        string `yaml:"tag,omitempty"`
+	Branch     string `yaml:"branch,omitempty"`
+	Name       string `yaml:"name"`
+}
+
+type Release struct {
+	Version    string             `yaml:"version"`
+	Components []ReleaseComponent `yaml:"components"`
+}
+
+type ReleaseManifest struct {
+	CurrentVersion string    `yaml:"currentVersion,omitempty"`
+	Releases       []Release `yaml:"releases"`
+}
+
+func ReadReleaseManifest() (*ReleaseManifest, error) {
+	manifestFile, err := os.ReadFile("release_manifest.yaml")
+	if err != nil {
+		return nil, err
+	}
+
+	manifest := new(ReleaseManifest)
+	if err := yaml.Unmarshal(manifestFile, manifest); err != nil {
+		return nil, err
+	}
+
+	localManifestFile, err := os.ReadFile(".release_manifest.yaml")
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+	}
+
+	localManifest := new(ReleaseManifest)
+	if err := yaml.Unmarshal(localManifestFile, localManifest); err != nil {
+		return nil, err
+	}
+
+	if len(manifest.Releases) > len(localManifest.Releases) {
+		err := os.WriteFile(".release_manifest.yaml", manifestFile, 0644)
+		if err != nil {
+			return nil, err
+		}
+
+		return manifest, nil
+	}
+
+	return localManifest, nil
+}
+
+func WriteReleaseManifest(manifest *ReleaseManifest, file string) error {
+	manifestData, err := yaml.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(file, manifestData, 0644)
+}
+
 type InitCmd struct{}
 
 func (cmd *InitCmd) Run(ctx *Context) error {
@@ -665,6 +1034,24 @@ func currentBranch() (string, error) {
 func lastLocalCommit() (string, error) {
 	out, err := exec.Command("git", "rev-parse", "HEAD").Output()
 	return strings.TrimRight(string(out), "\r\n"), err
+}
+
+func repoURL() (string, error) {
+	out, err := exec.Command("git", "config", "--get", "remote.origin.url").Output()
+	return strings.TrimRight(string(out), "\r\n"), err
+}
+
+func checkoutCommit(commit string) error {
+	return exec.Command("git", "checkout", commit).Run()
+}
+
+func currentTag() (string, error) {
+	out, err := exec.Command("git", "tag", "--points-at", "HEAD").Output()
+	return strings.TrimRight(string(out), "\r\n"), err
+}
+
+func addTag(tag string) error {
+	return exec.Command("git", "tag", "-a", tag, "-m", fmt.Sprintf("\"setting version %s\"", tag)).Run()
 }
 
 func getOverlay(system *config.System, module string) (string, error) {
