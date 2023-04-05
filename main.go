@@ -645,7 +645,6 @@ func (cmd *ReleaseCreateCmd) Run(ctx *Context) error {
 			fmt.Printf("Finding %s commit... %s\n", module, commit)
 		}
 
-
 		release.Components = append(release.Components, *component)
 		return nil
 	}
@@ -826,6 +825,10 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 		return err
 	}
 
+	if err := installMPIOperator(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -882,6 +885,16 @@ func runKubectlLabelOrTaint(ctx *Context, node string, kctlCmd string, labelsOrT
 func installCertManager(ctx *Context) error {
 	fmt.Println("Installing cert manager...")
 	cmd := exec.Command("bash", "-c", "source common.sh; install_cert_manager")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func installMPIOperator(ctx *Context) error {
+	fmt.Println("Installing mpi-operator...")
+	cmd := exec.Command("bash", "-c", "source common.sh; install_mpi_operator")
 	if _, err := runCommand(ctx, cmd); err != nil {
 		return err
 	}
