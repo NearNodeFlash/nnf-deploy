@@ -83,6 +83,9 @@ EOF
 
     # Required for webhooks
     install_cert_manager 
+
+    # Required for containers
+    install_mpi_operator
 fi
 
 if [[ "$CMD" == destroy ]]; then

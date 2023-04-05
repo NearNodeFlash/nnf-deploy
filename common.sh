@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021, 2022 Hewlett Packard Enterprise Development LP
+# Copyright 2021-2023 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -17,11 +17,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-install_cert_manager ()
-{
+install_cert_manager() {
+    # Required for webhooks
     certver="v1.7.0"
-    #Required for webhooks
     kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/"$certver"/cert-manager.yaml
+}
+
+install_mpi_operator() {
+    # Required for containers
+    mpiversion="v0.4.0"
+    kubectl apply -f https://raw.githubusercontent.com/kubeflow/mpi-operator/"$mpiversion"/deploy/v2beta1/mpi-operator.yaml
 }
 
 SUBMODULES=$(git submodule status | awk '{print $2}')

@@ -13,7 +13,7 @@ require (
 	github.com/HewlettPackard/dws v0.0.0-20230410193930-8fd6fbeff7f8
 	github.com/NearNodeFlash/lustre-fs-operator v0.0.0-20230322153812-315a443f315b
 	github.com/NearNodeFlash/nnf-dm v0.0.0-20221110213934-14699bac1e45
-	github.com/NearNodeFlash/nnf-sos v0.0.0-20230322160930-ae4c82643d04
+	github.com/NearNodeFlash/nnf-sos v0.0.0-20230411182150-1f061ae44ca5
 	github.com/alecthomas/kong v0.7.1
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.3
@@ -50,6 +50,8 @@ require (
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kubeflow/common v0.4.6 // indirect
+	github.com/kubeflow/mpi-operator v0.3.1-0.20230228224311-5946ef415759 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -79,7 +81,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.26.1 // indirect
 	k8s.io/component-base v0.26.1 // indirect
 	k8s.io/klog/v2 v2.90.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20230105215759-76fd588bec96 // indirect
+	k8s.io/kube-openapi v0.0.0-20230109183929-3758b55a6596 // indirect
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
