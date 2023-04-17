@@ -165,10 +165,10 @@ proper certs and tokens. Systemd files are used to manage and start the daemons.
 
 NNF test infrastructure and individualized tests reside in the [/test](./test/) directory. Tests are expected to run against a fully deployed cluster reachable via your current k8s configuration context. NNF test uses the [Ginkgo](https://onsi.github.io/ginkgo) test framework.
 
-Various Ginkgo options can be passed into `go test`. Common options include `-ginkgo.fail-fast`,  `-ginkgo.progress`,  and `-ginkgo.v`
+Various Ginkgo options can be passed into `go test`. Common options include `-ginkgo.fail-fast`,  `-ginkgo.show-node-events`,  and `-ginkgo.v`
 
 ```bash
-go test -v ./test/... -ginkgo.fail-fast -ginkgo.progress -ginkgo.v
+go test -v ./test/... -ginkgo.fail-fast -ginkgo.v
 ```
 
 Ginkgo also provides the [Ginkgo CLI](https://onsi.github.io/ginkgo/#ginkgo-cli-overview) that can be used for enhanced test features like parallelization, randomization, and filter.
