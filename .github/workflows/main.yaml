@@ -18,7 +18,7 @@ jobs:
     - name: Setup Ginkgo
       run: >
         GINKGO_MOD=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1 "@" $2}')
-        GOMEGA_VER=$(grep "github.com/onsi/gomega" go.mod | awk '{$2}')
+        GOMEGA_VER=$(grep "github.com/onsi/gomega" go.mod | awk '{print $2}')
         bash -c 'echo Using $GINKGO_MOD and gomega $GOMEGA_VER && go get $GINKGO_MOD && go get github.com/onsi/gomega@$GOMEGA_VER'
     - name: Setup Ginkgo CLI
       run: >
