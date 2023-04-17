@@ -18,6 +18,7 @@ jobs:
     - name: Setup Ginkgo
       run: >
         GINKGO_MOD=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1 "@" $2}')
+        GINKGO_CLI=$(grep "github.com/onsi/ginkgo/v2/ginkgo" go.mod | awk '{print $1 "@" $2}')
         GINKGO_PATH=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1}')
-        bash -c 'echo Using $GINKGO_MOD && go get $GINKGO_MOD && go install $GINKGO_PATH && go get github.com/onsi/gomega/...'
-    - run: ginkgo run -p --vv ./test/...
+        bash -c 'echo Using $GINKGO_MOD && go get $GINKGO_MOD && go install $GINKGO_PATH && go get github.com/onsi/gomega/... && go install $GINKGO_CLI'
+    - run: type ginkgo && ginkgo run -p --vv ./test/...
