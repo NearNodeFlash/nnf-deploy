@@ -21,5 +21,4 @@ jobs:
         GINKGO_CLI=$(grep "github.com/onsi/ginkgo/v2/ginkgo" go.mod | awk '{print $1 "@" $2}')
         GINKGO_PATH=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1}')
         bash -c 'echo Using $GINKGO_MOD && go get $GINKGO_MOD && go install $GINKGO_PATH && go get github.com/onsi/gomega/... && go install $GINKGO_CLI'
-    - run: echo Ginkgo CLI version: `ginkgo version`
-    - run: ginkgo run -p --vv ./test/...
+    - run: ginkgo version && ginkgo run -p --vv ./test/...
