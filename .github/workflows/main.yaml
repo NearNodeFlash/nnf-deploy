@@ -18,12 +18,10 @@ jobs:
     - name: Setup Ginkgo
       run: >
         GINKGO_MOD=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1 "@" $2}')
-        GINKGO_CLI=$(grep "github.com/onsi/ginkgo/v2/ginkgo" go.mod | awk '{print $1 "@" $2}')
-        GINKGO_PATH=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1}')
-        bash -c 'echo Using $GINKGO_MOD && go get $GINKGO_MOD && go install $GINKGO_PATH && go get github.com/onsi/gomega/... && go install $GINKGO_CLI'
-    - run: go env GOPATH
-    - run: go env GOROOT
-    - run: go env GOTOOLDIR
-    - run: /root/go/bin/ginkgo version
-    - run: /root/actions-runner/_work/_tool/go/1.19.5/x64/pkg/tool/linux_amd64/ginkgo version
-    - run: ginkgo version && ginkgo run -p --vv ./test/...
+        GOMEGA_VER=$(grep "github.com/onsi/gomega" go.mod | awk '{$2}')
+        bash -c 'echo Using $GINKGO_MOD and gomega $GOMEGA_VER && go get $GINKGO_MOD && go get github.com/onsi/gomega/...@$GOMEGA_VER'
+    - name: Setup Ginkgo CLI
+      run: >
+        GINKGO_CLI_VER=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $2}')
+        bash -c 'go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_CLI_VER'
+    - run: type ginkgo && ginkgo version && ginkgo run -p --vv ./test/...
