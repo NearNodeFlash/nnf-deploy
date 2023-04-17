@@ -21,4 +21,15 @@ jobs:
         GINKGO_CLI=$(grep "github.com/onsi/ginkgo/v2/ginkgo" go.mod | awk '{print $1 "@" $2}')
         GINKGO_PATH=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1}')
         bash -c 'echo Using $GINKGO_MOD && go get $GINKGO_MOD && go install $GINKGO_PATH && go get github.com/onsi/gomega/... && go install $GINKGO_CLI'
+    - run: >
+        GOPATH=$(go env GOPATH)
+        bash -c 'echo GOPATH $GOPATH'
+        bash -c '$GOPATH/bin/ginkgo version'
+        GOROOT=$(go env GOROOT)
+        bash -c 'echo GOROOT && $GOROOT'
+        bash -c '$GOROOT/bin/ginkgo version'
+        GOTOOLDIR=$(go env GOTOOLDIR)
+        bash -c 'echo GOTOOLDIR && $GOTOOLDIR'
+        bash -c '$GOTOOLDIR/ginkgo version'
+    - run: ginkgo version
     - run: ginkgo version && ginkgo run -p --vv ./test/...
