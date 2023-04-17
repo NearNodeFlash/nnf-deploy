@@ -24,5 +24,7 @@ jobs:
     - run: go env GOPATH
     - run: go env GOROOT
     - run: go env GOTOOLDIR
-    - run: ginkgo version
+    - run: /root/go/bin/ginkgo version
+    - run: /root/actions-runner/_work/_tool/go/1.19.5/x64/bin/ginkgo version
+    - run: /root/actions-runner/_work/_tool/go/1.19.5/x64/pkg/tool/linux_amd64/ginkgo version
     - run: ginkgo version && ginkgo run -p --vv ./test/...
