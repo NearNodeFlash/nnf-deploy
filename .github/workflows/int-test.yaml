@@ -1,10 +1,9 @@
-name: Unit Tests
-
+name: NNF int-test
 on: [push]
 
 jobs:
-  config-unit-test:
-    runs-on: ubuntu-latest
+  int-test:
+    runs-on: self-hosted
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -24,5 +23,5 @@ jobs:
       run: >
         GINKGO_CLI_VER=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $2}')
         bash -c 'go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_CLI_VER'
-    - name: Run Unit Tests
-      run: type ginkgo && ginkgo version && ginkgo run -p --vv ./config/...
+    - name: Run int-test on Self-Hosted System
+      run: type ginkgo && ginkgo version && ginkgo run -p --vv ./test/...
