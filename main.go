@@ -68,9 +68,6 @@ var cli struct {
 func main() {
 	ctx := kong.Parse(&cli)
 	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun})
-	if err != nil {
-		fmt.Printf("%v", err)
-	}
 	ctx.FatalIfErrorf(err)
 }
 
@@ -1030,7 +1027,7 @@ func loadSystem() (*config.System, error) {
 	}
 
 	fmt.Println("Retrieving System Config...")
-	system, err := config.FindSystem(ctx)
+	system, err := config.FindSystem(ctx, config.DefaultSysCfgPath)
 	if err != nil {
 		return nil, err
 	}

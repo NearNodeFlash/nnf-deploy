@@ -3,7 +3,7 @@ name: NNF Test
 on: [push]
 
 jobs:
-  test:
+  int-test:
     runs-on: self-hosted
     steps:
     - name: Checkout
@@ -24,4 +24,28 @@ jobs:
       run: >
         GINKGO_CLI_VER=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $2}')
         bash -c 'go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_CLI_VER'
-    - run: type ginkgo && ginkgo version && ginkgo run -p --vv ./test/...
+    - name: Run int-test on Self-Hosted System
+      run: type ginkgo && ginkgo version && ginkgo run -p --vv ./test/...
+  config-unit-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: 'true'
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+    - name: Setup Ginkgo
+      run: >
+        GINKGO_MOD=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $1 "@" $2}')
+        GOMEGA_VER=$(grep "github.com/onsi/gomega" go.mod | awk '{print $2}')
+        bash -c 'echo Using $GINKGO_MOD and gomega $GOMEGA_VER && go get $GINKGO_MOD && go get github.com/onsi/gomega@$GOMEGA_VER'
+    - name: Setup Ginkgo CLI
+      run: >
+        GINKGO_CLI_VER=$(grep "github.com/onsi/ginkgo" go.mod | awk '{print $2}')
+        bash -c 'go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_CLI_VER'
+    - name: Run Unit Tests
+      run: type ginkgo && ginkgo version && ginkgo run -p --vv ./config/...
