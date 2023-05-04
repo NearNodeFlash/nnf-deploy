@@ -19,7 +19,7 @@
 
 install_cert_manager() {
     # Required for webhooks
-    certver="v1.7.0"
+    certver="v1.11.1"
     kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/"$certver"/cert-manager.yaml
 }
 
