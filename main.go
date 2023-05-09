@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, 2022 Hewlett Packard Enterprise Development LP
+ * Copyright 2021-2023 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -462,10 +462,7 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 }
 
 func applyLabelsTaints(system *config.System, ctx *Context) error {
-	// Labels/Taints to apply to manager nodes and nnf nodes
-	managerLabels := []string{
-		"cray.nnf.manager=true",
-	}
+	// Labels/Taints to apply to nnf nodes
 	nnfNodeLabels := []string{
 		"cray.nnf.node=true",
 	}
@@ -473,18 +470,9 @@ func applyLabelsTaints(system *config.System, ctx *Context) error {
 		"cray.nnf.node=true:NoSchedule",
 	}
 
-	// By default, managers are workers; nodes are rabbits
-	managers := system.Workers
 	nnfNodes := []string{}
 	for rabbit := range system.Rabbits {
 		nnfNodes = append(nnfNodes, rabbit)
-	}
-
-	fmt.Printf("Applying manager labels to worker nodes: %s...\n", strings.Join(managers, ", "))
-	for _, node := range managers {
-		if err := runKubectlLabelOrTaint(ctx, node, "label", managerLabels); err != nil {
-			return err
-		}
 	}
 
 	fmt.Printf("Applying NNF node labels and taints to rabbit nodes: %s...\n", strings.Join(nnfNodes, ", "))
@@ -513,7 +501,7 @@ func runKubectlLabelOrTaint(ctx *Context, node string, kctlCmd string, labelsOrT
 
 func installCertManager(ctx *Context) error {
 	fmt.Println("Installing cert manager...")
-	cmd := exec.Command("bash", "-c", "source common.sh; install_cert_manager")
+	cmd := exec.Command("kubectl", "apply", "-f", "https://github.com/jetstack/cert-manager/releases/download/v1.11.1/cert-manager.yaml")
 	if _, err := runCommand(ctx, cmd); err != nil {
 		return err
 	}
@@ -523,7 +511,7 @@ func installCertManager(ctx *Context) error {
 
 func installMPIOperator(ctx *Context) error {
 	fmt.Println("Installing mpi-operator...")
-	cmd := exec.Command("bash", "-c", "source common.sh; install_mpi_operator")
+	cmd := exec.Command("kubectl", "apply", "-f", "https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml")
 	if _, err := runCommand(ctx, cmd); err != nil {
 		return err
 	}
