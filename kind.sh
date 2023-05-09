@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021, 2022 Hewlett Packard Enterprise Development LP
+# Copyright 2021-2023 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -30,18 +30,6 @@ fi
 if [[ "$CMD" == "create" ]]; then
     CONFIG=kind-config.yaml
 
-    # Rabbit & WLM System Local Controllers (SLC)
-    SLCCONFIG=$(cat << EOF
-
-  kubeadmConfigPatches:
-  - |
-    kind: JoinConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        node-labels: cray.nnf.manager=true
-EOF
-)
-
     # Rabbit taints/labels, plus some host mounts for data movement
     RABBITCONFIG=$(cat << EOF
 
@@ -49,16 +37,6 @@ EOF
     - hostPath: /tmp/nnf
       containerPath: /nnf
       propagation: None
-  kubeadmConfigPatches:
-  - |
-    kind: JoinConfiguration
-    nodeRegistration:
-      taints:
-      - key: cray.nnf.node
-        value: "true"
-        effect: NoSchedule
-      kubeletExtraArgs:
-        node-labels: "cray.nnf.node=true"
 EOF
 )
 
@@ -69,7 +47,7 @@ networking:
   apiServerAddress: "127.0.0.1"
 nodes:
 - role: control-plane
-- role: worker $SLCCONFIG
+- role: worker
 - role: worker $RABBITCONFIG
 - role: worker $RABBITCONFIG
 EOF
@@ -81,11 +59,10 @@ EOF
 
     kind create cluster --wait 60s --image=kindest/node:v1.25.2 --config $CONFIG
 
-    # Required for webhooks
-    install_cert_manager 
-
-    # Required for containers
-    install_mpi_operator
+    # Use the same init routines that we use on real hardware.
+    # This applies taints and labels to rabbit nodes, and installs other
+    # services that rabbit software requires.
+    ./nnf-deploy init
 fi
 
 if [[ "$CMD" == destroy ]]; then

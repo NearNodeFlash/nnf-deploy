@@ -17,16 +17,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-install_cert_manager() {
-    # Required for webhooks
-    certver="v1.11.1"
-    kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/"$certver"/cert-manager.yaml
-}
-
-install_mpi_operator() {
-    # Required for containers
-    mpiversion="v0.4.0"
-    kubectl apply -f https://raw.githubusercontent.com/kubeflow/mpi-operator/"$mpiversion"/deploy/v2beta1/mpi-operator.yaml
-}
-
 SUBMODULES=$(git submodule status | awk '{print $2}')
