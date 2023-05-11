@@ -1,34 +1,25 @@
 repositories:
-  # - name: hpc-dpm-dws-operator
-  #   overlays: [craystack, kind, dp0]
-  #   development: https://arti.dev.cray.com/artifactory/kj-docker-unstable-local/cray-dws-operator/
-  #   master: https://arti.dev.cray.com/artifactory/kj-docker-master-local/cray-dws-operator/
-  # - name: hpc-rabsw-lustre-fs-operator
-  #   development: https://arti.dev.cray.com/artifactory/rabsw-docker-unstable-local/cray-dp-lustre-fs-operator/
-  #   master: https://arti.dev.cray.com/artifactory/rabsw-docker-master-local/cray-dp-lustre-fs-operator/
-  # - name: hpc-rabsw-lustre-csi-driver
-  #   overlays: [lustre]
-  #   development: https://arti.dev.cray.com/artifactory/rabsw-docker-unstable-local/cray-dp-lustre-csi-driver/
-  #   master: https://arti.dev.cray.com/artifactory/rabsw-docker-master-local/cray-dp-lustre-csi-driver/
-  # - name: hpc-rabsw-nnf-dm
-  #   development: https://arti.dev.cray.com/artifactory/rabsw-docker-unstable-local/cray-dp-nnf-dm/
-  #   master: https://arti.dev.cray.com/artifactory/rabsw-docker-master-local/cray-dp-nnf-dm/
-  # - name: hpc-rabsw-nnf-sos
-  #   overlays: [craystack, kind, dp0]
-  #   development: https://arti.dev.cray.com/artifactory/rabsw-docker-unstable-local/cray-dp-nnf-sos/
-  #   master: https://arti.dev.cray.com/artifactory/rabsw-docker-master-local/cray-dp-nnf-sos/
-# The following repos are the public github equivalents
+  # Remote References:
+  #   If useRemoteK==true, then use the remote reference to the kustomize
+  #   configuration rather than referring to the local workarea.
+  #   Examples for the build value:
+  #     v0.0.3 (a tag)
+  #     master (most recent build from the master branch)
+  #     a branch name (whether it is or isn't a PR)
+  #   The url may contain up to two %s format specifiers.  If the repo
+  #   contains overlays, then the first %s indicates where the overlay name
+  #   will be inserted.  The final %s indicates where the build value will be
+  #   inserted.
+  #   Example:
+  #     useRemote: true
+  #     remoteReference:
+  #       build: v0.0.3
+  #       url: https://github.com/HewlettPackard/lustre-csi-driver.git/deploy/kubernetes/%s/?ref=%s
+  #
   - name: dws
     overlays: [craystack, kind, dp0]
     development: https://ghcr.io/hewlettpackard/dws
     master: https://ghcr.io/hewlettpackard/dws
-  - name: lustre-csi-driver
-    overlays: [overlays/rabbit, overlays/kind]
-    development: https://ghcr.io/hewlettpackard/lustre-csi-driver
-    master: https://ghcr.io/hewlettpackard/lustre-csi-driver
-  - name: lustre-fs-operator
-    development: https://ghcr.io/nearnodeflash/lustre-fs-operator
-    master: https://ghcr.io/nearnodeflash/lustre-fs-operator
   - name: nnf-dm
     development: https://ghcr.io/nearnodeflash/nnf-dm
     master: https://ghcr.io/nearnodeflash/nnf-dm
@@ -36,3 +27,18 @@ repositories:
     overlays: [craystack, kind, dp0]
     development: https://ghcr.io/nearnodeflash/nnf-sos
     master: https://ghcr.io/nearnodeflash/nnf-sos
+  - name: lustre-csi-driver
+    overlays: [overlays/rabbit, overlays/kind]
+    development: https://ghcr.io/hewlettpackard/lustre-csi-driver
+    master: https://ghcr.io/hewlettpackard/lustre-csi-driver
+    useRemoteK: true
+    remoteReference:
+      build: v0.0.4
+      url: https://github.com/HewlettPackard/lustre-csi-driver.git/deploy/kubernetes/%s/?ref=%s
+  - name: lustre-fs-operator
+    development: https://ghcr.io/nearnodeflash/lustre-fs-operator
+    master: https://ghcr.io/nearnodeflash/lustre-fs-operator
+    useRemoteK: true
+    remoteReference:
+      build: v0.0.3
+      url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s

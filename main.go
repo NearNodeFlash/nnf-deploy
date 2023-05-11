@@ -40,11 +40,19 @@ import (
 
 // This is the order in which we process the modules on deployment.
 var modules = []string{
-	"dws",
 	"lustre-csi-driver",
 	"lustre-fs-operator",
+	"dws",
 	"nnf-sos",
 	"nnf-dm",
+}
+
+// The following modules are allowed to be installed via direct reference
+// to github with "kubectl apply -k", depending on their settings
+// in config/repositories.yaml.
+var modulesAllowedRemote = []string{
+	"lustre-csi-driver",
+	"lustre-fs-operator",
 }
 
 type Context struct {
@@ -458,6 +466,30 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 		return err
 	}
 
+	for _, module := range modulesAllowedRemote {
+		var applyK string
+		repo, err := config.FindRepository(module)
+		if err != nil {
+			return err
+		}
+		if !repo.UseRemoteK {
+			continue
+		}
+		fmt.Printf("Installing %s...\n", module)
+		overlay, err := getOverlay(system, module)
+		if err != nil {
+			return err
+		}
+		if overlay == "" {
+			applyK = fmt.Sprintf(repo.RemoteReference.Url, repo.RemoteReference.Build)
+		} else {
+			applyK = fmt.Sprintf(repo.RemoteReference.Url, overlay, repo.RemoteReference.Build)
+		}
+		if err := runKubectlApplyK(ctx, applyK); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -499,24 +531,44 @@ func runKubectlLabelOrTaint(ctx *Context, node string, kctlCmd string, labelsOrT
 	return nil
 }
 
-func installCertManager(ctx *Context) error {
-	fmt.Println("Installing cert manager...")
-	cmd := exec.Command("kubectl", "apply", "-f", "https://github.com/jetstack/cert-manager/releases/download/v1.11.1/cert-manager.yaml")
+func runKubectlApply(ctx *Context, applyFlag string, url string) error {
+	cmd := exec.Command("kubectl", "apply", applyFlag, url)
 	if _, err := runCommand(ctx, cmd); err != nil {
 		return err
 	}
+	return nil
+}
 
+func runKubectlApplyK(ctx *Context, url string) error {
+	return runKubectlApply(ctx, "-k", url)
+}
+
+func runKubectlApplyF(ctx *Context, url string) error {
+	return runKubectlApply(ctx, "-f", url)
+}
+
+func installCertManager(ctx *Context) error {
+	fmt.Println("Installing cert manager...")
+	err := runKubectlApplyF(ctx, "https://github.com/jetstack/cert-manager/releases/download/v1.11.1/cert-manager.yaml")
+	if err != nil {
+		return err
+	}
+	// The NNF services will dump errors at installation time if the
+	// cert-manager webhook isn't ready.
+	fmt.Println("  waiting for its webhook to be ready...")
+	waiter := "kubectl wait pod -n cert-manager --timeout=180s -l app.kubernetes.io/component=webhook --for jsonpath='{.status.phase}'=Running"
+	cmd := exec.Command("bash", "-c", waiter)
+	_, err = runCommand(ctx, cmd)
+	if err != nil {
+		fmt.Printf("\n\033[1mThe cluster is still waiting for cert-manager to start.\nPlease run `nnf-deploy init` after cert-manager is running.\033[0m\n\n")
+		return err
+	}
 	return nil
 }
 
 func installMPIOperator(ctx *Context) error {
 	fmt.Println("Installing mpi-operator...")
-	cmd := exec.Command("kubectl", "apply", "-f", "https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml")
-	if _, err := runCommand(ctx, cmd); err != nil {
-		return err
-	}
-
-	return nil
+	return runKubectlApplyF(ctx, "https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml")
 }
 
 type k8sCluster struct {
@@ -837,6 +889,20 @@ func runInModules(modules []string, runFn func(module string) error) error {
 }
 
 func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
+	// Modules that are being installed via remote should be skipped.
+	for _, remoteModule := range modulesAllowedRemote {
+		if module == remoteModule {
+			repo, err := config.FindRepository(module)
+			if err != nil {
+				return true
+			}
+			if repo.UseRemoteK {
+				return true
+			}
+			break
+		}
+	}
+
 	if len(permittedModulesOrEmpty) == 0 {
 		return false
 	}
