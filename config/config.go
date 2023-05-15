@@ -175,10 +175,15 @@ type RepositoryConfigFile struct {
 }
 
 type Repository struct {
-	Name        string
-	Overlays    []string `yaml:",flow"`
-	Development string
-	Master      string
+	Name            string
+	Overlays        []string `yaml:",flow"`
+	Development     string
+	Master          string
+	UseRemoteK      bool `yaml:"useRemoteK,omitempty"`
+	RemoteReference struct {
+		Build string `yaml:"build"`
+		Url   string `yaml:"url"`
+	} `yaml:"remoteReference,omitempty"`
 }
 
 func FindRepository(module string) (*Repository, error) {
