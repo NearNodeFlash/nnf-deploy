@@ -27,6 +27,13 @@ repositories:
     overlays: [craystack, kind, dp0]
     development: https://ghcr.io/nearnodeflash/nnf-sos
     master: https://ghcr.io/nearnodeflash/nnf-sos
+    env:
+    # The nnf-mfu container to use in NNFContainerProfile resources.
+    # Example values:
+    #  - A specific release build: 0.0.1 (without the "v" prefix)
+    #  - The most recent build from the master branch: master
+    - name: NNFMFU_VERSION
+      value: 0.0.1
   - name: lustre-csi-driver
     overlays: [overlays/rabbit, overlays/kind]
     development: https://ghcr.io/hewlettpackard/lustre-csi-driver

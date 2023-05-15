@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, 2022 Hewlett Packard Enterprise Development LP
+ * Copyright 2021-2023 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -175,10 +175,14 @@ type RepositoryConfigFile struct {
 }
 
 type Repository struct {
-	Name            string
-	Overlays        []string `yaml:",flow"`
-	Development     string
-	Master          string
+	Name        string   `yaml:"name"`
+	Overlays    []string `yaml:"overlays,flow"`
+	Development string   `yaml:"development"`
+	Master      string   `yaml:"master"`
+	Env         []struct {
+		Name  string `yaml:"name"`
+		Value string `yaml:"value"`
+	} `yaml:"env,omitempty"`
 	UseRemoteK      bool `yaml:"useRemoteK,omitempty"`
 	RemoteReference struct {
 		Build string `yaml:"build"`

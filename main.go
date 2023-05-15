@@ -180,8 +180,18 @@ func runMakeCommand(ctx *Context, system *config.System, module string, command 
 		return err
 	}
 
+	fmt.Print("  Finding Repository...")
+	repo, err := config.FindRepository(module)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(" %s\n", repo.Name)
+	for idx := range repo.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", repo.Env[idx].Name, repo.Env[idx].Value))
+	}
+
 	if len(overlay) != 0 {
-		cmd.Env = append(os.Environ(),
+		cmd.Env = append(cmd.Env,
 			"OVERLAY="+overlay,
 		)
 	}
@@ -267,7 +277,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 			if !cmd.NoBuild && d.Bin != "" {
 				cmd := exec.Command("go", "build", "-o", d.Bin)
-				cmd.Env = append(os.Environ(),
+				cmd.Env = append(cmd.Env,
 					"CGO_ENABLED=0",
 					"GOOS=linux",
 					"GOARCH=amd64",
@@ -784,6 +794,16 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		return err
 	}
 
+	fmt.Print("  Finding Repository...")
+	repo, err := config.FindRepository(module)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(" %s\n", repo.Name)
+	for idx := range repo.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", repo.Env[idx].Name, repo.Env[idx].Value))
+	}
+
 	if system.Name == "kind" {
 		// TODO: Do a sanity check to make sure the image is present on the kind nodes. This ensures
 		//       that a "kind-push" was done. This would _not_ guarantee that a docker-build was done with
@@ -791,18 +811,11 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		//       images present on a cluster node by using `docker exec -it [NODE NAME] crictl images`
 
 		if len(overlay) != 0 {
-			cmd.Env = append(os.Environ(),
+			cmd.Env = append(cmd.Env,
 				"OVERLAY="+overlay)
 		}
 
 	} else {
-
-		fmt.Print("  Finding Repository...")
-		repo, err := config.FindRepository(module)
-		if err != nil {
-			return err
-		}
-		fmt.Printf(" %s\n", repo.Name)
 
 		fmt.Printf("  Loading Current Branch...")
 		branch, err := currentBranch()
@@ -833,7 +846,7 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		version := commit
 		imageTagBase := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
 
-		cmd.Env = append(os.Environ(),
+		cmd.Env = append(cmd.Env,
 			"IMAGE_TAG_BASE="+imageTagBase,
 			"VERSION="+version,
 			"OVERLAY="+overlay,
@@ -848,9 +861,13 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
 	if ctx.DryRun {
 		fmt.Printf("  Dry-Run: Skipping command '%s'\n", cmd.String())
+		fmt.Printf("  Additional env: %v\n", cmd.Env)
 		return nil, nil
 	}
 
+	if len(cmd.Env) > 0 {
+		cmd.Env = append(cmd.Env, os.Environ()...)
+	}
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("%s\n", stdoutStderr)
