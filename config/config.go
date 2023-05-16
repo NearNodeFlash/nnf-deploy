@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, 2022 Hewlett Packard Enterprise Development LP
+ * Copyright 2021-2023 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -171,43 +171,51 @@ func (system *System) Verify() error {
 }
 
 type RepositoryConfigFile struct {
-	Repositories []Repository `yaml:"repositories"`
+	Repositories []Repository       `yaml:"repositories"`
+	BuildConfig  BuildConfiguration `yaml:"buildConfiguration"`
 }
 
 type Repository struct {
-	Name            string
-	Overlays        []string `yaml:",flow"`
-	Development     string
-	Master          string
-	UseRemoteK      bool `yaml:"useRemoteK,omitempty"`
+	Name            string   `yaml:"name"`
+	Overlays        []string `yaml:"overlays,flow"`
+	Development     string   `yaml:"development"`
+	Master          string   `yaml:"master"`
+	UseRemoteK      bool     `yaml:"useRemoteK,omitempty"`
 	RemoteReference struct {
 		Build string `yaml:"build"`
 		Url   string `yaml:"url"`
 	} `yaml:"remoteReference,omitempty"`
 }
 
-func FindRepository(module string) (*Repository, error) {
+type BuildConfiguration struct {
+	Env []struct {
+		Name  string `yaml:"name"`
+		Value string `yaml:"value"`
+	} `yaml:"env"`
+}
+
+func FindRepository(module string) (*Repository, *BuildConfiguration, error) {
 
 	configFile, err := os.ReadFile(DefaultRepoCfgPath)
 	if err != nil {
 		configFile, err = os.ReadFile(filepath.Join("..", DefaultRepoCfgPath))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	config := new(RepositoryConfigFile)
 	if err := yaml.UnmarshalStrict(configFile, config); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for _, repository := range config.Repositories {
 		if module == repository.Name {
-			return &repository, nil
+			return &repository, &config.BuildConfig, nil
 		}
 	}
 
-	return nil, fmt.Errorf("Repository '%s' Not Found", module)
+	return nil, nil, fmt.Errorf("Repository '%s' Not Found", module)
 }
 
 type Daemon struct {

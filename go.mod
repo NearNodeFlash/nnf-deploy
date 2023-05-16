@@ -26,7 +26,7 @@ require (
 )
 
 require (
-	github.com/NearNodeFlash/nnf-ec v0.0.0-20230427164720-dc73727a986f // indirect
+	github.com/NearNodeFlash/nnf-ec v0.0.0-20230512221456-5fa47fb42560 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
