@@ -47,7 +47,7 @@ buildConfiguration:
   # Environment variables to set when calling the any 'make' or 'deploy'
   # command in a submodule.
   env:
-    # The nnf-mfu container to use in NNFContainerProfile resources.
+    # The nnf-mfu container to use.
     # Example values:
     #  - A specific release build: 0.0.1 (without the "v" prefix)
     #  - The most recent build from the master branch: master
