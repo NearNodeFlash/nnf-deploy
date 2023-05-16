@@ -181,13 +181,13 @@ func runMakeCommand(ctx *Context, system *config.System, module string, command 
 	}
 
 	fmt.Print("  Finding Repository...")
-	repo, err := config.FindRepository(module)
+	repo, buildConfig, err := config.FindRepository(module)
 	if err != nil {
 		return err
 	}
 	fmt.Printf(" %s\n", repo.Name)
-	for idx := range repo.Env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", repo.Env[idx].Name, repo.Env[idx].Value))
+	for idx := range buildConfig.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", buildConfig.Env[idx].Name, buildConfig.Env[idx].Value))
 	}
 
 	if len(overlay) != 0 {
@@ -478,7 +478,7 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 
 	for _, module := range modulesAllowedRemote {
 		var applyK string
-		repo, err := config.FindRepository(module)
+		repo, _, err := config.FindRepository(module)
 		if err != nil {
 			return err
 		}
@@ -748,7 +748,7 @@ func addTag(tag string) error {
 
 func getOverlay(system *config.System, module string) (string, error) {
 
-	repo, err := config.FindRepository(module)
+	repo, _, err := config.FindRepository(module)
 	if err != nil {
 		return "", err
 	}
@@ -795,13 +795,13 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 	}
 
 	fmt.Print("  Finding Repository...")
-	repo, err := config.FindRepository(module)
+	repo, buildConfig, err := config.FindRepository(module)
 	if err != nil {
 		return err
 	}
 	fmt.Printf(" %s\n", repo.Name)
-	for idx := range repo.Env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", repo.Env[idx].Name, repo.Env[idx].Value))
+	for idx := range buildConfig.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", buildConfig.Env[idx].Name, buildConfig.Env[idx].Value))
 	}
 
 	if system.Name == "kind" {
@@ -909,7 +909,7 @@ func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
 	// Modules that are being installed via remote should be skipped.
 	for _, remoteModule := range modulesAllowedRemote {
 		if module == remoteModule {
-			repo, err := config.FindRepository(module)
+			repo, _, err := config.FindRepository(module)
 			if err != nil {
 				return true
 			}
