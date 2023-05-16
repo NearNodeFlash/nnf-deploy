@@ -54,3 +54,17 @@ buildConfiguration:
     - name: NNFMFU_VERSION
       value: 0.0.1
 
+thirdPartyServices:
+  # Other services that NNF requires to be available on the system.
+  # They will be installed in the order specified here.
+  - name: cert-manager
+    useRemoteF: true
+    url: https://github.com/jetstack/cert-manager/releases/download/v1.11.1/cert-manager.yaml
+    # The NNF services will dump errors at installation time if the
+    # cert-manager webhook isn't ready.
+    waitCmd: kubectl wait pod -n cert-manager --timeout=180s -l app.kubernetes.io/component=webhook --for jsonpath='{.status.phase}'=Running
+  - name: mpi-operator
+    useRemoteF: true
+    url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
+
+

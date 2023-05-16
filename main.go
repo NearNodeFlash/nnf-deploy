@@ -468,11 +468,7 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	if err := installCertManager(ctx); err != nil {
-		return err
-	}
-
-	if err := installMPIOperator(ctx); err != nil {
+	if err := installThirdPartyServices(ctx); err != nil {
 		return err
 	}
 
@@ -500,6 +496,34 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 		}
 	}
 
+	return nil
+}
+
+func installThirdPartyServices(ctx *Context) error {
+	thirdPartyServices, err := config.GetThirdPartyServices()
+	if err != nil {
+		return err
+	}
+
+	for idx := range thirdPartyServices {
+		svc := thirdPartyServices[idx]
+		if !svc.UseRemoteF {
+			continue
+		}
+		fmt.Printf("Installing %s...\n", svc.Name)
+		if err := runKubectlApplyF(ctx, svc.Url); err != nil {
+			return err
+		}
+		if len(svc.WaitCmd) > 0 {
+			fmt.Println("  waiting for it to be ready...")
+			cmd := exec.Command("bash", "-c", svc.WaitCmd)
+			_, err = runCommand(ctx, cmd)
+			if err != nil {
+				fmt.Printf("\n\033[1mThe cluster is still waiting for %s to start.\nPlease run `nnf-deploy init` after it is running.\033[0m\n\n", svc.Name)
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -555,30 +579,6 @@ func runKubectlApplyK(ctx *Context, url string) error {
 
 func runKubectlApplyF(ctx *Context, url string) error {
 	return runKubectlApply(ctx, "-f", url)
-}
-
-func installCertManager(ctx *Context) error {
-	fmt.Println("Installing cert manager...")
-	err := runKubectlApplyF(ctx, "https://github.com/jetstack/cert-manager/releases/download/v1.11.1/cert-manager.yaml")
-	if err != nil {
-		return err
-	}
-	// The NNF services will dump errors at installation time if the
-	// cert-manager webhook isn't ready.
-	fmt.Println("  waiting for its webhook to be ready...")
-	waiter := "kubectl wait pod -n cert-manager --timeout=180s -l app.kubernetes.io/component=webhook --for jsonpath='{.status.phase}'=Running"
-	cmd := exec.Command("bash", "-c", waiter)
-	_, err = runCommand(ctx, cmd)
-	if err != nil {
-		fmt.Printf("\n\033[1mThe cluster is still waiting for cert-manager to start.\nPlease run `nnf-deploy init` after cert-manager is running.\033[0m\n\n")
-		return err
-	}
-	return nil
-}
-
-func installMPIOperator(ctx *Context) error {
-	fmt.Println("Installing mpi-operator...")
-	return runKubectlApplyF(ctx, "https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml")
 }
 
 type k8sCluster struct {
@@ -861,7 +861,9 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
 	if ctx.DryRun {
 		fmt.Printf("  Dry-Run: Skipping command '%s'\n", cmd.String())
-		fmt.Printf("  Additional env: %v\n", cmd.Env)
+		if len(cmd.Env) > 0 {
+			fmt.Printf("  Additional env: %v\n", cmd.Env)
+		}
 		return nil, nil
 	}
 
