@@ -171,8 +171,9 @@ func (system *System) Verify() error {
 }
 
 type RepositoryConfigFile struct {
-	Repositories []Repository       `yaml:"repositories"`
-	BuildConfig  BuildConfiguration `yaml:"buildConfiguration"`
+	Repositories       []Repository        `yaml:"repositories"`
+	BuildConfig        BuildConfiguration  `yaml:"buildConfiguration"`
+	ThirdPartyServices []ThirdPartyService `yaml:"thirdPartyServices"`
 }
 
 type Repository struct {
@@ -194,18 +195,32 @@ type BuildConfiguration struct {
 	} `yaml:"env"`
 }
 
-func FindRepository(module string) (*Repository, *BuildConfiguration, error) {
+type ThirdPartyService struct {
+	Name       string `yaml:"name"`
+	UseRemoteF bool   `yaml:"useRemoteF,omitempty"`
+	Url        string `yaml:"url"`
+	WaitCmd    string `yaml:"waitCmd,omitempty"`
+}
 
+func readConfigFile() (*RepositoryConfigFile, error) {
 	configFile, err := os.ReadFile(DefaultRepoCfgPath)
 	if err != nil {
 		configFile, err = os.ReadFile(filepath.Join("..", DefaultRepoCfgPath))
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
-
 	config := new(RepositoryConfigFile)
 	if err := yaml.UnmarshalStrict(configFile, config); err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
+func FindRepository(module string) (*Repository, *BuildConfiguration, error) {
+
+	config, err := readConfigFile()
+	if err != nil {
 		return nil, nil, err
 	}
 
@@ -216,6 +231,14 @@ func FindRepository(module string) (*Repository, *BuildConfiguration, error) {
 	}
 
 	return nil, nil, fmt.Errorf("Repository '%s' Not Found", module)
+}
+
+func GetThirdPartyServices() ([]ThirdPartyService, error) {
+	config, err := readConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	return config.ThirdPartyServices, nil
 }
 
 type Daemon struct {
