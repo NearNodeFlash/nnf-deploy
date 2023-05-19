@@ -44,7 +44,7 @@ repositories:
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 
 buildConfiguration:
-  # Environment variables to set when calling the any 'make' or 'deploy'
+  # Environment variables to set when calling any 'make' or 'deploy'
   # command in a submodule.
   env:
     # The nnf-mfu container to use.
@@ -62,7 +62,7 @@ thirdPartyServices:
     url: https://github.com/jetstack/cert-manager/releases/download/v1.11.1/cert-manager.yaml
     # The NNF services will dump errors at installation time if the
     # cert-manager webhook isn't ready.
-    waitCmd: kubectl wait pod -n cert-manager --timeout=180s -l app.kubernetes.io/component=webhook --for jsonpath='{.status.phase}'=Running
+    waitCmd: kubectl wait deploy -n cert-manager --timeout=180s cert-manager-webhook --for jsonpath='{.status.availableReplicas}=1'
   - name: mpi-operator
     useRemoteF: true
     url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
