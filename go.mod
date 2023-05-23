@@ -10,10 +10,10 @@ replace (
 )
 
 require (
-	github.com/HewlettPackard/dws v0.0.0-20230503202417-89973dea4801
-	github.com/NearNodeFlash/lustre-fs-operator v0.0.0-20230505195900-67d257c69292
+	github.com/HewlettPackard/dws v0.0.1-0.20230522154633-c78e44b892ca
+	github.com/NearNodeFlash/lustre-fs-operator v0.0.0-20230509135923-1259bed0fb14
 	github.com/NearNodeFlash/nnf-dm v0.0.0-20221110213934-14699bac1e45
-	github.com/NearNodeFlash/nnf-sos v0.0.0-20230428210046-53297ed0c2ce
+	github.com/NearNodeFlash/nnf-sos v0.0.1-0.20230517131334-4653f6d4ec06
 	github.com/alecthomas/kong v0.7.1
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.3
