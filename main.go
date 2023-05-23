@@ -59,11 +59,18 @@ type Context struct {
 	Debug  bool
 	DryRun bool
 	Force  bool
+
+	Systems string
+	Repos   string
+	Daemons string
 }
 
 var cli struct {
-	Debug  bool `help:"Enable debug mode."`
-	DryRun bool `help:"Show what would be run."`
+	Debug   bool   `help:"Enable debug mode."`
+	DryRun  bool   `help:"Show what would be run."`
+	Systems string `name:"systems" default:"config/systems.yaml" help:"path to the systems config file"`
+	Repos   string `name:"repos" default:"config/repositories.yaml" help:"path to the repositories config file"`
+	Daemons string `name:"daemons" default:"config/daemons.yaml" help:"path to the daemons config file"`
 
 	Deploy   DeployCmd   `cmd:"" help:"Deploy to current context."`
 	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
@@ -74,7 +81,7 @@ var cli struct {
 
 func main() {
 	ctx := kong.Parse(&cli)
-	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun})
+	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun, Systems: cli.Systems, Repos: cli.Repos, Daemons: cli.Daemons})
 	ctx.FatalIfErrorf(err)
 }
 
@@ -83,14 +90,14 @@ type DeployCmd struct {
 }
 
 func (cmd *DeployCmd) Run(ctx *Context) error {
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
 
 	err = runInModules(modules, func(module string) error {
 
-		if shouldSkipModule(module, cmd.Only) {
+		if shouldSkipModule(ctx, module, cmd.Only) {
 			return nil
 		}
 
@@ -113,7 +120,7 @@ type UndeployCmd struct {
 }
 
 func (cmd *UndeployCmd) Run(ctx *Context) error {
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
@@ -125,7 +132,7 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 
 	return runInModules(reversed, func(module string) error {
 
-		if shouldSkipModule(module, cmd.Only) {
+		if shouldSkipModule(ctx, module, cmd.Only) {
 			return nil
 		}
 
@@ -155,14 +162,14 @@ type MakeCmd struct {
 }
 
 func (cmd *MakeCmd) Run(ctx *Context) error {
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
 
 	return runInModules(modules, func(module string) error {
 
-		if shouldSkipModule(module, cmd.Only) {
+		if shouldSkipModule(ctx, module, cmd.Only) {
 			return nil
 		}
 
@@ -175,13 +182,13 @@ func runMakeCommand(ctx *Context, system *config.System, module string, command 
 
 	cmd := exec.Command("make", command)
 
-	overlay, err := getOverlay(system, module)
+	overlay, err := getOverlay(ctx, system, module)
 	if err != nil {
 		return err
 	}
 
 	fmt.Print("  Finding Repository...")
-	repo, buildConfig, err := config.FindRepository(module)
+	repo, buildConfig, err := config.FindRepository(ctx.Repos, module)
 	if err != nil {
 		return err
 	}
@@ -224,7 +231,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		return true
 	}
 
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
@@ -241,7 +248,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	k8sServerHost := clusterConfig[:strings.Index(clusterConfig, ":")]
 	k8sServerPort := clusterConfig[strings.Index(clusterConfig, ":")+1:]
 
-	return config.EnumerateDaemons(func(d config.Daemon) error {
+	return config.EnumerateDaemons(ctx.Daemons, func(d config.Daemon) error {
 
 		var token []byte
 		var cert []byte
@@ -459,7 +466,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 type InitCmd struct{}
 
 func (cmd *InitCmd) Run(ctx *Context) error {
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
@@ -474,7 +481,7 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 
 	for _, module := range modulesAllowedRemote {
 		var applyK string
-		repo, _, err := config.FindRepository(module)
+		repo, _, err := config.FindRepository(ctx.Repos, module)
 		if err != nil {
 			return err
 		}
@@ -482,7 +489,7 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 			continue
 		}
 		fmt.Printf("Installing %s...\n", module)
-		overlay, err := getOverlay(system, module)
+		overlay, err := getOverlay(ctx, system, module)
 		if err != nil {
 			return err
 		}
@@ -500,7 +507,7 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 }
 
 func installThirdPartyServices(ctx *Context) error {
-	thirdPartyServices, err := config.GetThirdPartyServices()
+	thirdPartyServices, err := config.GetThirdPartyServices(ctx.Repos)
 	if err != nil {
 		return err
 	}
@@ -701,7 +708,7 @@ func currentContext() (string, error) {
 	return strings.TrimRight(string(out), "\r\n"), err
 }
 
-func loadSystem() (*config.System, error) {
+func loadSystem(configPath string) (*config.System, error) {
 	fmt.Println("Retrieving Context...")
 	ctx, err := currentContext()
 	if err != nil {
@@ -709,7 +716,7 @@ func loadSystem() (*config.System, error) {
 	}
 
 	fmt.Println("Retrieving System Config...")
-	system, err := config.FindSystem(ctx, config.DefaultSysCfgPath)
+	system, err := config.FindSystem(ctx, configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -746,9 +753,9 @@ func addTag(tag string) error {
 	return exec.Command("git", "tag", "-a", tag, "-m", fmt.Sprintf("\"setting version %s\"", tag)).Run()
 }
 
-func getOverlay(system *config.System, module string) (string, error) {
+func getOverlay(ctx *Context, system *config.System, module string) (string, error) {
 
-	repo, _, err := config.FindRepository(module)
+	repo, _, err := config.FindRepository(ctx.Repos, module)
 	if err != nil {
 		return "", err
 	}
@@ -789,13 +796,13 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 
 	cmd := exec.Command("make", "deploy")
 
-	overlay, err := getOverlay(system, module)
+	overlay, err := getOverlay(ctx, system, module)
 	if err != nil {
 		return err
 	}
 
 	fmt.Print("  Finding Repository...")
-	repo, buildConfig, err := config.FindRepository(module)
+	repo, buildConfig, err := config.FindRepository(ctx.Repos, module)
 	if err != nil {
 		return err
 	}
@@ -907,11 +914,11 @@ func runInModules(modules []string, runFn func(module string) error) error {
 	return nil
 }
 
-func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
+func shouldSkipModule(ctx *Context, module string, permittedModulesOrEmpty []string) bool {
 	// Modules that are being installed via remote should be skipped.
 	for _, remoteModule := range modulesAllowedRemote {
 		if module == remoteModule {
-			repo, _, err := config.FindRepository(module)
+			repo, _, err := config.FindRepository(ctx.Repos, module)
 			if err != nil {
 				return true
 			}
