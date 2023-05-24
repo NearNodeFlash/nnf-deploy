@@ -28,12 +28,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const (
-	DefaultSysCfgPath    = "config/systems.yaml"
-	DefaultRepoCfgPath   = "config/repositories.yaml"
-	DefaultDaemonCfgPath = "config/daemons.yaml"
-)
-
 var sysCfgPath string
 
 type System struct {
@@ -202,10 +196,10 @@ type ThirdPartyService struct {
 	WaitCmd    string `yaml:"waitCmd,omitempty"`
 }
 
-func readConfigFile() (*RepositoryConfigFile, error) {
-	configFile, err := os.ReadFile(DefaultRepoCfgPath)
+func readConfigFile(configPath string) (*RepositoryConfigFile, error) {
+	configFile, err := os.ReadFile(configPath)
 	if err != nil {
-		configFile, err = os.ReadFile(filepath.Join("..", DefaultRepoCfgPath))
+		configFile, err = os.ReadFile(filepath.Join("..", configPath))
 		if err != nil {
 			return nil, err
 		}
@@ -217,9 +211,9 @@ func readConfigFile() (*RepositoryConfigFile, error) {
 	return config, nil
 }
 
-func FindRepository(module string) (*Repository, *BuildConfiguration, error) {
+func FindRepository(configPath string, module string) (*Repository, *BuildConfiguration, error) {
 
-	config, err := readConfigFile()
+	config, err := readConfigFile(configPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -233,8 +227,8 @@ func FindRepository(module string) (*Repository, *BuildConfiguration, error) {
 	return nil, nil, fmt.Errorf("Repository '%s' Not Found", module)
 }
 
-func GetThirdPartyServices() ([]ThirdPartyService, error) {
-	config, err := readConfigFile()
+func GetThirdPartyServices(configPath string) ([]ThirdPartyService, error) {
+	config, err := readConfigFile(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -258,8 +252,8 @@ type DaemonConfigFile struct {
 	Daemons []Daemon `yaml:"daemons"`
 }
 
-func EnumerateDaemons(handleFn func(Daemon) error) error {
-	configFile, err := os.ReadFile(DefaultDaemonCfgPath)
+func EnumerateDaemons(configPath string, handleFn func(Daemon) error) error {
+	configFile, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
