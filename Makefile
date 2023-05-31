@@ -1,7 +1,6 @@
-all: build
+all: fmt vet nnf-deploy
 
-.PHONY: build
-build: fmt vet
+nnf-deploy: main.go
 	go build
 
 .PHONY: fmt
