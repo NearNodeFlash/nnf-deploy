@@ -47,6 +47,31 @@ networking:
   apiServerAddress: "127.0.0.1"
 nodes:
 - role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+        # enable auditing flags on the API server
+        extraArgs:
+          audit-log-path: /var/log/kubernetes/kube-apiserver-audit.log
+          audit-policy-file: /etc/kubernetes/policies/audit-policy.yaml
+        # mount new files / directories on the control plane
+        extraVolumes:
+          - name: audit-policies
+            hostPath: /etc/kubernetes/policies
+            mountPath: /etc/kubernetes/policies
+            readOnly: true
+            pathType: "DirectoryOrCreate"
+          - name: "audit-logs"
+            hostPath: "/var/log/kubernetes"
+            mountPath: "/var/log/kubernetes"
+            readOnly: false
+            pathType: DirectoryOrCreate
+  # mount the local file on the control plane
+  extraMounts:
+  - hostPath: ./config/audit-policy.yaml
+    containerPath: /etc/kubernetes/policies/audit-policy.yaml
+    readOnly: true
 - role: worker
 - role: worker $RABBITCONFIG
 - role: worker $RABBITCONFIG
@@ -57,7 +82,7 @@ EOF
         mkdir -p /tmp/nnf && dd if=/dev/zero of=/tmp/nnf/file.in bs=128 count=0 seek=$((1024 * 1024))
     fi
 
-    kind create cluster --wait 60s --image=kindest/node:v1.25.2 --config $CONFIG
+    kind create cluster --wait 60s --image=kindest/node:v1.27.2 --config $CONFIG
 
     # Use the same init routines that we use on real hardware.
     # This applies taints and labels to rabbit nodes, and installs other
