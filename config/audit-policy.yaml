@@ -6,8 +6,16 @@
 #   https://www.airplane.dev/blog/kubernetes-audit-logs
 
 # $ docker cp kind-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+#
+# Pretty-print the log events:
 # $ jq -M . kube-apiserver-audit.log | less
-# $ jq -M '[.auditID,.verb,.requestURI,.objectRef.name,.responseStatus.code,.stageTimestamp]' kube-apiserver-audit.log | less
+#
+# Dump a quick-to-digest summary of the log events:
+# $ jq -M '[.auditID,.verb,.requestURI,.user.username,.objectRef.name,.responseStatus.code,.stageTimestamp]' kube-apiserver-audit.log | less
+#
+# Extract a specific event record from the log:
+# $ jq -M '. | select(.auditID=="d1053ee5-0734-4b40-815f-3f6831f82bac")' kube-apiserver-audit.log | less
+
 
 
 apiVersion: audit.k8s.io/v1
