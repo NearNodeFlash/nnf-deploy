@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021, 2022 Hewlett Packard Enterprise Development LP
+# Copyright 2021-2023 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -30,18 +30,6 @@ fi
 if [[ "$CMD" == "create" ]]; then
     CONFIG=kind-config.yaml
 
-    # Rabbit & WLM System Local Controllers (SLC)
-    SLCCONFIG=$(cat << EOF
-
-  kubeadmConfigPatches:
-  - |
-    kind: JoinConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        node-labels: cray.nnf.manager=true
-EOF
-)
-
     # Rabbit taints/labels, plus some host mounts for data movement
     RABBITCONFIG=$(cat << EOF
 
@@ -49,16 +37,6 @@ EOF
     - hostPath: /tmp/nnf
       containerPath: /nnf
       propagation: None
-  kubeadmConfigPatches:
-  - |
-    kind: JoinConfiguration
-    nodeRegistration:
-      taints:
-      - key: cray.nnf.node
-        value: "true"
-        effect: NoSchedule
-      kubeletExtraArgs:
-        node-labels: "cray.nnf.node=true"
 EOF
 )
 
@@ -69,7 +47,32 @@ networking:
   apiServerAddress: "127.0.0.1"
 nodes:
 - role: control-plane
-- role: worker $SLCCONFIG
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+        # enable auditing flags on the API server
+        extraArgs:
+          audit-log-path: /var/log/kubernetes/kube-apiserver-audit.log
+          audit-policy-file: /etc/kubernetes/policies/audit-policy.yaml
+        # mount new files / directories on the control plane
+        extraVolumes:
+          - name: audit-policies
+            hostPath: /etc/kubernetes/policies
+            mountPath: /etc/kubernetes/policies
+            readOnly: true
+            pathType: "DirectoryOrCreate"
+          - name: "audit-logs"
+            hostPath: "/var/log/kubernetes"
+            mountPath: "/var/log/kubernetes"
+            readOnly: false
+            pathType: DirectoryOrCreate
+  # mount the local file on the control plane
+  extraMounts:
+  - hostPath: ./config/audit-policy.yaml
+    containerPath: /etc/kubernetes/policies/audit-policy.yaml
+    readOnly: true
+- role: worker
 - role: worker $RABBITCONFIG
 - role: worker $RABBITCONFIG
 EOF
@@ -79,13 +82,12 @@ EOF
         mkdir -p /tmp/nnf && dd if=/dev/zero of=/tmp/nnf/file.in bs=128 count=0 seek=$((1024 * 1024))
     fi
 
-    kind create cluster --wait 60s --image=kindest/node:v1.25.2 --config $CONFIG
+    kind create cluster --wait 60s --image=kindest/node:v1.27.2 --config $CONFIG
 
-    # Required for webhooks
-    install_cert_manager 
-
-    # Required for containers
-    install_mpi_operator
+    # Use the same init routines that we use on real hardware.
+    # This applies taints and labels to rabbit nodes, and installs other
+    # services that rabbit software requires.
+    ./nnf-deploy init
 fi
 
 if [[ "$CMD" == destroy ]]; then
