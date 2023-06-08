@@ -1,0 +1,97 @@
+# https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/
+#
+# Examples:
+#   https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/audit/audit-policy.yaml?ref=airplane.ghost.io
+#   https://www.datadoghq.com/blog/monitor-kubernetes-audit-logs
+#   https://www.airplane.dev/blog/kubernetes-audit-logs
+
+# $ docker cp kind-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+#
+# Pretty-print the log events:
+# $ jq -M . kube-apiserver-audit.log | less
+#
+# Dump a quick-to-digest summary of the log events:
+# $ jq -M '[.auditID,.verb,.requestURI,.user.username,.objectRef.name,.responseStatus.code,.stageTimestamp]' kube-apiserver-audit.log | less
+#
+# Extract a specific event record from the log:
+# $ jq -M '. | select(.auditID=="d1053ee5-0734-4b40-815f-3f6831f82bac")' kube-apiserver-audit.log | less
+
+
+
+apiVersion: audit.k8s.io/v1
+kind: Policy
+
+omitStages:
+- RequestReceived
+
+rules:
+- level: RequestResponse
+  verbs: ["create", "patch", "update", "delete", "deletecollection"]
+  resources:
+
+  - group: lus.cray.hpe.com
+#    resources: 
+#    - lustrefilesystems
+#    - lustrefilesystems/status
+
+  - group: dws.cray.hpe.com
+#    resources: 
+#    - clientmounts
+#    - clientmounts/status
+#    - computes
+#    - directivebreakdowns
+#    - directivebreakdowns/status
+#    - dwdirectiverules
+#    - persistentstorageinstances
+#    - persistentstorageinstances/status
+#    - servers
+#    - servers/status
+#    - storages
+#    - storages/status
+#    - systemconfigurations
+#    - systemconfigurations/status
+#    - workflows
+
+  - group: nnf.cray.hpe.com
+#    resources:
+#    - nnfaccesses
+#    - nnfaccesses/status
+#    - nnfdatamovements
+#    - nnfdatamovements/status
+#    - nnfnodeecdata
+#    - nnfnodeecdata/status
+#    - nnfnodestorages
+#    - nnfnodes
+#    - nnfnodes/status
+#    - nnfportmanagers
+#    - nnfportmanagers/status
+#    - nnfstorages
+#    - nnfstorages/status
+#    - nnfcontainerprofiles
+#    - nnfstorageprofiles
+
+  - group: dm.cray.hpe.com
+#    resources:
+#    - datamovementmanagers
+#    - datamovementmanagers/status
+
+- level: RequestResponse
+  verbs: ["create", "patch", "update", "delete", "deletecollection"]
+  resources:
+  - group: kubeflow.org
+
+- level: None
+  users: ["system:masters"]
+  namespaces: ["nnf-dm-system"]
+  resources:
+  - group: "" # core
+    resources: ["configmaps"]
+
+- level: RequestResponse
+  verbs: ["create", "patch", "update", "delete", "deletecollection"]
+  namespaces: ["nnf-dm-system"]
+  resources:
+  - group: "" # core
+    resources: ["configmaps"]
+
+

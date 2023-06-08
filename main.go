@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, 2022 Hewlett Packard Enterprise Development LP
+ * Copyright 2021-2023 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -40,37 +40,48 @@ import (
 
 // This is the order in which we process the modules on deployment.
 var modules = []string{
-	"dws",
 	"lustre-csi-driver",
 	"lustre-fs-operator",
+	"dws",
 	"nnf-sos",
 	"nnf-dm",
+}
+
+// The following modules are allowed to be installed via direct reference
+// to github with "kubectl apply -k", depending on their settings
+// in config/repositories.yaml.
+var modulesAllowedRemote = []string{
+	"lustre-csi-driver",
+	"lustre-fs-operator",
 }
 
 type Context struct {
 	Debug  bool
 	DryRun bool
 	Force  bool
+
+	Systems string
+	Repos   string
+	Daemons string
 }
 
 var cli struct {
-	Debug  bool `help:"Enable debug mode."`
-	DryRun bool `help:"Show what would be run."`
+	Debug   bool   `help:"Enable debug mode."`
+	DryRun  bool   `help:"Show what would be run."`
+	Systems string `name:"systems" default:"config/systems.yaml" help:"path to the systems config file"`
+	Repos   string `name:"repos" default:"config/repositories.yaml" help:"path to the repositories config file"`
+	Daemons string `name:"daemons" default:"config/daemons.yaml" help:"path to the daemons config file"`
 
 	Deploy   DeployCmd   `cmd:"" help:"Deploy to current context."`
 	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
 	Make     MakeCmd     `cmd:"" help:"Run make [COMMAND] in every repository."`
 	Install  InstallCmd  `cmd:"" help:"Install daemons (EXPERIMENTAL)."`
 	Init     InitCmd     `cmd:"" help:"Initialize cluster."`
-	Release  ReleaseCmd  `cmd:"" help:"Create or use a release."`
 }
 
 func main() {
 	ctx := kong.Parse(&cli)
-	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun})
-	if err != nil {
-		fmt.Printf("%v", err)
-	}
+	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun, Systems: cli.Systems, Repos: cli.Repos, Daemons: cli.Daemons})
 	ctx.FatalIfErrorf(err)
 }
 
@@ -79,14 +90,14 @@ type DeployCmd struct {
 }
 
 func (cmd *DeployCmd) Run(ctx *Context) error {
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
 
 	err = runInModules(modules, func(module string) error {
 
-		if shouldSkipModule(module, cmd.Only) {
+		if shouldSkipModule(ctx, module, cmd.Only) {
 			return nil
 		}
 
@@ -109,7 +120,7 @@ type UndeployCmd struct {
 }
 
 func (cmd *UndeployCmd) Run(ctx *Context) error {
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
@@ -121,7 +132,7 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 
 	return runInModules(reversed, func(module string) error {
 
-		if shouldSkipModule(module, cmd.Only) {
+		if shouldSkipModule(ctx, module, cmd.Only) {
 			return nil
 		}
 
@@ -151,14 +162,14 @@ type MakeCmd struct {
 }
 
 func (cmd *MakeCmd) Run(ctx *Context) error {
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
 
 	return runInModules(modules, func(module string) error {
 
-		if shouldSkipModule(module, cmd.Only) {
+		if shouldSkipModule(ctx, module, cmd.Only) {
 			return nil
 		}
 
@@ -171,13 +182,23 @@ func runMakeCommand(ctx *Context, system *config.System, module string, command 
 
 	cmd := exec.Command("make", command)
 
-	overlay, err := getOverlay(system, module)
+	overlay, err := getOverlay(ctx, system, module)
 	if err != nil {
 		return err
 	}
 
+	fmt.Print("  Finding Repository...")
+	repo, buildConfig, err := config.FindRepository(ctx.Repos, module)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(" %s\n", repo.Name)
+	for idx := range buildConfig.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", buildConfig.Env[idx].Name, buildConfig.Env[idx].Value))
+	}
+
 	if len(overlay) != 0 {
-		cmd.Env = append(os.Environ(),
+		cmd.Env = append(cmd.Env,
 			"OVERLAY="+overlay,
 		)
 	}
@@ -210,7 +231,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		return true
 	}
 
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
@@ -227,7 +248,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	k8sServerHost := clusterConfig[:strings.Index(clusterConfig, ":")]
 	k8sServerPort := clusterConfig[strings.Index(clusterConfig, ":")+1:]
 
-	return config.EnumerateDaemons(func(d config.Daemon) error {
+	return config.EnumerateDaemons(ctx.Daemons, func(d config.Daemon) error {
 
 		var token []byte
 		var cert []byte
@@ -263,7 +284,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 			if !cmd.NoBuild && d.Bin != "" {
 				cmd := exec.Command("go", "build", "-o", d.Bin)
-				cmd.Env = append(os.Environ(),
+				cmd.Env = append(cmd.Env,
 					"CGO_ENABLED=0",
 					"GOOS=linux",
 					"GOARCH=amd64",
@@ -442,377 +463,10 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	})
 }
 
-type ReleaseCmd struct {
-	List   ReleaseListCmd   `cmd:"" name:"list" help:"List the available releases."`
-	Info   ReleaseInfoCmd   `cmd:"" name:"info" help:"Information about a single release."`
-	Create ReleaseCreateCmd `cmd:"" name:"create" help:"Create a release using the current repository versions."`
-	Set    ReleaseSetCmd    `cmd:"" name:"set" help:"Set the release and checkout the correct submodule commits."`
-}
-
-type ReleaseListCmd struct{}
-
-func (cmd *ReleaseListCmd) Run(ctx *Context) error {
-	manifest, err := ReadReleaseManifest()
-	if err != nil {
-		return err
-	}
-
-	currentVersion := manifest.CurrentVersion
-	if currentVersion == "" {
-		currentVersion = "[none]"
-	}
-
-	fmt.Printf("Current Version: %s\n", currentVersion)
-	fmt.Printf("Available Versions:\n")
-	for _, release := range manifest.Releases {
-		fmt.Printf("%s\n", release.Version)
-	}
-
-	return nil
-}
-
-type ReleaseInfoCmd struct {
-	Version string `name:"version" help:"version of the release to create"`
-}
-
-func (cmd *ReleaseInfoCmd) Run(ctx *Context) error {
-	manifest, err := ReadReleaseManifest()
-	if err != nil {
-		return err
-	}
-
-	version := cmd.Version
-	if version == "" {
-		if manifest.CurrentVersion == "" {
-			return nil
-		}
-
-		version = manifest.CurrentVersion
-	}
-
-	// Find the release that matches the specified version
-	release := func() *Release {
-		for _, release := range manifest.Releases {
-			if release.Version == version {
-				return &release
-			}
-		}
-
-		return nil
-	}()
-
-	if release == nil {
-		return fmt.Errorf("release '%s' not found", cmd.Version)
-	}
-
-	// Print the tag and commit information for each component in the release
-	fmt.Printf("Version: %s\n", version)
-	for _, component := range release.Components {
-		fmt.Printf("%s\n", component.Name)
-		if component.Tag != "" {
-			fmt.Printf("  Tag: %s\n", component.Tag)
-		}
-
-		if component.Commit != "" {
-			fmt.Printf("  Commit: %s\n", component.Commit)
-		}
-	}
-
-	if cmd.Version != "" {
-		return nil
-	}
-
-	// If version wasn't specified, then we're showing information about the current commit. Do
-	// some sanity checking to make sure that all the modules are on the right commit.
-	checkComponentRelease := func(module string) error {
-		for _, component := range release.Components {
-			if component.Name != module {
-				continue
-			}
-
-			if component.Tag != "" {
-				tag, err := currentTag()
-				if err != nil {
-					return err
-				}
-
-				if tag != component.Tag {
-					fmt.Printf("Mismatch for component %s between expected and actual tag\n", module)
-					fmt.Printf("  Version %s expected tag: %s\n", version, component.Tag)
-					fmt.Printf("  Actual tag: %s\n", tag)
-				}
-			} else {
-				commit, err := lastLocalCommit()
-				if err != nil {
-					return err
-				}
-
-				if commit != component.Commit {
-					fmt.Printf("Mismatch for component %s between expected and actual commit\n", module)
-					fmt.Printf("  Version %s expected commit: %s\n", version, component.Commit)
-					fmt.Printf("  Actual commit: %s\n", commit)
-				}
-			}
-		}
-
-		return nil
-	}
-
-	if err := checkComponentRelease("nnf-deploy"); err != nil {
-		return err
-	}
-
-	// nnf-deploy might have a different list of "modules" if components were added or deleted. Use
-	// the list of components in the release
-	var moduleList []string
-	for _, component := range release.Components {
-		if component.Name != "nnf-deploy" {
-			moduleList = append(moduleList, component.Name)
-		}
-	}
-
-	if err := runInModules(moduleList, checkComponentRelease); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type ReleaseCreateCmd struct {
-	Version string `name:"version" help:"version of the release to create"`
-	Tag     bool   `name:"tag" optional:"" help:"create a git tag on the nnf-deploy repo"`
-}
-
-func (cmd *ReleaseCreateCmd) Run(ctx *Context) error {
-	manifest, err := ReadReleaseManifest()
-	if err != nil {
-		return err
-	}
-
-	// Check if the version already exists in the manifest
-	for _, release := range manifest.Releases {
-		if release.Version == cmd.Version {
-			return fmt.Errorf("version already exists")
-		}
-	}
-
-	fmt.Printf("Creating version %s\n", cmd.Version)
-
-	// If the tag flag was specified, tag the nnf-deploy repo with the version string
-	if cmd.Tag {
-		fmt.Printf("Tagging nnf-deploy commit with: '%s'", cmd.Version)
-
-		if err := addTag(cmd.Version); err != nil {
-			return err
-		}
-	}
-
-	// Set the release information in the manifest
-	release := new(Release)
-	release.Version = cmd.Version
-
-	addComponentRelease := func(module string) error {
-		component := new(ReleaseComponent)
-		branch, err := currentBranch()
-		if err != nil {
-			return err
-		}
-
-		commit, err := lastLocalCommit()
-		if err != nil {
-			return err
-		}
-
-		url, err := repoURL()
-		if err != nil {
-			return err
-		}
-
-		tag, err := currentTag()
-		if err != nil {
-			return err
-		}
-
-		component.Name = module
-		component.Repository = url
-		component.Branch = branch
-
-		if tag != "" {
-			component.Tag = tag
-			fmt.Printf("Finding %s tag... %s\n", module, tag)
-		} else {
-			component.Commit = commit
-			fmt.Printf("Finding %s commit... %s\n", module, commit)
-		}
-
-		release.Components = append(release.Components, *component)
-		return nil
-	}
-
-	if err := addComponentRelease("nnf-deploy"); err != nil {
-		return err
-	}
-
-	if err := runInModules(modules, addComponentRelease); err != nil {
-		return err
-	}
-
-	manifest.Releases = append(manifest.Releases, *release)
-
-	// Set the current version in the local manifest file
-	manifest.CurrentVersion = release.Version
-	if err := WriteReleaseManifest(manifest, ".release_manifest.yaml"); err != nil {
-		return err
-	}
-
-	// Don't set the current version in the manifest file that gets checked
-	// into the git repo.
-	manifest.CurrentVersion = ""
-	if err := WriteReleaseManifest(manifest, "release_manifest.yaml"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type ReleaseSetCmd struct {
-	Version string `name:"version" help:"release version to use"`
-}
-
-func (cmd *ReleaseSetCmd) Run(ctx *Context) error {
-	manifest, err := ReadReleaseManifest()
-	if err != nil {
-		return err
-	}
-
-	// Find the release that matches the specified version
-	release := func() *Release {
-		for _, release := range manifest.Releases {
-			if release.Version == cmd.Version {
-				return &release
-			}
-		}
-
-		return nil
-	}()
-
-	if release == nil {
-		return fmt.Errorf("release '%s' not found", cmd.Version)
-	}
-
-	// Checkout the correct commit for each of the submodules. This puts the submodule in
-	// the detached head state
-	setComponentRelease := func(module string) error {
-		for _, component := range release.Components {
-			if component.Name != module {
-				continue
-			}
-
-			if component.Tag != "" {
-				fmt.Printf("Setting %s to tag %s\n", module, component.Tag)
-
-				return checkoutCommit(component.Tag)
-			} else {
-				fmt.Printf("Setting %s to commit %s\n", module, component.Commit)
-
-				return checkoutCommit(component.Commit)
-			}
-		}
-
-		return fmt.Errorf("could not find module %s\n", module)
-	}
-
-	if err := setComponentRelease("nnf-deploy"); err != nil {
-		return err
-	}
-
-	// nnf-deploy might have a different list of "modules" if components were added or deleted. Use
-	// the list of components in the release
-	var moduleList []string
-	for _, component := range release.Components {
-		if component.Name != "nnf-deploy" {
-			moduleList = append(moduleList, component.Name)
-		}
-	}
-
-	if err := runInModules(moduleList, setComponentRelease); err != nil {
-		return err
-	}
-
-	manifest.CurrentVersion = release.Version
-	if err := WriteReleaseManifest(manifest, ".release_manifest.yaml"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type ReleaseComponent struct {
-	Repository string `yaml:"repository"`
-	Commit     string `yaml:"commit,omitempty"`
-	Tag        string `yaml:"tag,omitempty"`
-	Branch     string `yaml:"branch,omitempty"`
-	Name       string `yaml:"name"`
-}
-
-type Release struct {
-	Version    string             `yaml:"version"`
-	Components []ReleaseComponent `yaml:"components"`
-}
-
-type ReleaseManifest struct {
-	CurrentVersion string    `yaml:"currentVersion,omitempty"`
-	Releases       []Release `yaml:"releases"`
-}
-
-func ReadReleaseManifest() (*ReleaseManifest, error) {
-	manifestFile, err := os.ReadFile("release_manifest.yaml")
-	if err != nil {
-		return nil, err
-	}
-
-	manifest := new(ReleaseManifest)
-	if err := yaml.Unmarshal(manifestFile, manifest); err != nil {
-		return nil, err
-	}
-
-	localManifestFile, err := os.ReadFile(".release_manifest.yaml")
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, err
-		}
-	}
-
-	localManifest := new(ReleaseManifest)
-	if err := yaml.Unmarshal(localManifestFile, localManifest); err != nil {
-		return nil, err
-	}
-
-	if len(manifest.Releases) > len(localManifest.Releases) {
-		err := os.WriteFile(".release_manifest.yaml", manifestFile, 0644)
-		if err != nil {
-			return nil, err
-		}
-
-		return manifest, nil
-	}
-
-	return localManifest, nil
-}
-
-func WriteReleaseManifest(manifest *ReleaseManifest, file string) error {
-	manifestData, err := yaml.Marshal(manifest)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(file, manifestData, 0644)
-}
-
 type InitCmd struct{}
 
 func (cmd *InitCmd) Run(ctx *Context) error {
-	system, err := loadSystem()
+	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
 	}
@@ -821,22 +475,67 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	if err := installCertManager(ctx); err != nil {
+	if err := installThirdPartyServices(ctx); err != nil {
 		return err
 	}
 
-	if err := installMPIOperator(ctx); err != nil {
-		return err
+	for _, module := range modulesAllowedRemote {
+		var applyK string
+		repo, _, err := config.FindRepository(ctx.Repos, module)
+		if err != nil {
+			return err
+		}
+		if !repo.UseRemoteK {
+			continue
+		}
+		fmt.Printf("Installing %s...\n", module)
+		overlay, err := getOverlay(ctx, system, module)
+		if err != nil {
+			return err
+		}
+		if overlay == "" {
+			applyK = fmt.Sprintf(repo.RemoteReference.Url, repo.RemoteReference.Build)
+		} else {
+			applyK = fmt.Sprintf(repo.RemoteReference.Url, overlay, repo.RemoteReference.Build)
+		}
+		if err := runKubectlApplyK(ctx, applyK); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func applyLabelsTaints(system *config.System, ctx *Context) error {
-	// Labels/Taints to apply to manager nodes and nnf nodes
-	managerLabels := []string{
-		"cray.nnf.manager=true",
+func installThirdPartyServices(ctx *Context) error {
+	thirdPartyServices, err := config.GetThirdPartyServices(ctx.Repos)
+	if err != nil {
+		return err
 	}
+
+	for idx := range thirdPartyServices {
+		svc := thirdPartyServices[idx]
+		if !svc.UseRemoteF {
+			continue
+		}
+		fmt.Printf("Installing %s...\n", svc.Name)
+		if err := runKubectlApplyF(ctx, svc.Url); err != nil {
+			return err
+		}
+		if len(svc.WaitCmd) > 0 {
+			fmt.Println("  waiting for it to be ready...")
+			cmd := exec.Command("bash", "-c", svc.WaitCmd)
+			_, err = runCommand(ctx, cmd)
+			if err != nil {
+				fmt.Printf("\n\033[1mThe cluster is still waiting for %s to start.\nPlease run `nnf-deploy init` after it is running.\033[0m\n\n", svc.Name)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func applyLabelsTaints(system *config.System, ctx *Context) error {
+	// Labels/Taints to apply to nnf nodes
 	nnfNodeLabels := []string{
 		"cray.nnf.node=true",
 	}
@@ -844,18 +543,9 @@ func applyLabelsTaints(system *config.System, ctx *Context) error {
 		"cray.nnf.node=true:NoSchedule",
 	}
 
-	// By default, managers are workers; nodes are rabbits
-	managers := system.Workers
 	nnfNodes := []string{}
 	for rabbit := range system.Rabbits {
 		nnfNodes = append(nnfNodes, rabbit)
-	}
-
-	fmt.Printf("Applying manager labels to worker nodes: %s...\n", strings.Join(managers, ", "))
-	for _, node := range managers {
-		if err := runKubectlLabelOrTaint(ctx, node, "label", managerLabels); err != nil {
-			return err
-		}
 	}
 
 	fmt.Printf("Applying NNF node labels and taints to rabbit nodes: %s...\n", strings.Join(nnfNodes, ", "))
@@ -882,24 +572,20 @@ func runKubectlLabelOrTaint(ctx *Context, node string, kctlCmd string, labelsOrT
 	return nil
 }
 
-func installCertManager(ctx *Context) error {
-	fmt.Println("Installing cert manager...")
-	cmd := exec.Command("bash", "-c", "source common.sh; install_cert_manager")
+func runKubectlApply(ctx *Context, applyFlag string, url string) error {
+	cmd := exec.Command("kubectl", "apply", applyFlag, url)
 	if _, err := runCommand(ctx, cmd); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func installMPIOperator(ctx *Context) error {
-	fmt.Println("Installing mpi-operator...")
-	cmd := exec.Command("bash", "-c", "source common.sh; install_mpi_operator")
-	if _, err := runCommand(ctx, cmd); err != nil {
-		return err
-	}
+func runKubectlApplyK(ctx *Context, url string) error {
+	return runKubectlApply(ctx, "-k", url)
+}
 
-	return nil
+func runKubectlApplyF(ctx *Context, url string) error {
+	return runKubectlApply(ctx, "-f", url)
 }
 
 type k8sCluster struct {
@@ -1022,7 +708,7 @@ func currentContext() (string, error) {
 	return strings.TrimRight(string(out), "\r\n"), err
 }
 
-func loadSystem() (*config.System, error) {
+func loadSystem(configPath string) (*config.System, error) {
 	fmt.Println("Retrieving Context...")
 	ctx, err := currentContext()
 	if err != nil {
@@ -1030,7 +716,7 @@ func loadSystem() (*config.System, error) {
 	}
 
 	fmt.Println("Retrieving System Config...")
-	system, err := config.FindSystem(ctx)
+	system, err := config.FindSystem(ctx, configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1067,9 +753,9 @@ func addTag(tag string) error {
 	return exec.Command("git", "tag", "-a", tag, "-m", fmt.Sprintf("\"setting version %s\"", tag)).Run()
 }
 
-func getOverlay(system *config.System, module string) (string, error) {
+func getOverlay(ctx *Context, system *config.System, module string) (string, error) {
 
-	repo, err := config.FindRepository(module)
+	repo, _, err := config.FindRepository(ctx.Repos, module)
 	if err != nil {
 		return "", err
 	}
@@ -1110,9 +796,19 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 
 	cmd := exec.Command("make", "deploy")
 
-	overlay, err := getOverlay(system, module)
+	overlay, err := getOverlay(ctx, system, module)
 	if err != nil {
 		return err
+	}
+
+	fmt.Print("  Finding Repository...")
+	repo, buildConfig, err := config.FindRepository(ctx.Repos, module)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(" %s\n", repo.Name)
+	for idx := range buildConfig.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", buildConfig.Env[idx].Name, buildConfig.Env[idx].Value))
 	}
 
 	if system.Name == "kind" {
@@ -1122,18 +818,11 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		//       images present on a cluster node by using `docker exec -it [NODE NAME] crictl images`
 
 		if len(overlay) != 0 {
-			cmd.Env = append(os.Environ(),
+			cmd.Env = append(cmd.Env,
 				"OVERLAY="+overlay)
 		}
 
 	} else {
-
-		fmt.Print("  Finding Repository...")
-		repo, err := config.FindRepository(module)
-		if err != nil {
-			return err
-		}
-		fmt.Printf(" %s\n", repo.Name)
 
 		fmt.Printf("  Loading Current Branch...")
 		branch, err := currentBranch()
@@ -1164,7 +853,7 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		version := commit
 		imageTagBase := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
 
-		cmd.Env = append(os.Environ(),
+		cmd.Env = append(cmd.Env,
 			"IMAGE_TAG_BASE="+imageTagBase,
 			"VERSION="+version,
 			"OVERLAY="+overlay,
@@ -1179,9 +868,15 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
 	if ctx.DryRun {
 		fmt.Printf("  Dry-Run: Skipping command '%s'\n", cmd.String())
+		if len(cmd.Env) > 0 {
+			fmt.Printf("  Additional env: %v\n", cmd.Env)
+		}
 		return nil, nil
 	}
 
+	if len(cmd.Env) > 0 {
+		cmd.Env = append(cmd.Env, os.Environ()...)
+	}
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("%s\n", stdoutStderr)
@@ -1219,7 +914,21 @@ func runInModules(modules []string, runFn func(module string) error) error {
 	return nil
 }
 
-func shouldSkipModule(module string, permittedModulesOrEmpty []string) bool {
+func shouldSkipModule(ctx *Context, module string, permittedModulesOrEmpty []string) bool {
+	// Modules that are being installed via remote should be skipped.
+	for _, remoteModule := range modulesAllowedRemote {
+		if module == remoteModule {
+			repo, _, err := config.FindRepository(ctx.Repos, module)
+			if err != nil {
+				return true
+			}
+			if repo.UseRemoteK {
+				return true
+			}
+			break
+		}
+	}
+
 	if len(permittedModulesOrEmpty) == 0 {
 		return false
 	}
