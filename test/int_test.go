@@ -82,46 +82,45 @@ var tests = []*T{
 		Serialized().
 		Pending(),
 
-	// Containers
-	MakeTest("GFS2 with Containers",
-		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=100GB",
-		"#DW container name=gfs2-with-containers profile=example-success DW_JOB_foo-local-storage=gfs2-with-containers").
-		WithPermissions(1000, 2000),
-	MakeTest("GFS2 with Containers Root",
-		"#DW jobdw type=gfs2 name=gfs2-with-containers-root capacity=100GB",
-		"#DW container name=gfs2-with-containers-root profile=example-success DW_JOB_foo-local-storage=gfs2-with-containers-root").
-		WithPermissions(0, 0),
+	// Containers - MPI
 	MakeTest("GFS2 with MPI Containers",
 		"#DW jobdw type=gfs2 name=gfs2-with-containers-mpi capacity=100GB",
-		"#DW container name=gfs2-with-containers-mpi profile=example-mpi DW_JOB_foo-local-storage=gfs2-with-containers-mpi").
-		WithPermissions(1050, 2050),
-	MakeTest("GFS2 with MPI Containers Root",
-		"#DW jobdw type=gfs2 name=gfs2-with-containers-mpi-root capacity=100GB",
-		"#DW container name=gfs2-with-containers-mpi-root profile=example-mpi DW_JOB_foo-local-storage=gfs2-with-containers-mpi-root").
-		WithPermissions(1050, 2050),
+		"#DW container name=gfs2-with-containers-mpi profile=example-mpi DW_JOB_foo_local_storage=gfs2-with-containers-mpi").
+		WithPermissions(1050, 2050).WithLabels("mpi"),
+	MakeTest("Lustre with MPI Containers",
+		"#DW jobdw type=lustre name=lustre-with-containers-mpi capacity=100GB",
+		"#DW container name=lustre-with-containers-mpi profile=example-mpi DW_JOB_foo_local_storage=lustre-with-containers-mpi").
+		WithPermissions(2050, 2051).WithLabels("mpi"),
 
-	// These two test should fail as xfs/raw filesystems are not supported for containers
+	// Containers - Non-MPI
+	MakeTest("GFS2 with Containers",
+		"#DW jobdw type=gfs2 name=gfs2-with-containers capacity=100GB",
+		"#DW container name=gfs2-with-containers profile=example-success DW_JOB_foo_local_storage=gfs2-with-containers").
+		WithPermissions(1000, 2000).WithLabels("non-mpi"),
+
+	// Containers - Unsupported Filesystems. These should fail as xfs/raw filesystems are not supported for containers.
 	MakeTest("XFS with Containers",
 		"#DW jobdw type=xfs name=xfs-with-containers capacity=100GB",
-		"#DW container name=xfs-with-containers profile=example-success DW_JOB_foo-local-storage=xfs-with-containers").
-		ExpectError(dwsv1alpha1.StateProposal),
+		"#DW container name=xfs-with-containers profile=example-success DW_JOB_foo_local_storage=xfs-with-containers").
+		ExpectError(dwsv1alpha1.StateProposal).WithLabels("unsupported-fs"),
 	MakeTest("Raw with Containers",
 		"#DW jobdw type=raw name=raw-with-containers capacity=100GB",
-		"#DW container name=raw-with-containers profile=example-success DW_JOB_foo-local-storage=raw-with-containers").
-		ExpectError(dwsv1alpha1.StateProposal),
+		"#DW container name=raw-with-containers profile=example-success DW_JOB_foo_local_storage=raw-with-containers").
+		ExpectError(dwsv1alpha1.StateProposal).WithLabels("unsupported-fs"),
 
+	// Containers - Multiple Storages
 	// TODO: The timing on these needs some work, hence Pending()
 	MakeTest("GFS2 and Lustre with Containers",
 		"#DW jobdw name=containers-local-storage type=gfs2 capacity=100GB",
 		"#DW persistentdw name=containers-persistent-storage",
-		"#DW container name=gfs2-lustre-with-containers profile=example-success DW_JOB_foo-local-storage=containers-local-storage DW_PERSISTENT_foo-persistent-storage=containers-persistent-storage").
+		"#DW container name=gfs2-lustre-with-containers profile=example-success DW_JOB_foo_local_storage=containers-local-storage DW_PERSISTENT_foo_persistent_storage=containers-persistent-storage").
 		WithPersistentLustre("containers-persistent-storage").
 		WithPermissions(1050, 2050).
 		Pending(),
 	MakeTest("GFS2 and Lustre with Containers MPI",
 		"#DW jobdw name=containers-local-storage-mpi type=gfs2 capacity=100GB",
 		"#DW persistentdw name=containers-persistent-storage-mpi",
-		"#DW container name=gfs2-lustre-with-containers-mpi profile=example-mpi DW_JOB_foo-local-storage=containers-local-storage-mpi DW_PERSISTENT_foo-persistent-storage=containers-persistent-storage-mpi").
+		"#DW container name=gfs2-lustre-with-containers-mpi profile=example-mpi DW_JOB_foo_local_storage=containers-local-storage-mpi DW_PERSISTENT_foo_persistent_storage=containers-persistent-storage-mpi").
 		WithPersistentLustre("containers-persistent-storage-mpi").
 		WithPermissions(1050, 2050).
 		Pending(),
