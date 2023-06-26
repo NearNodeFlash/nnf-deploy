@@ -28,7 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
+	dwsv1alpha2 "github.com/HewlettPackard/dws/api/v1alpha1"
 	"github.com/HewlettPackard/dws/utils/dwdparse"
 )
 
@@ -67,7 +67,7 @@ type T struct {
 	decorators []interface{}
 
 	// Workflow defines the DWS Workflow resource that is the target of the test.
-	workflow *dwsv1alpha1.Workflow
+	workflow *dwsv1alpha2.Workflow
 
 	// User Id to use for the workflow
 	userId int
@@ -103,13 +103,13 @@ func MakeTest(name string, directives ...string) *T {
 		decorators: make([]interface{}, 0),
 	}
 
-	t.workflow = &dwsv1alpha1.Workflow{
+	t.workflow = &dwsv1alpha2.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      t.WorkflowName(),
 			Namespace: corev1.NamespaceDefault,
 		},
-		Spec: dwsv1alpha1.WorkflowSpec{
-			DesiredState: dwsv1alpha1.StateProposal,
+		Spec: dwsv1alpha2.WorkflowSpec{
+			DesiredState: dwsv1alpha2.StateProposal,
 			DWDirectives: t.WorkflowDirectives(),
 			JobID:        GinkgoParallelProcess(),
 			WLMID:        strconv.Itoa(GinkgoParallelProcess()),
@@ -128,7 +128,7 @@ func (t *T) WorkflowDirectives() []string {
 	return t.directives
 }
 
-func (t *T) Workflow() *dwsv1alpha1.Workflow {
+func (t *T) Workflow() *dwsv1alpha2.Workflow {
 	return t.workflow
 }
 
