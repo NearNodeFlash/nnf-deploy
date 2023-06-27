@@ -34,7 +34,7 @@ import (
 	"github.com/alecthomas/kong"
 	"gopkg.in/yaml.v2"
 
-	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
+	dwsv1alpha2 "github.com/HewlettPackard/dws/api/v1alpha2"
 	"github.com/NearNodeFlash/nnf-deploy/config"
 )
 
@@ -981,24 +981,24 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 	fmt.Println("Creating SystemConfiguration...")
 
-	config := dwsv1alpha1.SystemConfiguration{}
+	config := dwsv1alpha2.SystemConfiguration{}
 
 	config.Name = "default"
 	config.Namespace = "default"
 	config.Kind = "SystemConfiguration"
-	config.APIVersion = fmt.Sprintf("%s/%s", dwsv1alpha1.GroupVersion.Group, dwsv1alpha1.GroupVersion.Version)
+	config.APIVersion = fmt.Sprintf("%s/%s", dwsv1alpha2.GroupVersion.Group, dwsv1alpha2.GroupVersion.Version)
 
 	for storageName, computes := range system.Rabbits {
-		storage := dwsv1alpha1.SystemConfigurationStorageNode{}
+		storage := dwsv1alpha2.SystemConfigurationStorageNode{}
 		storage.Type = "Rabbit"
 		storage.Name = storageName
 		for index, computeName := range computes {
-			compute := dwsv1alpha1.SystemConfigurationComputeNode{
+			compute := dwsv1alpha2.SystemConfigurationComputeNode{
 				Name: computeName,
 			}
 			config.Spec.ComputeNodes = append(config.Spec.ComputeNodes, compute)
 
-			computeReference := dwsv1alpha1.SystemConfigurationComputeNodeReference{
+			computeReference := dwsv1alpha2.SystemConfigurationComputeNodeReference{
 				Name:  computeName,
 				Index: index,
 			}

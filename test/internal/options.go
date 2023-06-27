@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
+	dwsv1alpha2 "github.com/HewlettPackard/dws/api/v1alpha2"
 	lusv1alpha1 "github.com/NearNodeFlash/lustre-fs-operator/api/v1alpha1"
 	nnfv1alpha1 "github.com/NearNodeFlash/nnf-sos/api/v1alpha1"
 
@@ -38,21 +38,21 @@ func (o *TOptions) hasComplexOptions() bool {
 }
 
 type TStopAfter struct {
-	state dwsv1alpha1.WorkflowState
+	state dwsv1alpha2.WorkflowState
 }
 
 // Stop after lets you stop a test after a given state is reached
-func (t *T) StopAfter(state dwsv1alpha1.WorkflowState) *T {
+func (t *T) StopAfter(state dwsv1alpha2.WorkflowState) *T {
 	t.options.stopAfter = &TStopAfter{state: state}
 	return t
 }
 
 type TExpectError struct {
-	state dwsv1alpha1.WorkflowState
+	state dwsv1alpha2.WorkflowState
 }
 
 // Expect an error at the designed state; Proceed to teardown
-func (t *T) ExpectError(state dwsv1alpha1.WorkflowState) *T {
+func (t *T) ExpectError(state dwsv1alpha2.WorkflowState) *T {
 	t.options.expectError = &TExpectError{state: state}
 	t.options.stopAfter = &TStopAfter{state: state}
 	return t

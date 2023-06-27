@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
+	dwsv1alpha2 "github.com/HewlettPackard/dws/api/v1alpha2"
 )
 
 var tests = []*T{
@@ -102,11 +102,11 @@ var tests = []*T{
 	MakeTest("XFS with Containers",
 		"#DW jobdw type=xfs name=xfs-with-containers capacity=100GB",
 		"#DW container name=xfs-with-containers profile=example-success DW_JOB_foo_local_storage=xfs-with-containers").
-		ExpectError(dwsv1alpha1.StateProposal).WithLabels("unsupported-fs"),
+		ExpectError(dwsv1alpha2.StateProposal).WithLabels("unsupported-fs"),
 	MakeTest("Raw with Containers",
 		"#DW jobdw type=raw name=raw-with-containers capacity=100GB",
 		"#DW container name=raw-with-containers profile=example-success DW_JOB_foo_local_storage=raw-with-containers").
-		ExpectError(dwsv1alpha1.StateProposal).WithLabels("unsupported-fs"),
+		ExpectError(dwsv1alpha2.StateProposal).WithLabels("unsupported-fs"),
 
 	// Containers - Multiple Storages
 	// TODO: The timing on these needs some work, hence Pending()
@@ -157,7 +157,7 @@ var _ = Describe("NNF Integration Test", func() {
 						// TODO: Ginkgo's `--fail-fast` option still seems to execute DeferCleanup() calls
 						//       See if this is by design or if we might need to move this to an AfterEach()
 						if !context.SpecReport().Failed() {
-							t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
+							t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha2.StateTeardown)
 
 							Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
 						}

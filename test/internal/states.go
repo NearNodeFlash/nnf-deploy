@@ -35,12 +35,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	dwsv1alpha1 "github.com/HewlettPackard/dws/api/v1alpha1"
+	dwsv1alpha2 "github.com/HewlettPackard/dws/api/v1alpha2"
 	"github.com/HewlettPackard/dws/utils/dwdparse"
 )
 
 // StateHandler defines a method that handles a particular state in the workflow
-type StateHandler func(context.Context, client.Client, *dwsv1alpha1.Workflow)
+type StateHandler func(context.Context, client.Client, *dwsv1alpha2.Workflow)
 
 func (t *T) Execute(ctx context.Context, k8sClient client.Client) {
 	for _, fn := range []StateHandler{t.proposal, t.setup, t.dataIn, t.preRun, t.postRun, t.dataOut, t.teardown} {
@@ -49,7 +49,7 @@ func (t *T) Execute(ctx context.Context, k8sClient client.Client) {
 		if t.options.stopAfter != nil {
 			fnName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name() // This will return something like `full-import-path.(*T).Function-fm`
 			fnName = fnName[strings.Index(fnName, "(*T).")+5 : len(fnName)-3] // Extract the function name
-			state := dwsv1alpha1.WorkflowState(strings.Title(fnName))
+			state := dwsv1alpha2.WorkflowState(strings.Title(fnName))
 			if state == t.options.stopAfter.state {
 				break
 			}
@@ -57,21 +57,21 @@ func (t *T) Execute(ctx context.Context, k8sClient client.Client) {
 	}
 }
 
-func (t *T) proposal(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) proposal(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow) {
 	// We're not ready to advance out of proposal yet, but check for expected error
-	if t.options.expectError != nil && t.options.expectError.state == dwsv1alpha1.StateProposal {
+	if t.options.expectError != nil && t.options.expectError.state == dwsv1alpha2.StateProposal {
 		By("Waiting for Error status")
-		waitForError(ctx, k8sClient, workflow, dwsv1alpha1.StateProposal)
+		waitForError(ctx, k8sClient, workflow, dwsv1alpha2.StateProposal)
 		return
 	}
 
-	waitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateProposal)
+	waitForReady(ctx, k8sClient, workflow, dwsv1alpha2.StateProposal)
 }
 
-func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
+func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow) {
 
 	// TODO: Move this to a global variable and initialized in the test suite.
-	systemConfig := &dwsv1alpha1.SystemConfiguration{}
+	systemConfig := &dwsv1alpha2.SystemConfiguration{}
 	Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "default", Namespace: corev1.NamespaceDefault}, systemConfig)).To(Succeed())
 
 	By("Assigns Computes")
@@ -79,14 +79,14 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 		// Assign Compute Resources (only if jobdw or persistentdw is present in workflow())
 		// create_persistent & destroy_persistent do not need compute resources
 		//Expect(directiveBreakdown.Status.Compute).NotTo(BeNil())
-		computes := &dwsv1alpha1.Computes{}
+		computes := &dwsv1alpha2.Computes{}
 		Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(workflow.Status.Computes), computes)).To(Succeed())
 
 		Expect(computes.Data).To(HaveLen(0))
 
-		computes.Data = make([]dwsv1alpha1.ComputesData, 0)
+		computes.Data = make([]dwsv1alpha2.ComputesData, 0)
 		for _, node := range systemConfig.Spec.ComputeNodes {
-			computes.Data = append(computes.Data, dwsv1alpha1.ComputesData{Name: node.Name})
+			computes.Data = append(computes.Data, dwsv1alpha2.ComputesData{Name: node.Name})
 			// TODO: Filter out unwanted compute nodes
 		}
 
@@ -96,7 +96,7 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 	By("Assigns Servers")
 	{
 		for _, directiveBreakdownRef := range workflow.Status.DirectiveBreakdowns {
-			directiveBreakdown := &dwsv1alpha1.DirectiveBreakdown{}
+			directiveBreakdown := &dwsv1alpha2.DirectiveBreakdown{}
 			Eventually(func(g Gomega) bool {
 				g.Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdownRef), directiveBreakdown)).To(Succeed())
 				return directiveBreakdown.Status.Ready
@@ -112,7 +112,7 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 			Expect(directiveBreakdown.Status.Storage).NotTo(BeNil())
 			Expect(directiveBreakdown.Status.Storage.AllocationSets).NotTo(BeEmpty())
 
-			servers := &dwsv1alpha1.Servers{}
+			servers := &dwsv1alpha2.Servers{}
 			Expect(k8sClient.Get(ctx, ObjectKeyFromObjectReference(directiveBreakdown.Status.Storage.Reference), servers)).To(Succeed())
 			Expect(servers.Spec.AllocationSets).To(BeEmpty())
 
@@ -122,8 +122,8 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 			// TODO We should assign storage nodes based on the current capabilities of the system and the label. For simple file systems
 			// like XFS and GFS2, we can use any Rabbit. But for Lustre, we have to watch where we land the MDT/MGT, and ensure those are
 			// exclusive to the Rabbit nodes.
-			findStorageServers := func(set *dwsv1alpha1.StorageAllocationSet) []dwsv1alpha1.ServersSpecStorage {
-				storages := make([]dwsv1alpha1.ServersSpecStorage, len(systemConfig.Spec.StorageNodes))
+			findStorageServers := func(set *dwsv1alpha2.StorageAllocationSet) []dwsv1alpha2.ServersSpecStorage {
+				storages := make([]dwsv1alpha2.ServersSpecStorage, len(systemConfig.Spec.StorageNodes))
 				for index, node := range systemConfig.Spec.StorageNodes {
 					storages[index].Name = node.Name
 					storages[index].AllocationCount = len(node.ComputesAccess)
@@ -132,9 +132,9 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 				return storages
 			}
 
-			servers.Spec.AllocationSets = make([]dwsv1alpha1.ServersSpecAllocationSet, len(directiveBreakdown.Status.Storage.AllocationSets))
+			servers.Spec.AllocationSets = make([]dwsv1alpha2.ServersSpecAllocationSet, len(directiveBreakdown.Status.Storage.AllocationSets))
 			for index, allocationSet := range directiveBreakdown.Status.Storage.AllocationSets {
-				servers.Spec.AllocationSets[index] = dwsv1alpha1.ServersSpecAllocationSet{
+				servers.Spec.AllocationSets[index] = dwsv1alpha2.ServersSpecAllocationSet{
 					AllocationSize: allocationSet.MinimumCapacity,
 					Label:          allocationSet.Label,
 					Storage:        findStorageServers(&allocationSet),
@@ -149,27 +149,27 @@ func (t *T) setup(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 		}
 	}
 
-	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateSetup)
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha2.StateSetup)
 }
 
-func (t *T) dataIn(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateDataIn)
+func (t *T) dataIn(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow) {
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha2.StateDataIn)
 }
 
-func (t *T) preRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StatePreRun)
+func (t *T) preRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow) {
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha2.StatePreRun)
 }
 
-func (t *T) postRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StatePostRun)
+func (t *T) postRun(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow) {
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha2.StatePostRun)
 }
 
-func (t *T) dataOut(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateDataOut)
+func (t *T) dataOut(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow) {
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha2.StateDataOut)
 }
 
-func (t *T) teardown(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow) {
-	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha1.StateTeardown)
+func (t *T) teardown(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow) {
+	t.AdvanceStateAndWaitForReady(ctx, k8sClient, workflow, dwsv1alpha2.StateTeardown)
 }
 
 // func DataIn...
@@ -177,7 +177,7 @@ func (t *T) teardown(ctx context.Context, k8sClient client.Client, workflow *dws
 // func PostRun...
 // func DataOut...
 
-func (t *T) AdvanceStateAndWaitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
+func (t *T) AdvanceStateAndWaitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow, state dwsv1alpha2.WorkflowState) {
 	By(fmt.Sprintf("Advances to %s State", state))
 
 	// Set the desired State
@@ -197,17 +197,17 @@ func (t *T) AdvanceStateAndWaitForReady(ctx context.Context, k8sClient client.Cl
 	waitForReady(ctx, k8sClient, workflow, state)
 }
 
-func waitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
+func waitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow, state dwsv1alpha2.WorkflowState) {
 
-	achieveState := func(state dwsv1alpha1.WorkflowState) OmegaMatcher {
+	achieveState := func(state dwsv1alpha2.WorkflowState) OmegaMatcher {
 		return And(
 			HaveField("Ready", BeTrue()),
 			HaveField("State", Equal(state)),
-			HaveField("Status", Equal(dwsv1alpha1.StatusCompleted)),
+			HaveField("Status", Equal(dwsv1alpha2.StatusCompleted)),
 		)
 	}
 
-	Eventually(func() dwsv1alpha1.WorkflowStatus {
+	Eventually(func() dwsv1alpha2.WorkflowStatus {
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
 		return workflow.Status
 	}).
@@ -216,17 +216,17 @@ func waitForReady(ctx context.Context, k8sClient client.Client, workflow *dwsv1a
 		Should(achieveState(state), fmt.Sprintf("achieve state '%s'", state))
 }
 
-func waitForError(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha1.Workflow, state dwsv1alpha1.WorkflowState) {
-	achieveState := func(state dwsv1alpha1.WorkflowState) OmegaMatcher {
+func waitForError(ctx context.Context, k8sClient client.Client, workflow *dwsv1alpha2.Workflow, state dwsv1alpha2.WorkflowState) {
+	achieveState := func(state dwsv1alpha2.WorkflowState) OmegaMatcher {
 		return And(
 			HaveField("Ready", BeFalse()),
 			HaveField("State", Equal(state)),
-			HaveField("Status", Equal(dwsv1alpha1.StatusError)),
+			HaveField("Status", Equal(dwsv1alpha2.StatusError)),
 		)
 	}
 
 	By("Expect an Error Status")
-	Eventually(func() dwsv1alpha1.WorkflowStatus {
+	Eventually(func() dwsv1alpha2.WorkflowStatus {
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(workflow), workflow)).Should(Succeed())
 		return workflow.Status
 	}).
