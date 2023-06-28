@@ -6,16 +6,18 @@ daemons:
       namespace: nnf-system
   - name: nnf-data-movement
     bin: nnf-dm
+    buildCmd: make build-daemon
+    path: bin/
     repository: nnf-dm
-    path: daemons/compute/server
     serviceAccount:
       name: nnf-dm-daemon
       namespace: nnf-dm-system
     extraArgs: "--kubernetes-qps 50 --kubernetes-burst 100"
   - name: client-mount
-    bin: clientmount
+    bin: clientmountd
+    buildCmd: make build-daemon
+    path: bin/
     repository: dws
-    path: mount-daemon
     skipNnfNodeName: true
     serviceAccount:
       name: dws-operator-clientmount

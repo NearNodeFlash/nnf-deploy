@@ -238,6 +238,7 @@ func GetThirdPartyServices(configPath string) ([]ThirdPartyService, error) {
 type Daemon struct {
 	Name            string `yaml:"name"`
 	Bin             string `yaml:"bin"`
+	BuildCmd        string `yaml:"buildCmd"`
 	Repository      string `yaml:"repository"`
 	Path            string `yaml:"path"`
 	SkipNnfNodeName bool   `yaml:"skipNnfNodeName"`

@@ -20,8 +20,6 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -276,26 +274,22 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 			fmt.Printf("Checking module %s\n", module)
 
-			if d.Path != "" {
-				if err := os.Chdir(d.Path); err != nil {
-					return err
-				}
-			}
-
-			if !cmd.NoBuild && d.Bin != "" {
-				cmd := exec.Command("go", "build", "-o", d.Bin)
-				cmd.Env = append(cmd.Env,
-					"CGO_ENABLED=0",
-					"GOOS=linux",
-					"GOARCH=amd64",
-					"GOPRIVATE=github.hpe.com",
-				)
+			if !cmd.NoBuild && d.Bin != "" && d.BuildCmd != "" {
+				b := strings.Fields(d.BuildCmd)
+				cmd := exec.Command(b[0], b[1:]...)
 
 				fmt.Printf("Compile %s daemon...", d.Bin)
 				if _, err := runCommand(ctx, cmd); err != nil {
 					return err
 				}
 				fmt.Printf("DONE\n")
+
+				// Change to the bin's output path
+				if d.Path != "" {
+					if err := os.Chdir(d.Path); err != nil {
+						return err
+					}
+				}
 			}
 
 			for rabbit := range system.Rabbits {
@@ -633,11 +627,11 @@ func currentClusterConfig() (string, error) {
 				}
 			}
 
-			return "", fmt.Errorf("Cluster Name '%s' not found", context.Context.Cluster)
+			return "", fmt.Errorf("cluster Name '%s' not found", context.Context.Cluster)
 		}
 	}
 
-	return "", fmt.Errorf("Current Context '%s' not found", currentContext)
+	return "", fmt.Errorf("current Context '%s' not found", currentContext)
 }
 
 func checkNeedsUpdate(ctx *Context, name string, compute string, destination string) (bool, error) {
@@ -735,24 +729,6 @@ func lastLocalCommit() (string, error) {
 	return strings.TrimRight(string(out), "\r\n"), err
 }
 
-func repoURL() (string, error) {
-	out, err := exec.Command("git", "config", "--get", "remote.origin.url").Output()
-	return strings.TrimRight(string(out), "\r\n"), err
-}
-
-func checkoutCommit(commit string) error {
-	return exec.Command("git", "checkout", commit).Run()
-}
-
-func currentTag() (string, error) {
-	out, err := exec.Command("git", "tag", "--points-at", "HEAD").Output()
-	return strings.TrimRight(string(out), "\r\n"), err
-}
-
-func addTag(tag string) error {
-	return exec.Command("git", "tag", "-a", tag, "-m", fmt.Sprintf("\"setting version %s\"", tag)).Run()
-}
-
 func getOverlay(ctx *Context, system *config.System, module string) (string, error) {
 
 	repo, _, err := config.FindRepository(ctx.Repos, module)
@@ -770,26 +746,6 @@ func getOverlay(ctx *Context, system *config.System, module string) (string, err
 	}
 
 	return "", nil
-}
-
-func artifactoryVersion(url, commit string) (string, error) {
-	out, err := exec.Command("curl", url).Output()
-	if err != nil {
-		return "", err
-	}
-
-	// Artifactory will return a laundry list of hrefs; try and locate the one with the right commit message
-	scanner := bufio.NewScanner(bytes.NewBuffer(out))
-	for scanner.Scan() {
-		text := scanner.Text()
-		if strings.Contains(text, commit) {
-			start := strings.Index(text, "<a href=\"")
-			end := strings.Index(text, "\">")
-			return text[start+len("<a href=\"") : end-len("\">")+1], nil
-		}
-	}
-
-	return "", fmt.Errorf("Commit %s Not Found", commit)
 }
 
 func deployModule(ctx *Context, system *config.System, module string) error {
@@ -962,7 +918,7 @@ func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 	// Wait until the SystemConfiguration resource is completely gone. This may take
 	// some time if there are many compute node namespaces to delete
-	for true {
+	for {
 		if _, err := runCommand(ctx, getCmd); err != nil {
 			break
 		}
