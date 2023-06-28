@@ -86,11 +86,11 @@ var tests = []*T{
 	MakeTest("GFS2 with MPI Containers",
 		"#DW jobdw type=gfs2 name=gfs2-with-containers-mpi capacity=100GB",
 		"#DW container name=gfs2-with-containers-mpi profile=example-mpi DW_JOB_foo_local_storage=gfs2-with-containers-mpi").
-		WithPermissions(1050, 2050).WithLabels("mpi"),
+		WithPermissions(1050, 1051).WithLabels("mpi"),
 	MakeTest("Lustre with MPI Containers",
 		"#DW jobdw type=lustre name=lustre-with-containers-mpi capacity=100GB",
 		"#DW container name=lustre-with-containers-mpi profile=example-mpi DW_JOB_foo_local_storage=lustre-with-containers-mpi").
-		WithPermissions(2050, 2051).WithLabels("mpi"),
+		WithPermissions(1050, 1051).WithLabels("mpi"),
 
 	// Containers - Non-MPI
 	MakeTest("GFS2 with Containers",
@@ -115,14 +115,14 @@ var tests = []*T{
 		"#DW persistentdw name=containers-persistent-storage",
 		"#DW container name=gfs2-lustre-with-containers profile=example-success DW_JOB_foo_local_storage=containers-local-storage DW_PERSISTENT_foo_persistent_storage=containers-persistent-storage").
 		WithPersistentLustre("containers-persistent-storage").
-		WithPermissions(1050, 2050).
+		WithPermissions(1050, 1051).
 		Pending(),
 	MakeTest("GFS2 and Lustre with Containers MPI",
 		"#DW jobdw name=containers-local-storage-mpi type=gfs2 capacity=100GB",
 		"#DW persistentdw name=containers-persistent-storage-mpi",
 		"#DW container name=gfs2-lustre-with-containers-mpi profile=example-mpi DW_JOB_foo_local_storage=containers-local-storage-mpi DW_PERSISTENT_foo_persistent_storage=containers-persistent-storage-mpi").
 		WithPersistentLustre("containers-persistent-storage-mpi").
-		WithPermissions(1050, 2050).
+		WithPermissions(1050, 1051).
 		Pending(),
 }
 
