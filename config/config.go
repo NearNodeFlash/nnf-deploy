@@ -36,6 +36,7 @@ type System struct {
 	Overlays []string                  `yaml:"overlays,omitempty,flow"`
 	Workers  []string                  `yaml:"workers,flow,omitempty"`
 	Rabbits  map[string]map[int]string `yaml:"rabbits,flow"`
+	Ports    []string                  `yaml:"ports,flow,omitempty"`
 }
 
 type SystemConfigFile struct {
