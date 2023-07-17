@@ -27,15 +27,9 @@ systems:
           3: rabbit-dev-cn-04,
         }
   - name: rabbit-htx
-    aliases: [dp1, dp1a]
+    aliases: [dp1, dp1a, htx-1]
     overlays: [dp0, overlays/rabbit]
     workers: [rabbit-k8s-worker]
     rabbits:
-      rabbit-node-0: { 0: compute-node-0, 1: compute-node-1 }
       rabbit-node-1: { 0: compute-node-3, 1: compute-node-2 } # These computes are physically swapped
-  - name: rabbit-htx-2
-    aliases: [htx-2]
-    overlays: [dp0, overlays/rabbit]
-    workers: [rabbit-compute-5]
-    rabbits:
       rabbit-node-2: { 0: compute-node-4, 1: compute-node-5 }
