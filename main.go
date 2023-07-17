@@ -31,6 +31,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	dwsv1alpha2 "github.com/HewlettPackard/dws/api/v1alpha2"
 	"github.com/NearNodeFlash/nnf-deploy/config"
@@ -943,6 +944,13 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 	config.Namespace = "default"
 	config.Kind = "SystemConfiguration"
 	config.APIVersion = fmt.Sprintf("%s/%s", dwsv1alpha2.GroupVersion.Group, dwsv1alpha2.GroupVersion.Version)
+
+	// Convert port strings to IntOrString slice
+	ports := []intstr.IntOrString{}
+	for _, port := range system.Ports {
+		ports = append(ports, intstr.FromString(port))
+	}
+	config.Spec.Ports = append(config.Spec.Ports, ports...)
 
 	for storageName, computes := range system.Rabbits {
 		storage := dwsv1alpha2.SystemConfigurationStorageNode{}
