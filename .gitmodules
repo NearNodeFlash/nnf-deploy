@@ -13,3 +13,6 @@
 [submodule "nnf-dm"]
 	path = nnf-dm
 	url = git@github.com:NearNodeFlash/nnf-dm.git
+[submodule "nnf-integration-test"]
+	path = nnf-integration-test
+	url = git@github.com:NearNodeFlash/nnf-integration-test.git
