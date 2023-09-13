@@ -18,8 +18,8 @@ repositories:
   #
   - name: dws
     overlays: [craystack, kind, dp0]
-    development: https://ghcr.io/hewlettpackard/dws
-    master: https://ghcr.io/hewlettpackard/dws
+    development: https://ghcr.io/dataworkflowservices/dws
+    master: https://ghcr.io/dataworkflowservices/dws
   - name: nnf-dm
     development: https://ghcr.io/nearnodeflash/nnf-dm
     master: https://ghcr.io/nearnodeflash/nnf-dm
@@ -40,7 +40,7 @@ repositories:
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
     useRemoteK: true
     remoteReference:
-      build: v0.0.5
+      build: master
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 
 buildConfiguration:
