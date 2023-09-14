@@ -33,7 +33,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	dwsv1alpha2 "github.com/HewlettPackard/dws/api/v1alpha2"
+	dwsv1alpha2 "github.com/DataWorkflowServices/dws/api/v1alpha2"
 	"github.com/NearNodeFlash/nnf-deploy/config"
 )
 
