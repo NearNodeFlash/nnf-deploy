@@ -1,6 +1,6 @@
 [submodule "dws"]
 	path = dws
-	url = git@github.com:HewlettPackard/dws.git
+	url = git@github.com:DataWorkflowServices/dws.git
 [submodule "lustre-csi-driver"]
 	path = lustre-csi-driver
 	url = git@github.com:HewlettPackard/lustre-csi-driver.git

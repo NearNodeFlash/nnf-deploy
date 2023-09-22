@@ -33,7 +33,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	dwsv1alpha2 "github.com/HewlettPackard/dws/api/v1alpha2"
+	dwsv1alpha2 "github.com/DataWorkflowServices/dws/api/v1alpha2"
 	"github.com/NearNodeFlash/nnf-deploy/config"
 )
 
@@ -726,7 +726,7 @@ func currentBranch() (string, error) {
 }
 
 func lastLocalCommit() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	out, err := exec.Command("./git-version-gen").Output()
 	return strings.TrimRight(string(out), "\r\n"), err
 }
 
@@ -768,54 +768,39 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", buildConfig.Env[idx].Name, buildConfig.Env[idx].Value))
 	}
 
-	if system.Name == "kind" {
-		// TODO: Do a sanity check to make sure the image is present on the kind nodes. This ensures
-		//       that a "kind-push" was done. This would _not_ guarantee that a docker-build was done with
-		//       the latest code but at least we wouldn't get an ImagePullFailure. One can get the list of
-		//       images present on a cluster node by using `docker exec -it [NODE NAME] crictl images`
-
-		if len(overlay) != 0 {
-			cmd.Env = append(cmd.Env,
-				"OVERLAY="+overlay)
-		}
-
-	} else {
-
-		fmt.Printf("  Loading Current Branch...")
-		branch, err := currentBranch()
-		if err != nil {
-			return err
-		}
-		// For the detached head case, i.e. there is no branch name, assume
-		// that at some point that commit was built in the master branch
-		// and treat it like the 'master' branch case.
-		if branch == "" {
-			branch = "master"
-		}
-		fmt.Printf(" %s\n", branch)
-
-		url := repo.Master
-		if branch != "master" {
-			url = repo.Development
-		}
-
-		fmt.Printf("  Loading Last Commit...")
-		commit, err := lastLocalCommit()
-		if err != nil {
-			return err
-		}
-		fmt.Printf(" %s\n", commit)
-
-		fmt.Print("  Loading From GHCR...")
-		version := commit
-		imageTagBase := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
-
-		cmd.Env = append(cmd.Env,
-			"IMAGE_TAG_BASE="+imageTagBase,
-			"VERSION="+version,
-			"OVERLAY="+overlay,
-		)
+	fmt.Printf("  Loading Current Branch...")
+	branch, err := currentBranch()
+	if err != nil {
+		return err
 	}
+	// For the detached head case, i.e. there is no branch name, assume
+	// that at some point that commit was built in the master branch
+	// and treat it like the 'master' branch case.
+	if branch == "" {
+		branch = "master"
+	}
+	fmt.Printf(" %s\n", branch)
+
+	url := repo.Master
+	if branch != "master" {
+		url = repo.Development
+	}
+
+	fmt.Printf("  Loading Last Commit...")
+	commit, err := lastLocalCommit()
+	if err != nil {
+		return err
+	}
+	fmt.Printf(" %s\n", commit)
+
+	version := commit
+	imageTagBase := strings.TrimSuffix(strings.TrimPrefix(url, "https://"), "/") // According to Tony; docker assumes a secure repo and prepends https when it fetches the image; so we drop it here.
+
+	cmd.Env = append(cmd.Env,
+		"IMAGE_TAG_BASE="+imageTagBase,
+		"VERSION="+version,
+		"OVERLAY="+overlay,
+	)
 
 	fmt.Println("  Running Deploy...")
 	_, err = runCommand(ctx, cmd)

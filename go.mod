@@ -2,10 +2,10 @@ module github.com/NearNodeFlash/nnf-deploy
 
 go 1.19
 
-replace github.com/HewlettPackard/dws => ./dws
+replace github.com/DataWorkflowServices/dws => ./dws
 
 require (
-	github.com/HewlettPackard/dws v0.0.1-0.20230613201835-73abc41bd83c
+	github.com/DataWorkflowServices/dws v0.0.1-0.20230913204342-e78d55d24550
 	github.com/alecthomas/kong v0.7.1
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.3
