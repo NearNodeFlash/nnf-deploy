@@ -12,7 +12,7 @@ daemons:
     serviceAccount:
       name: nnf-dm-daemon
       namespace: nnf-dm-system
-    extraArgs: "--kubernetes-qps 50 --kubernetes-burst 100"
+    extraArgs: '--kubernetes-qps 50 --kubernetes-burst 100'
   - name: client-mount
     bin: clientmountd
     buildCmd: make build-daemon
@@ -20,5 +20,5 @@ daemons:
     repository: dws
     skipNnfNodeName: true
     serviceAccount:
-      name: dws-operator-clientmount
-      namespace: dws-operator-system
+      name: dws-clientmount
+      namespace: dws-system
