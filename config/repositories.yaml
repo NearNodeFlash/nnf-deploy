@@ -66,5 +66,3 @@ thirdPartyServices:
   - name: mpi-operator
     useRemoteF: true
     url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
-
-
