@@ -16,19 +16,6 @@ systems:
       rabbit-01: { 0: compute-01 }
       rabbit-02:
       rabbit-03:
-  - name: rabbit-dev
-    aliases: [dp0, rabbit-dev-01, rabbit-lab]
-    overlays: [dp0, overlays/rabbit]
-    workers: [rabbit-dev-cn-02]
-    ports: ['5000-5999']
-    rabbits:
-      rabbit-dev-01:
-        {
-          0: rabbit-dev-cn-01,
-          1: rabbit-dev-cn-02,
-          2: rabbit-dev-cn-03,
-          3: rabbit-dev-cn-04
-        }
   - name: rabbit-htx
     aliases: [dp1, dp1a, htx-1]
     overlays: [dp0, overlays/rabbit]
@@ -37,12 +24,11 @@ systems:
     rabbits:
       rabbit-node-1: { 0: compute-node-3, 1: compute-node-2 } # These computes are physically swapped
       rabbit-node-2: { 0: compute-node-4, 1: compute-node-5 }
-
   - name: rabbit-tds
     aliases: [htx-tds]
     overlays: [dp0, overlays/rabbit]
     workers: [tx-k8s-worker]
-    ports: ["5000-5999"]
+    ports: ['5000-5999']
     rabbits:
       x9000c1j7b0n0:
         {
@@ -82,4 +68,3 @@ systems:
          14: x9000c3s7b0n0,
          15: x9000c3s7b1n0,
         }
-
