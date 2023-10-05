@@ -59,7 +59,7 @@ thirdPartyServices:
   # They will be installed in the order specified here.
   - name: cert-manager
     useRemoteF: true
-    url: https://github.com/jetstack/cert-manager/releases/download/v1.11.1/cert-manager.yaml
+    url: https://github.com/jetstack/cert-manager/releases/download/v1.13.1/cert-manager.yaml
     # The NNF services will dump errors at installation time if the
     # cert-manager webhook isn't ready.
     waitCmd: kubectl wait deploy -n cert-manager --timeout=180s cert-manager-webhook --for jsonpath='{.status.availableReplicas}=1'
