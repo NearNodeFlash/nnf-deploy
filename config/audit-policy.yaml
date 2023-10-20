@@ -34,7 +34,7 @@ rules:
 #    - lustrefilesystems
 #    - lustrefilesystems/status
 
-  - group: dws.cray.hpe.com
+  - group: dataworkflowservices.github.io
 #    resources: 
 #    - clientmounts
 #    - clientmounts/status
