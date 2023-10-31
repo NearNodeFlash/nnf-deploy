@@ -690,7 +690,7 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 
 func copyToNode(ctx *Context, name string, compute string, destination string) error {
 	fmt.Printf("  Copying %s to %s at %s...", name, compute, destination)
-	if _, err := runCommand(ctx, exec.Command("scp", "-C", name, compute+":"+destination)); err != nil {
+	if _, err := runCommand(ctx, exec.Command("scp", "-OC", name, compute+":"+destination)); err != nil {
 		return err
 	}
 
