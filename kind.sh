@@ -55,6 +55,7 @@ nodes:
         extraArgs:
           audit-log-path: /var/log/kubernetes/kube-apiserver-audit.log
           audit-policy-file: /etc/kubernetes/policies/audit-policy.yaml
+          audit-log-maxsize: "100"
         # mount new files / directories on the control plane
         extraVolumes:
           - name: audit-policies
