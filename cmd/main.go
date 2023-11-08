@@ -141,7 +141,7 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 
 		// Uninstall first to ensure the CRDs, and therefore all related custom
 		// resources, are deleted while the controllers are still running.
-		if module != "lustre-csi-driver" {
+		if module != "lustre-csi-driver" && module != "nnf-dm" {
 			if err := runMakeCommand(ctx, system, module, "uninstall"); err != nil {
 				return err
 			}
