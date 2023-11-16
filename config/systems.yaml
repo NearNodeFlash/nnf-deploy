@@ -29,6 +29,7 @@ systems:
     overlays: [dp0, overlays/rabbit]
     workers: [tx-k8s-worker]
     ports: ['5000-5999']
+    k8sHost: 10.168.0.33
     rabbits:
       # This machine is in constant churn with other testing
       # x9000c1j7b0n0:

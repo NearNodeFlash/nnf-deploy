@@ -247,6 +247,16 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	k8sServerHost := clusterConfig[:strings.Index(clusterConfig, ":")]
 	k8sServerPort := clusterConfig[strings.Index(clusterConfig, ":")+1:]
 
+	// Let the config override these values pulled from the cluster config. The values are used for
+	// daemons on the compute nodes, which may need a different IP/network to hit the cluster than
+	// the public facing cluster IP that the cluster config is using.
+	if system.K8sHost != "" {
+		k8sServerHost = system.K8sHost
+	}
+	if system.K8sPort != "" {
+		k8sServerPort = system.K8sPort
+	}
+
 	return config.EnumerateDaemons(ctx.Daemons, func(d config.Daemon) error {
 
 		var token []byte
