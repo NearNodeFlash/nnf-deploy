@@ -37,6 +37,8 @@ type System struct {
 	Workers  []string                  `yaml:"workers,flow,omitempty"`
 	Rabbits  map[string]map[int]string `yaml:"rabbits,flow"`
 	Ports    []string                  `yaml:"ports,flow,omitempty"`
+	K8sHost  string                    `yaml:"k8sHost,flow,omitempty"`
+	K8sPort  string                    `yaml:"k8sPort,flow,omitempty"`
 }
 
 type SystemConfigFile struct {
