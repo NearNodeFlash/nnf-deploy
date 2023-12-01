@@ -24,7 +24,7 @@ repositories:
     development: https://ghcr.io/nearnodeflash/nnf-dm
     master: https://ghcr.io/nearnodeflash/nnf-dm
   - name: nnf-sos
-    overlays: [craystack, kind, dp0]
+    overlays: [craystack, kind, dp0, examples-htx]
     development: https://ghcr.io/nearnodeflash/nnf-sos
     master: https://ghcr.io/nearnodeflash/nnf-sos
   - name: lustre-csi-driver
