@@ -768,7 +768,7 @@ func getExampleOverlay(ctx *Context, system *config.System, module string) (stri
 
 	for _, repoOverlay := range repo.Overlays {
 		for _, systemOverlay := range system.Overlays {
-			if repoOverlay == systemOverlay && strings.HasPrefix(systemOverlay, "example") {
+			if repoOverlay == systemOverlay && strings.HasPrefix(systemOverlay, "examples-") {
 				fmt.Printf("  Examples Overlay for %s found: %s\n", module, repoOverlay)
 				return repoOverlay, nil
 			}
