@@ -836,8 +836,11 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		"IMAGE_TAG_BASE="+imageTagBase,
 		"VERSION="+version,
 		"OVERLAY="+overlay,
-		"OVERLAY_EXAMPLES="+overlayExample,
 	)
+
+	if len(overlayExample) > 0 {
+		cmd.Env = append(cmd.Env, "OVERLAY_EXAMPLES="+overlayExample)
+	}
 
 	fmt.Println("  Running Deploy...")
 	_, err = runCommand(ctx, cmd)
