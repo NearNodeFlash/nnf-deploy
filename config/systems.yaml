@@ -18,7 +18,7 @@ systems:
       rabbit-03:
   - name: rabbit-htx
     aliases: [dp1, dp1a, htx-1]
-    overlays: [dp0, overlays/rabbit]
+    overlays: [dp0, examples-htx, overlays/rabbit]
     workers: [rabbit-k8s-worker]
     ports: ['5000-5999']
     rabbits:

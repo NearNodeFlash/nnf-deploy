@@ -759,11 +759,37 @@ func getOverlay(ctx *Context, system *config.System, module string) (string, err
 	return "", nil
 }
 
+func getExampleOverlay(ctx *Context, system *config.System, module string) (string, error) {
+
+	repo, _, err := config.FindRepository(ctx.Repos, module)
+	if err != nil {
+		return "", err
+	}
+
+	for _, repoOverlay := range repo.Overlays {
+		for _, systemOverlay := range system.Overlays {
+			if repoOverlay == systemOverlay && strings.HasPrefix(systemOverlay, "examples-") {
+				fmt.Printf("  Examples Overlay for %s found: %s\n", module, repoOverlay)
+				return repoOverlay, nil
+			}
+		}
+	}
+
+	return "", nil
+}
+
 func deployModule(ctx *Context, system *config.System, module string) error {
 
 	cmd := exec.Command("make", "deploy")
 
 	overlay, err := getOverlay(ctx, system, module)
+	if err != nil {
+		return err
+	}
+
+	// Some repos apply examples (e.g. nnf-sos' container/storage profiles) in an additional step in
+	// deploy.sh, so account for an additional overlay to use in that case.
+	overlayExample, err := getExampleOverlay(ctx, system, module)
 	if err != nil {
 		return err
 	}
@@ -811,6 +837,10 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		"VERSION="+version,
 		"OVERLAY="+overlay,
 	)
+
+	if len(overlayExample) > 0 {
+		cmd.Env = append(cmd.Env, "OVERLAY_EXAMPLES="+overlayExample)
+	}
 
 	fmt.Println("  Running Deploy...")
 	_, err = runCommand(ctx, cmd)
