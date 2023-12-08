@@ -25,20 +25,18 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var sysCfgPath string
 
 type System struct {
-	Name     string                    `yaml:"name"`
-	Aliases  []string                  `yaml:"aliases,flow,omitempty"`
-	Overlays []string                  `yaml:"overlays,omitempty,flow"`
-	Workers  []string                  `yaml:"workers,flow,omitempty"`
-	Rabbits  map[string]map[int]string `yaml:"rabbits,flow"`
-	Ports    []string                  `yaml:"ports,flow,omitempty"`
-	K8sHost  string                    `yaml:"k8sHost,flow,omitempty"`
-	K8sPort  string                    `yaml:"k8sPort,flow,omitempty"`
+	Name                string   `yaml:"name"`
+	Aliases             []string `yaml:"aliases,flow,omitempty"`
+	Overlays            []string `yaml:"overlays,omitempty,flow"`
+	SystemConfiguration string   `yaml:"systemConfiguration,flow"`
+	K8sHost             string   `yaml:"k8sHost,flow,omitempty"`
+	K8sPort             string   `yaml:"k8sPort,flow,omitempty"`
 }
 
 type SystemConfigFile struct {
@@ -72,7 +70,7 @@ func ReadConfig(path string) (*SystemConfigFile, error) {
 	}
 
 	config := new(SystemConfigFile)
-	if err := yaml.UnmarshalStrict(configFile, config); err != nil {
+	if err := yaml.Unmarshal(configFile, config); err != nil {
 		return nil, fmt.Errorf("invalid system config yaml: %v", err)
 	}
 
@@ -117,22 +115,6 @@ func (config *SystemConfigFile) Verify() error {
 func (system *System) Verify() error {
 	knownAliases := make(map[string]bool)
 	knownOverlays := make(map[string]bool)
-	knownComputes := make(map[string]bool)
-	knownWorkers := make(map[string]bool)
-
-	if len(system.Rabbits) < 1 {
-		return fmt.Errorf("no rabbit nodes declared for system '%s' in '%s'", system.Name, sysCfgPath)
-	}
-
-	// Ensure computes are only listed once. `yaml.UnmarshalStrict` will catch duplicate rabbit names since it's a map.
-	for _, computes := range system.Rabbits {
-		for _, compute := range computes {
-			if _, found := knownComputes[compute]; found {
-				return fmt.Errorf("compute node '%s' declared more than once for system '%s' in '%s'", compute, system.Name, sysCfgPath)
-			}
-			knownComputes[compute] = true
-		}
-	}
 
 	// Aliases
 	for _, alias := range system.Aliases {
@@ -153,18 +135,40 @@ func (system *System) Verify() error {
 		knownOverlays[overlay] = true
 	}
 
-	// Workers
-	if len(system.Workers) < 1 {
-		return fmt.Errorf("no workers declared for system '%s' in '%s'", system.Name, sysCfgPath)
-	}
-	for _, worker := range system.Workers {
-		if _, found := knownWorkers[worker]; found {
-			return fmt.Errorf("worker node '%s' declared more than once for system '%s' in '%s'", worker, system.Name, sysCfgPath)
-		}
-		knownWorkers[worker] = true
-	}
-
 	return nil
+}
+
+type ComputesList []string
+type Rabbits map[string]ComputesList
+type SystemConfigurationCRType map[string]interface{}
+
+func ReadSystemConfigurationCR(crPath string) (SystemConfigurationCRType, error) {
+	data := make(SystemConfigurationCRType)
+
+	sysConfigYaml, err := os.ReadFile(crPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not read SystemConfiguration CR file: %v", err)
+	}
+	err = yaml.Unmarshal([]byte(sysConfigYaml), &data)
+	return data, err
+}
+
+func (data SystemConfigurationCRType) RabbitsAndComputes() Rabbits {
+	perRabbit := make(Rabbits)
+
+	storageNodes := data["spec"].(SystemConfigurationCRType)["storageNodes"]
+	for _, storageNode := range storageNodes.([]interface{}) {
+		rabbit := storageNode.(SystemConfigurationCRType)["name"]
+		access := storageNode.(SystemConfigurationCRType)["computesAccess"]
+
+		var computes ComputesList
+		for _, compute := range access.([]interface{}) {
+			cname := compute.(SystemConfigurationCRType)["name"]
+			computes = append(computes, cname.(string))
+		}
+		perRabbit[rabbit.(string)] = computes
+	}
+	return perRabbit
 }
 
 type RepositoryConfigFile struct {
@@ -208,7 +212,7 @@ func readConfigFile(configPath string) (*RepositoryConfigFile, error) {
 		}
 	}
 	config := new(RepositoryConfigFile)
-	if err := yaml.UnmarshalStrict(configFile, config); err != nil {
+	if err := yaml.Unmarshal(configFile, config); err != nil {
 		return nil, err
 	}
 	return config, nil
@@ -263,7 +267,7 @@ func EnumerateDaemons(configPath string, handleFn func(Daemon) error) error {
 	}
 
 	config := new(DaemonConfigFile)
-	if err := yaml.UnmarshalStrict(configFile, config); err != nil {
+	if err := yaml.Unmarshal(configFile, config); err != nil {
 		return err
 	}
 

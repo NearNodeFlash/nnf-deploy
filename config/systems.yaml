@@ -2,71 +2,13 @@ systems:
   - name: kind
     aliases: [kind-kind]
     overlays: [kind, overlays/kind]
-    workers: [kind-worker]
-    ports: ['5000-5999']
-    rabbits:
-      kind-worker2: { 0: compute-01, 1: compute-02, 6: compute-03 }
-      kind-worker3: { 4: compute-04 }
-  - name: craystack-default
-    aliases: [craystack]
-    overlays: [craystack]
-    workers: [k3s-master]
-    ports: ['5000-5999']
-    rabbits:
-      rabbit-01: { 0: compute-01 }
-      rabbit-02:
-      rabbit-03:
+    systemConfiguration: systemconfiguration-kind.yaml
   - name: rabbit-htx
     aliases: [dp1, dp1a, htx-1]
     overlays: [dp0, examples-htx, overlays/rabbit]
-    workers: [rabbit-k8s-worker]
-    ports: ['5000-5999']
-    rabbits:
-      rabbit-node-1: { 0: rabbit-compute-3, 1: rabbit-compute-2 } # These computes are physically swapped
-      rabbit-node-2: { 0: rabbit-compute-4, 1: rabbit-compute-5 }
+    systemConfiguration: systemconfiguration-htx-1.yaml
   - name: rabbit-tds
     aliases: [htx-tds]
     overlays: [dp0, overlays/rabbit]
-    workers: [tx-k8s-worker]
-    ports: ['5000-5999']
+    systemConfiguration: systemconfiguration-htx-tds.yaml
     k8sHost: 10.168.0.33
-    rabbits:
-      # This machine is in constant churn with other testing
-      # x9000c1j7b0n0:
-      #   {
-      #     0: x9000c1s0b0n0,
-      #     1: x9000c1s0b1n0,
-      #     2: x9000c1s1b0n0,
-      #     3: x9000c1s1b1n0,
-      #     4: x9000c1s2b0n0,
-      #     5: x9000c1s2b1n0,
-      #     6: x9000c1s3b0n0,
-      #     7: x9000c1s3b1n0,
-      #     8: x9000c1s4b0n0,
-      #     9: x9000c1s4b1n0,
-      #    10: x9000c1s5b0n0,
-      #    11: x9000c1s5b1n0,
-      #    12: x9000c1s6b0n0,
-      #    13: x9000c1s6b1n0,
-      #    14: x9000c1s7b0n0,
-      #    15: x9000c1s7b1n0,
-      #   }
-      x9000c3j7b0n0:
-        {
-          0: x9000c3s0b0n0,
-          1: x9000c3s0b1n0,
-          2: x9000c3s1b0n0,
-          3: x9000c3s1b1n0,
-          4: x9000c3s2b0n0,
-          5: x9000c3s2b1n0,
-          6: x9000c3s3b0n0,
-          7: x9000c3s3b1n0,
-          8: x9000c3s4b0n0,
-          9: x9000c3s4b1n0,
-         10: x9000c3s5b0n0,
-         11: x9000c3s5b1n0,
-         12: x9000c3s6b0n0,
-         13: x9000c3s6b1n0,
-         14: x9000c3s7b0n0,
-         15: x9000c3s7b1n0,
-        }

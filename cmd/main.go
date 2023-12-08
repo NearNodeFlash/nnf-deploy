@@ -20,7 +20,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -30,10 +29,8 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"gopkg.in/yaml.v3"
 
-	dwsv1alpha2 "github.com/DataWorkflowServices/dws/api/v1alpha2"
 	"github.com/NearNodeFlash/nnf-deploy/config"
 )
 
@@ -235,6 +232,12 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		return err
 	}
 
+	sysConfigCR, err := config.ReadSystemConfigurationCR("config/" + system.SystemConfiguration)
+	if err != nil {
+		return err
+	}
+	perRabbit := sysConfigCR.RabbitsAndComputes()
+
 	clusterConfig, err := currentClusterConfig()
 	if err != nil {
 		return err
@@ -303,10 +306,10 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 				}
 			}
 
-			for rabbit := range system.Rabbits {
+			for rabbit, computes := range perRabbit {
 				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
 
-				for _, compute := range system.Rabbits[rabbit] {
+				for _, compute := range computes {
 					fmt.Printf(" Checking for install on Compute Node %s\n", compute)
 
 					if shouldSkipNode(compute) {
@@ -476,7 +479,13 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	if err := applyLabelsTaints(system, ctx); err != nil {
+	sysConfigCR, err := config.ReadSystemConfigurationCR("config/" + system.SystemConfiguration)
+	if err != nil {
+		return err
+	}
+	perRabbit := sysConfigCR.RabbitsAndComputes()
+
+	if err := applyLabelsTaints(perRabbit, ctx); err != nil {
 		return err
 	}
 
@@ -539,7 +548,7 @@ func installThirdPartyServices(ctx *Context) error {
 	return nil
 }
 
-func applyLabelsTaints(system *config.System, ctx *Context) error {
+func applyLabelsTaints(perRabbit config.Rabbits, ctx *Context) error {
 	// Labels/Taints to apply to nnf nodes
 	nnfNodeLabels := []string{
 		"cray.nnf.node=true",
@@ -549,7 +558,7 @@ func applyLabelsTaints(system *config.System, ctx *Context) error {
 	}
 
 	nnfNodes := []string{}
-	for rabbit := range system.Rabbits {
+	for rabbit := range perRabbit {
 		nnfNodes = append(nnfNodes, rabbit)
 	}
 
@@ -963,45 +972,7 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 	fmt.Println("Creating SystemConfiguration...")
 
-	config := dwsv1alpha2.SystemConfiguration{}
-
-	config.Name = "default"
-	config.Namespace = "default"
-	config.Kind = "SystemConfiguration"
-	config.APIVersion = fmt.Sprintf("%s/%s", dwsv1alpha2.GroupVersion.Group, dwsv1alpha2.GroupVersion.Version)
-
-	// Convert port strings to IntOrString slice
-	ports := []intstr.IntOrString{}
-	for _, port := range system.Ports {
-		ports = append(ports, intstr.FromString(port))
-	}
-	config.Spec.Ports = append(config.Spec.Ports, ports...)
-
-	for storageName, computes := range system.Rabbits {
-		storage := dwsv1alpha2.SystemConfigurationStorageNode{}
-		storage.Type = "Rabbit"
-		storage.Name = storageName
-		for index, computeName := range computes {
-			compute := dwsv1alpha2.SystemConfigurationComputeNode{
-				Name: computeName,
-			}
-			config.Spec.ComputeNodes = append(config.Spec.ComputeNodes, compute)
-
-			computeReference := dwsv1alpha2.SystemConfigurationComputeNodeReference{
-				Name:  computeName,
-				Index: index,
-			}
-			storage.ComputesAccess = append(storage.ComputesAccess, computeReference)
-		}
-		config.Spec.StorageNodes = append(config.Spec.StorageNodes, storage)
-	}
-
-	configjson, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("cat <<EOF | kubectl apply -f - \n%s", configjson))
-	_, err = runCommand(ctx, cmd)
+	cmd := exec.Command("kubectl", "apply", "-f", "../config/"+system.SystemConfiguration)
+	_, err := runCommand(ctx, cmd)
 	return err
 }
