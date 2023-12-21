@@ -17,8 +17,8 @@ daemons:
     bin: clientmountd
     buildCmd: make build-daemon
     path: bin/
-    repository: dws
+    repository: nnf-sos
     skipNnfNodeName: true
     serviceAccount:
-      name: dws-clientmount
-      namespace: dws-system
+      name: nnf-clientmount
+      namespace: nnf-system
