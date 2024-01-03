@@ -253,7 +253,13 @@ type Daemon struct {
 		Name      string `yaml:"name"`
 		Namespace string `yaml:"namespace"`
 	} `yaml:"serviceAccount,omitempty"`
-	ExtraArgs string `yaml:"extraArgs,omitempty"`
+	ExtraArgs   string   `yaml:"extraArgs,omitempty"`
+	Environment []EnvVar `yaml:"env,omitempty"`
+}
+
+type EnvVar struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value,omitempty"`
 }
 
 type DaemonConfigFile struct {
