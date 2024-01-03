@@ -401,24 +401,27 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 						fmt.Printf("\n")
 					}
 
-					execStart := ""
-					execStart += "[Service]\n"
-					execStart += "ExecStart=\n"
-					execStart += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
-					execStart += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
-					execStart += "  --kubernetes-service-port=" + k8sServerPort + " \\\n"
-					execStart += "  --node-name=" + compute + " \\\n"
+					overrideContents := ""
+					overrideContents += "[Service]\n"
+					overrideContents += "ExecStart=\n"
+					overrideContents += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
+					overrideContents += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
+					overrideContents += "  --kubernetes-service-port=" + k8sServerPort + " \\\n"
+					overrideContents += "  --node-name=" + compute + " "
 					if !d.SkipNnfNodeName {
-						execStart += "  --nnf-node-name=" + rabbit + " \\\n"
+						overrideContents += "\\\n" + "  --nnf-node-name=" + rabbit + " "
 					}
 					if len(token) != 0 {
-						execStart += "  --service-token-file=" + path.Join(serviceTokenPath, "service.token") + " \\\n"
+						overrideContents += "\\\n" + "  --service-token-file=" + path.Join(serviceTokenPath, "service.token") + " "
 					}
 					if len(cert) != 0 {
-						execStart += "  --service-cert-file=" + path.Join(certFilePath, "service.cert") + " \\\n"
+						overrideContents += "\\\n" + "  --service-cert-file=" + path.Join(certFilePath, "service.cert") + " "
 					}
 					if len(d.ExtraArgs) > 0 {
-						execStart += "  " + d.ExtraArgs + " \\\n"
+						overrideContents += "\\\n" + d.ExtraArgs + " "
+					}
+					for _, e := range d.Environment {
+						overrideContents += "\n" + "Environment=" + e.Name + "=" + e.Value
 					}
 
 					fmt.Printf("  Creating override directory...")
@@ -430,7 +433,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					fmt.Printf("\n")
 
 					fmt.Println("  Creating override configuration...")
-					if err := os.WriteFile("override.conf", []byte(execStart), 0644); err != nil {
+					if err := os.WriteFile("override.conf", []byte(overrideContents), 0644); err != nil {
 						return err
 					}
 
