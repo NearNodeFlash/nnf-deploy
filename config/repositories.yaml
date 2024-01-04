@@ -33,14 +33,14 @@ repositories:
     master: https://ghcr.io/hewlettpackard/lustre-csi-driver
     useRemoteK: true
     remoteReference:
-      build: v0.0.6
+      build: master
       url: https://github.com/HewlettPackard/lustre-csi-driver.git/deploy/kubernetes/%s/?ref=%s
   - name: lustre-fs-operator
     development: https://ghcr.io/nearnodeflash/lustre-fs-operator
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
     useRemoteK: true
     remoteReference:
-      build: v0.0.6
+      build: master
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 
 buildConfiguration:
