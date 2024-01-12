@@ -38,7 +38,7 @@ if [[ $CMD == 'deploy' ]]; then
 
     helm install $INSTANCE_NAME prometheus-community/kube-prometheus-stack \
       --version $CHART_VER --create-namespace --namespace $NAMESPACE \
-      --values config/helm-values/prometheus-values.yaml
+      --values config/helm-values/prometheus.yaml
 
     helm list -n $NAMESPACE
 fi
