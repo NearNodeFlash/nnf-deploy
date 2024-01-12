@@ -7,46 +7,58 @@ metadata:
   namespace: default
 spec:
   computeNodes:
-  - name: compute-01
-  - name: compute-02
-  - name: compute-03
-  - name: compute-04
+  - name: x9000c1s0b0n0
+  - name: x9000c1s0b1n0
+  - name: x9000c1s1b0n0
+  - name: x9000c1s1b1n0
+  - name: x9000c1s2b0n0
+  - name: x9000c1s2b1n0
+  - name: x9000c1s3b0n0
+  - name: x9000c1s3b1n0
+  - name: x9000c1s4b0n0
+  - name: x9000c1s4b1n0
+  - name: x9000c1s5b0n0
+  - name: x9000c1s5b1n0
+  - name: x9000c1s6b0n0
+  - name: x9000c1s6b1n0
+  - name: x9000c1s7b0n0
+  - name: x9000c1s7b1n0
   ports:
   - 5000-5999
   portsCooldownInSeconds: 0
   storageNodes:
   - computesAccess:
     - index: 0
-      name: x9000c3s0b0n0
+      name: x9000c1s0b0n0
     - index: 1
-      name: x9000c3s0b1n0
+      name: x9000c1s0b1n0
     - index: 2
-      name: x9000c3s1b0n0
+      name: x9000c1s1b0n0
     - index: 3
-      name: x9000c3s1b1n0
+      name: x9000c1s1b1n0
     - index: 4
-      name: x9000c3s2b0n0
+      name: x9000c1s2b0n0
     - index: 5
-      name: x9000c3s2b1n0
+      name: x9000c1s2b1n0
     - index: 6
-      name: x9000c3s3b0n0
+      name: x9000c1s3b0n0
     - index: 7
-      name: x9000c3s3b1n0
+      name: x9000c1s3b1n0
     - index: 8
-      name: x9000c3s4b0n0
+      name: x9000c1s4b0n0
     - index: 9
-      name: x9000c3s4b1n0
+      name: x9000c1s4b1n0
     - index: 10
-      name: x9000c3s5b0n0
+      name: x9000c1s5b0n0
     - index: 11
-      name: x9000c3s5b1n0
+      name: x9000c1s5b1n0
     - index: 12
-      name: x9000c3s6b0n0
+      name: x9000c1s6b0n0
     - index: 13
-      name: x9000c3s6b1n0
+      name: x9000c1s6b1n0
     - index: 14
-      name: x9000c3s7b0n0
+      name: x9000c1s7b0n0
     - index: 15
-      name: x9000c3s7b1n0
-    name: x9000c3j7b0n0
+      name: x9000c1s7b1n0
+    name: x9000c1j7b0n0
     type: Rabbit
