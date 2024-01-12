@@ -13,12 +13,30 @@ daemons:
       name: nnf-dm-daemon
       namespace: nnf-dm-system
     extraArgs: '--kubernetes-qps 50 --kubernetes-burst 100'
+    env:
+      - name: GOGC
+        value: "off"
+      - name: GOMEMLIMIT
+        value: "20MiB"
+      - name: GOMAXPROCS
+        value: 5
+      - name: HTTP2_PING_TIMEOUT_SECONDS
+        value: 60
   - name: client-mount
     bin: clientmountd
     buildCmd: make build-daemon
     path: bin/
-    repository: dws
+    repository: nnf-sos
     skipNnfNodeName: true
     serviceAccount:
-      name: dws-clientmount
-      namespace: dws-system
+      name: nnf-clientmount
+      namespace: nnf-system
+    env:
+      - name: GOGC
+        value: "off"
+      - name: GOMEMLIMIT
+        value: "20MiB"
+      - name: GOMAXPROCS
+        value: 5
+      - name: HTTP2_PING_TIMEOUT_SECONDS
+        value: 60
