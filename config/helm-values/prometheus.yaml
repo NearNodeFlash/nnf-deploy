@@ -14,11 +14,10 @@
 # helm install $INSTANCE_NAME prometheus-community/kube-prometheus-stack \
 #    --version $CHART_VER --create-namespace --namespace monitoring \
 #    --values $THIS_OVERRIDE_FILE
-# 
+#
 
 prometheus:
   prometheusSpec:
     serviceMonitorSelector:
       matchLabels:
         prometheus-app: rabbit-nnf
-
