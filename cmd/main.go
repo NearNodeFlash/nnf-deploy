@@ -20,7 +20,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -30,10 +29,8 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"gopkg.in/yaml.v3"
 
-	dwsv1alpha2 "github.com/DataWorkflowServices/dws/api/v1alpha2"
 	"github.com/NearNodeFlash/nnf-deploy/config"
 )
 
@@ -141,7 +138,7 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 
 		// Uninstall first to ensure the CRDs, and therefore all related custom
 		// resources, are deleted while the controllers are still running.
-		if module != "lustre-csi-driver" {
+		if module != "lustre-csi-driver" && module != "nnf-dm" {
 			if err := runMakeCommand(ctx, system, module, "uninstall"); err != nil {
 				return err
 			}
@@ -235,6 +232,12 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		return err
 	}
 
+	sysConfigCR, err := config.ReadSystemConfigurationCR("config/" + system.SystemConfiguration)
+	if err != nil {
+		return err
+	}
+	perRabbit := sysConfigCR.RabbitsAndComputes()
+
 	clusterConfig, err := currentClusterConfig()
 	if err != nil {
 		return err
@@ -246,6 +249,16 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 	k8sServerHost := clusterConfig[:strings.Index(clusterConfig, ":")]
 	k8sServerPort := clusterConfig[strings.Index(clusterConfig, ":")+1:]
+
+	// Let the config override these values pulled from the cluster config. The values are used for
+	// daemons on the compute nodes, which may need a different IP/network to hit the cluster than
+	// the public facing cluster IP that the cluster config is using.
+	if system.K8sHost != "" {
+		k8sServerHost = system.K8sHost
+	}
+	if system.K8sPort != "" {
+		k8sServerPort = system.K8sPort
+	}
 
 	return config.EnumerateDaemons(ctx.Daemons, func(d config.Daemon) error {
 
@@ -293,10 +306,10 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 				}
 			}
 
-			for rabbit := range system.Rabbits {
+			for rabbit, computes := range perRabbit {
 				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
 
-				for _, compute := range system.Rabbits[rabbit] {
+				for _, compute := range computes {
 					fmt.Printf(" Checking for install on Compute Node %s\n", compute)
 
 					if shouldSkipNode(compute) {
@@ -388,24 +401,27 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 						fmt.Printf("\n")
 					}
 
-					execStart := ""
-					execStart += "[Service]\n"
-					execStart += "ExecStart=\n"
-					execStart += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
-					execStart += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
-					execStart += "  --kubernetes-service-port=" + k8sServerPort + " \\\n"
-					execStart += "  --node-name=" + compute + " \\\n"
+					overrideContents := ""
+					overrideContents += "[Service]\n"
+					overrideContents += "ExecStart=\n"
+					overrideContents += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
+					overrideContents += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
+					overrideContents += "  --kubernetes-service-port=" + k8sServerPort + " \\\n"
+					overrideContents += "  --node-name=" + compute + " "
 					if !d.SkipNnfNodeName {
-						execStart += "  --nnf-node-name=" + rabbit + " \\\n"
+						overrideContents += "\\\n" + "  --nnf-node-name=" + rabbit + " "
 					}
 					if len(token) != 0 {
-						execStart += "  --service-token-file=" + path.Join(serviceTokenPath, "service.token") + " \\\n"
+						overrideContents += "\\\n" + "  --service-token-file=" + path.Join(serviceTokenPath, "service.token") + " "
 					}
 					if len(cert) != 0 {
-						execStart += "  --service-cert-file=" + path.Join(certFilePath, "service.cert") + " \\\n"
+						overrideContents += "\\\n" + "  --service-cert-file=" + path.Join(certFilePath, "service.cert") + " "
 					}
 					if len(d.ExtraArgs) > 0 {
-						execStart += "  " + d.ExtraArgs + " \\\n"
+						overrideContents += "\\\n" + d.ExtraArgs + " "
+					}
+					for _, e := range d.Environment {
+						overrideContents += "\n" + "Environment=" + e.Name + "=" + e.Value
 					}
 
 					fmt.Printf("  Creating override directory...")
@@ -417,7 +433,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					fmt.Printf("\n")
 
 					fmt.Println("  Creating override configuration...")
-					if err := os.WriteFile("override.conf", []byte(execStart), 0644); err != nil {
+					if err := os.WriteFile("override.conf", []byte(overrideContents), 0644); err != nil {
 						return err
 					}
 
@@ -466,7 +482,13 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	if err := applyLabelsTaints(system, ctx); err != nil {
+	sysConfigCR, err := config.ReadSystemConfigurationCR("config/" + system.SystemConfiguration)
+	if err != nil {
+		return err
+	}
+	perRabbit := sysConfigCR.RabbitsAndComputes()
+
+	if err := applyLabelsTaints(perRabbit, ctx); err != nil {
 		return err
 	}
 
@@ -529,7 +551,7 @@ func installThirdPartyServices(ctx *Context) error {
 	return nil
 }
 
-func applyLabelsTaints(system *config.System, ctx *Context) error {
+func applyLabelsTaints(perRabbit config.Rabbits, ctx *Context) error {
 	// Labels/Taints to apply to nnf nodes
 	nnfNodeLabels := []string{
 		"cray.nnf.node=true",
@@ -539,7 +561,7 @@ func applyLabelsTaints(system *config.System, ctx *Context) error {
 	}
 
 	nnfNodes := []string{}
-	for rabbit := range system.Rabbits {
+	for rabbit := range perRabbit {
 		nnfNodes = append(nnfNodes, rabbit)
 	}
 
@@ -690,7 +712,7 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 
 func copyToNode(ctx *Context, name string, compute string, destination string) error {
 	fmt.Printf("  Copying %s to %s at %s...", name, compute, destination)
-	if _, err := runCommand(ctx, exec.Command("scp", "-C", name, compute+":"+destination)); err != nil {
+	if _, err := runCommand(ctx, exec.Command("scp", "-OC", name, compute+":"+destination)); err != nil {
 		return err
 	}
 
@@ -749,11 +771,37 @@ func getOverlay(ctx *Context, system *config.System, module string) (string, err
 	return "", nil
 }
 
+func getExampleOverlay(ctx *Context, system *config.System, module string) (string, error) {
+
+	repo, _, err := config.FindRepository(ctx.Repos, module)
+	if err != nil {
+		return "", err
+	}
+
+	for _, repoOverlay := range repo.Overlays {
+		for _, systemOverlay := range system.Overlays {
+			if repoOverlay == systemOverlay && strings.HasPrefix(systemOverlay, "examples-") {
+				fmt.Printf("  Examples Overlay for %s found: %s\n", module, repoOverlay)
+				return repoOverlay, nil
+			}
+		}
+	}
+
+	return "", nil
+}
+
 func deployModule(ctx *Context, system *config.System, module string) error {
 
 	cmd := exec.Command("make", "deploy")
 
 	overlay, err := getOverlay(ctx, system, module)
+	if err != nil {
+		return err
+	}
+
+	// Some repos apply examples (e.g. nnf-sos' container/storage profiles) in an additional step in
+	// deploy.sh, so account for an additional overlay to use in that case.
+	overlayExample, err := getExampleOverlay(ctx, system, module)
 	if err != nil {
 		return err
 	}
@@ -801,6 +849,10 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 		"VERSION="+version,
 		"OVERLAY="+overlay,
 	)
+
+	if len(overlayExample) > 0 {
+		cmd.Env = append(cmd.Env, "OVERLAY_EXAMPLES="+overlayExample)
+	}
 
 	fmt.Println("  Running Deploy...")
 	_, err = runCommand(ctx, cmd)
@@ -923,45 +975,7 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 	fmt.Println("Creating SystemConfiguration...")
 
-	config := dwsv1alpha2.SystemConfiguration{}
-
-	config.Name = "default"
-	config.Namespace = "default"
-	config.Kind = "SystemConfiguration"
-	config.APIVersion = fmt.Sprintf("%s/%s", dwsv1alpha2.GroupVersion.Group, dwsv1alpha2.GroupVersion.Version)
-
-	// Convert port strings to IntOrString slice
-	ports := []intstr.IntOrString{}
-	for _, port := range system.Ports {
-		ports = append(ports, intstr.FromString(port))
-	}
-	config.Spec.Ports = append(config.Spec.Ports, ports...)
-
-	for storageName, computes := range system.Rabbits {
-		storage := dwsv1alpha2.SystemConfigurationStorageNode{}
-		storage.Type = "Rabbit"
-		storage.Name = storageName
-		for index, computeName := range computes {
-			compute := dwsv1alpha2.SystemConfigurationComputeNode{
-				Name: computeName,
-			}
-			config.Spec.ComputeNodes = append(config.Spec.ComputeNodes, compute)
-
-			computeReference := dwsv1alpha2.SystemConfigurationComputeNodeReference{
-				Name:  computeName,
-				Index: index,
-			}
-			storage.ComputesAccess = append(storage.ComputesAccess, computeReference)
-		}
-		config.Spec.StorageNodes = append(config.Spec.StorageNodes, storage)
-	}
-
-	configjson, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("cat <<EOF | kubectl apply -f - \n%s", configjson))
-	_, err = runCommand(ctx, cmd)
+	cmd := exec.Command("kubectl", "apply", "-f", "../config/"+system.SystemConfiguration)
+	_, err := runCommand(ctx, cmd)
 	return err
 }

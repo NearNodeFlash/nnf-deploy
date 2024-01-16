@@ -1,3 +1,22 @@
+/*
+ * Copyright 2023 Hewlett Packard Enterprise Development LP
+ * Other additional copyright holders may be indicated within.
+ *
+ * The entirety of this work is licensed under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ *
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package config_test
 
 import (
@@ -35,13 +54,11 @@ systems:
   - name: one
     workers: [worker1]
     overlays: [overlay1]
-    rabbits:
-      rabbit-node-1: {0: "compute-1"}
+    systemConfiguration: config/systemconfiguration-kind.yaml
   - name: one
     workers: [worker2]
     overlays: [overlay2]
-    rabbits:
-      rabbit-node-2: {0: "compute-2"}
+    systemConfiguration: config/systemconfiguration-kind.yaml
 `
 			It("should error", func() {
 				createConfigFile(input)
@@ -57,14 +74,11 @@ systems:
     aliases: [1]
     workers: [worker1]
     overlays: [overlay1]
-    rabbits:
-      rabbit-node-1: {0: "compute-1"}
+    systemConfiguration: config/systemconfiguration-kind.yaml
   - name: two
     aliases: [1, 2]
-    workers: [worker2]
     overlays: [overlay2]
-    rabbits:
-      rabbit-node-2: {0: "compute-2"}
+    systemConfiguration: config/systemconfiguration-kind.yaml
 `
 			It("should error", func() {
 				createConfigFile(input)
@@ -78,29 +92,12 @@ systems:
 systems:
   - name: no-alias
     overlays: [overlay2]
-    workers: [worker2]
-    rabbits:
-      rabbit-node-2: {0: "compute-2"}
+    systemConfiguration: config/systemconfiguration-kind.yaml
 `
 			It("should not error", func() {
 				createConfigFile(input)
 				_, err := config.ReadConfig(tempFile.Name())
 				Expect(err).ToNot(HaveOccurred())
-			})
-		})
-
-		When("A system has no workers", func() {
-			var input = `
-systems:
-  - name: no-workers
-    overlays: [overlay2]
-    rabbits:
-      rabbit-node-2: {0: "compute-2"}
-`
-			It("should error", func() {
-				createConfigFile(input)
-				_, err := config.ReadConfig(tempFile.Name())
-				Expect(err).To(HaveOccurred())
 			})
 		})
 
@@ -108,9 +105,7 @@ systems:
 			var input = `
 systems:
   - name: no-workers
-    workers: [worker2]
-    rabbits:
-      rabbit-node-2: {0: "compute-2"}
+    systemConfiguration: config/systemconfiguration-kind.yaml
 `
 			It("should error", func() {
 				createConfigFile(input)
@@ -118,71 +113,29 @@ systems:
 				Expect(err).To(HaveOccurred())
 			})
 		})
+	})
+})
 
-		When("A system declares a rabbit node twice", func() {
-			var input = `
-systems:
-  - name: two-rabbits
-    workers: [worker2]
-    overlays: [overlay2]
-    rabbits:
-      rabbit-node-2: {0: "compute-node-2"}
-      rabbit-node-2: {0: "compute-node-3"}
-`
-			It("should error", func() {
-				createConfigFile(input)
-				_, err := config.ReadConfig(tempFile.Name())
-				Expect(err).To(HaveOccurred())
-			})
-		})
+var _ = Describe("SystemConfiguration", func() {
+	const crPath = "./systemconfiguration-kind.yaml"
 
-		When("A system has no rabbit nodes", func() {
-			var input = `
-systems:
-  - name: no-rabbits
-    workers: [worker2]
-    overlays: [overlay2]
-`
-			It("should error", func() {
-				createConfigFile(input)
-				_, err := config.ReadConfig(tempFile.Name())
-				Expect(err).To(HaveOccurred())
-			})
-		})
+	It("walks the computes for each rabbit in the CR", func() {
+		data, err := config.ReadSystemConfigurationCR(crPath)
+		Expect(err).ToNot(HaveOccurred())
 
-		When("A system declares a compute node twice", func() {
-			var input = `
-systems:
-  - name: two-computes
-    workers: [worker2, worker3]
-    overlays: [overlay2]
-    rabbits:
-      rabbit-node-2: {0: "compute-2"}
-      rabbit-node-3: {0: "compute-2"}
-`
-			It("should error", func() {
-				createConfigFile(input)
-				_, err := config.ReadConfig(tempFile.Name())
-				Expect(err).To(HaveOccurred())
-			})
-		})
+		perRabbit := data.RabbitsAndComputes()
+		rabbit0computes := config.ComputesList{"compute-01", "compute-02", "compute-03"}
+		rabbit1computes := config.ComputesList{"compute-04"}
 
-		When("A rabbit node has no compute nodes", func() {
-			var input = `
-systems:
-  - name: two-computes
-    workers: [worker2, worker3]
-    overlays: [overlay2]
-    rabbits:
-      rabbit-node-2: {}
-      rabbit-node-3: {}
-`
-			It("should not error", func() {
-				createConfigFile(input)
-				_, err := config.ReadConfig(tempFile.Name())
-				Expect(err).ToNot(HaveOccurred())
-			})
-		})
-
+		Expect(perRabbit).To(HaveLen(2))
+		for k, v := range perRabbit {
+			if k == "kind-worker2" {
+				Expect(v).Should(ConsistOf(rabbit0computes))
+			} else if k == "kind-worker3" {
+				Expect(v).Should(ConsistOf(rabbit1computes))
+			} else {
+				Expect(v).To(Equal("unknown"))
+			}
+		}
 	})
 })

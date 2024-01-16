@@ -1,0 +1,24 @@
+# An override for the prometheus-community/kube-prometheus-stack helm chart.
+#
+# This adds a selector to the Prometheus resource so it can find the
+# ServiceMonitor resources that our repos are creating.  Each submodule defines
+# its ServiceMonitor resource in `config/prometheus/monitor.yaml`.
+#
+# helm repo add prometheus-community \
+#    https://prometheus-community.github.io/helm-charts
+# helm repo update
+# helm search repo prometheus-community | grep kube-prometheus-stack
+# helm show values prometheus-community/kube-prometheus-stack \
+#    --version $CHART_VER > kube-prometheus-stack.yaml
+#
+# helm install $INSTANCE_NAME prometheus-community/kube-prometheus-stack \
+#    --version $CHART_VER --create-namespace --namespace monitoring \
+#    --values $THIS_OVERRIDE_FILE
+# 
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelector:
+      matchLabels:
+        prometheus-app: rabbit-nnf
+

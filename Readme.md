@@ -38,7 +38,7 @@ nnf-deploy is a golang executable capable of building components of the Rabbit s
 
 ### Build
 
-Build using: `go build`
+Build using: `make`
 
 Prior to running, ensure correct NNF systems are loaded in [./config/systems.yaml](./config/systems.yaml) and correct ghcr repositories are defined in [./config/repositories.yaml](./config/repositories.yaml)
 
