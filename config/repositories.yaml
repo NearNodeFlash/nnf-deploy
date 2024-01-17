@@ -24,7 +24,7 @@ repositories:
     development: https://ghcr.io/nearnodeflash/nnf-dm
     master: https://ghcr.io/nearnodeflash/nnf-dm
   - name: nnf-sos
-    overlays: [craystack, kind, dp0]
+    overlays: [craystack, kind, dp0, examples-htx]
     development: https://ghcr.io/nearnodeflash/nnf-sos
     master: https://ghcr.io/nearnodeflash/nnf-sos
   - name: lustre-csi-driver
@@ -33,14 +33,14 @@ repositories:
     master: https://ghcr.io/hewlettpackard/lustre-csi-driver
     useRemoteK: true
     remoteReference:
-      build: v0.0.6
+      build: v0.0.7
       url: https://github.com/HewlettPackard/lustre-csi-driver.git/deploy/kubernetes/%s/?ref=%s
   - name: lustre-fs-operator
     development: https://ghcr.io/nearnodeflash/lustre-fs-operator
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
     useRemoteK: true
     remoteReference:
-      build: v0.0.6
+      build: v0.0.7
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 
 buildConfiguration:
@@ -52,14 +52,14 @@ buildConfiguration:
     #  - A specific release build: 0.0.1 (without the "v" prefix)
     #  - The most recent build from the master branch: master
     - name: NNFMFU_VERSION
-      value: 0.0.2
+      value: 0.0.3
 
 thirdPartyServices:
   # Other services that NNF requires to be available on the system.
   # They will be installed in the order specified here.
   - name: cert-manager
     useRemoteF: true
-    url: https://github.com/jetstack/cert-manager/releases/download/v1.11.1/cert-manager.yaml
+    url: https://github.com/jetstack/cert-manager/releases/download/v1.13.1/cert-manager.yaml
     # The NNF services will dump errors at installation time if the
     # cert-manager webhook isn't ready.
     waitCmd: kubectl wait deploy -n cert-manager --timeout=180s cert-manager-webhook --for jsonpath='{.status.availableReplicas}=1'
