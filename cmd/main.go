@@ -406,20 +406,21 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 					overrideContents += "ExecStart=\n"
 					overrideContents += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
 					overrideContents += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
-					overrideContents += "  --kubernetes-service-port=" + k8sServerPort + " \\\n"
-					overrideContents += "  --node-name=" + compute + " "
-					if !d.SkipNnfNodeName {
-						overrideContents += "\\\n" + "  --nnf-node-name=" + rabbit + " "
-					}
+					overrideContents += "  --kubernetes-service-port=" + k8sServerPort
+
+					// optional command line arguments
 					if len(token) != 0 {
-						overrideContents += "\\\n" + "  --service-token-file=" + path.Join(serviceTokenPath, "service.token") + " "
+						overrideContents += " \\\n" + "  --service-token-file=" + path.Join(serviceTokenPath, "service.token")
 					}
 					if len(cert) != 0 {
-						overrideContents += "\\\n" + "  --service-cert-file=" + path.Join(certFilePath, "service.cert") + " "
+						overrideContents += " \\\n" + "  --service-cert-file=" + path.Join(certFilePath, "service.cert")
 					}
 					if len(d.ExtraArgs) > 0 {
-						overrideContents += "\\\n" + d.ExtraArgs + " "
+						overrideContents += " \\\n  " + d.ExtraArgs
 					}
+
+					// Add environment variables - there should not be a \ on the preceding line
+					// otherwise the first env var will not work
 					for _, e := range d.Environment {
 						overrideContents += "\n" + "Environment=" + e.Name + "=" + e.Value
 					}
