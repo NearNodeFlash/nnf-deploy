@@ -27,7 +27,6 @@ daemons:
     buildCmd: make build-daemon
     path: bin/
     repository: nnf-sos
-    skipNnfNodeName: true
     serviceAccount:
       name: nnf-clientmount
       namespace: nnf-system
