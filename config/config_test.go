@@ -146,12 +146,11 @@ var _ = Describe("SystemConfiguration", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		perRabbit := data.RabbitsAndComputes()
-		rabbit0computes := config.ComputesList{"compute-01", "compute-02", "compute-03"}
 
 		Expect(perRabbit).To(HaveLen(2))
 		for k, v := range perRabbit {
 			if k == "kind-worker2" {
-				Expect(v).Should(ConsistOf(rabbit0computes))
+				Expect(v).Should(BeNil())
 			} else if k == "kind-worker3" {
 				Expect(v).Should(BeNil())
 			} else {

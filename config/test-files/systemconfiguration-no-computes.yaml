@@ -7,23 +7,11 @@ metadata:
   name: default
   namespace: default
 spec:
-  computeNodes:
-  - name: compute-01
-  - name: compute-02
-  - name: compute-03
-  - name: compute-04
   ports:
   - 5000-5999
   portsCooldownInSeconds: 0
   storageNodes:
-  - computesAccess:
-    - index: 0
-      name: compute-01
-    - index: 1
-      name: compute-02
-    - index: 6
-      name: compute-03
-    name: kind-worker2
+  - name: kind-worker2
     type: Rabbit
   - name: kind-worker3
     type: Rabbit
