@@ -1,6 +1,6 @@
 all: fmt vet nnf-deploy
 
-nnf-deploy: cmd/main.go
+nnf-deploy: cmd/main.go config/config.go
 	go build -o ./nnf-deploy cmd/main.go
 
 .PHONY: fmt

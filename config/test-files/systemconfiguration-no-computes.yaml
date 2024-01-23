@@ -1,0 +1,17 @@
+# Describes the Rabbit nodes created for the KIND environment, and some
+# imaginary compute nodes for those rabbits.
+apiVersion: dataworkflowservices.github.io/v1alpha2
+kind: SystemConfiguration
+metadata:
+  # Nnf-sos expects this resource to be default/default.
+  name: default
+  namespace: default
+spec:
+  ports:
+  - 5000-5999
+  portsCooldownInSeconds: 0
+  storageNodes:
+  - name: kind-worker2
+    type: Rabbit
+  - name: kind-worker3
+    type: Rabbit
