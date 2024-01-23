@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Hewlett Packard Enterprise Development LP
+ * Copyright 2023-2024 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -117,9 +117,9 @@ systems:
 })
 
 var _ = Describe("SystemConfiguration", func() {
-	const crPath = "./systemconfiguration-kind.yaml"
 
 	It("walks the computes for each rabbit in the CR", func() {
+		const crPath = "./systemconfiguration-kind.yaml"
 		data, err := config.ReadSystemConfigurationCR(crPath)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -133,6 +133,27 @@ var _ = Describe("SystemConfiguration", func() {
 				Expect(v).Should(ConsistOf(rabbit0computes))
 			} else if k == "kind-worker3" {
 				Expect(v).Should(ConsistOf(rabbit1computes))
+			} else {
+				Expect(v).To(Equal("unknown"))
+			}
+		}
+	})
+
+	It("allows a rabbit to not have computes in the CR", func() {
+		const crPath = "./test-files/systemconfiguration-no-computes.yaml"
+
+		data, err := config.ReadSystemConfigurationCR(crPath)
+		Expect(err).ToNot(HaveOccurred())
+
+		perRabbit := data.RabbitsAndComputes()
+		rabbit0computes := config.ComputesList{"compute-01", "compute-02", "compute-03"}
+
+		Expect(perRabbit).To(HaveLen(2))
+		for k, v := range perRabbit {
+			if k == "kind-worker2" {
+				Expect(v).Should(ConsistOf(rabbit0computes))
+			} else if k == "kind-worker3" {
+				Expect(v).Should(BeNil())
 			} else {
 				Expect(v).To(Equal("unknown"))
 			}
