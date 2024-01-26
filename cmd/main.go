@@ -976,7 +976,7 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 	fmt.Println("Creating SystemConfiguration...")
 
-	cmd := exec.Command("kubectl", "apply", "-f", "../config/"+system.SystemConfiguration)
+	cmd := exec.Command("kubectl", "create", "-f", "../config/"+system.SystemConfiguration)
 	_, err := runCommand(ctx, cmd)
 	return err
 }
