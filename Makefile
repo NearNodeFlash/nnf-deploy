@@ -16,3 +16,11 @@ vet:
 test:
 	ginkgo run -p --vv ./config/...
 
+.PHONY: manifests
+manifests:
+	tools/collect-manifests.sh -d ~+/release-manifests -t ~+/manifests.tar
+
+.PHONY: clean-manifests
+clean-manifests:
+	rm -rf ~+/release-manifests ~+/manifests.tar
+
