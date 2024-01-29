@@ -22,9 +22,7 @@ jobs:
     - name: Submodule status
       run: git submodule status
     - name: Collect manifests
-      run: tools/collect-manifests.sh ~+/release-manifests
-    - name: Make tarball
-      run: cd release-manifests && tar cvf ../manifests.tar *
+      run: tools/collect-manifests.sh -d ~+/release-manifests -t ~+/manifests.tar
     - name: Release
       uses: softprops/action-gh-release@v1
       with:

@@ -17,16 +17,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-TREEDIR="$1"
+while getopts 'd:t:h' opt; do
+case "$opt" in
+d) TREEDIR="$OPTARG" ;;
+t) TARFILE="$OPTARG" ;;
+\?|h)
+    echo "Usage: $0 -d NEW_DIR -t TARFILE_NAME"
+    echo
+    echo "  NEW_DIR        Directory to create tree of manifests. This directory"
+    echo "                 must not exist and must begin with a slash." 
+    echo "  TARFILE_NAME   Name to give to the tarfile of manifests. This name"
+    echo "                 must begin with a slash."
+    exit 1
+    ;;
+esac
+done
+shift "$((OPTIND - 1))"
 
 if [[ -z $TREEDIR ]]; then
-    echo "specify a tree dir"
+    echo "You must specify -d"
     exit 1
 elif [[ $TREEDIR != /* ]]; then
-    echo "must begin with a slash"
+    echo "The directory must begin with a slash"
     exit 1
 elif [[ -d $TREEDIR ]]; then
-    echo "the dir already exists"
+    echo "The directory $TREEDIR already exists"
+    exit 1
+fi
+if [[ -z $TARFILE ]]; then
+    echo "You must specify -t"
+    exit 1
+elif [[ $TARFILE != /* ]]; then
+    echo "The tarfile name must begin with a slash"
+    exit 1
+elif [[ -f $TARFILE ]]; then
+    echo "The tarfile must not already exist"
     exit 1
 fi
 
@@ -51,7 +76,11 @@ for SUBMODULE in $DO_MODULES; do
     mkdir "$TREEDIR/$SUBMODULE"
     (cd "$SUBMODULE" || exit 1
      if [[ -d config/begin ]]; then
-         bin/kustomize build config/begin > "$TREEDIR/$SUBMODULE/$SUBMODULE.yaml"
+         # Remove the namespace from the manifest, because this manifest is
+         # used not only to deploy but also to undeploy.
+         # The namespace will be created by the ArgoCD Application resource,
+         # and nothing will delete it.
+         bin/kustomize build config/begin | yq eval 'select(.kind != "Namespace")' > "$TREEDIR/$SUBMODULE/$SUBMODULE.yaml"
      fi
      if [[ -d config/begin-examples ]]; then
          bin/kustomize build config/begin-examples > "$TREEDIR/$SUBMODULE/$SUBMODULE-examples.yaml"
@@ -60,7 +89,11 @@ for SUBMODULE in $DO_MODULES; do
          bin/kustomize build config/prometheus > "$TREEDIR/$SUBMODULE/$SUBMODULE-prometheus.yaml"
      fi
      if [[ -d deploy/kubernetes/begin ]]; then
-         bin/kustomize build deploy/kubernetes/begin > "$TREEDIR/$SUBMODULE/$SUBMODULE.yaml"
+         # Remove the namespace from the manifest, because this manifest is
+         # used not only to deploy but also to undeploy.
+         # The namespace will be created by the ArgoCD Application resource,
+         # and nothing will delete it.
+         bin/kustomize build deploy/kubernetes/begin | yq eval 'select(.kind != "Namespace")' > "$TREEDIR/$SUBMODULE/$SUBMODULE.yaml"
      fi
     )
 done
@@ -73,4 +106,6 @@ mkdir "$TREEDIR/mpi-operator"
 MPIOP_URL=$(yq -M '.thirdPartyServices[] | select(.name == "mpi-operator") | .url' config/repositories.yaml)
 wget -O "$TREEDIR"/mpi-operator/mpi-operator.yaml "$MPIOP_URL"
 
+(cd "$TREEDIR" && tar cf "$TARFILE" ./*)
+exit $?
 
