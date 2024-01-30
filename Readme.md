@@ -8,14 +8,14 @@ git clone --recurse-submodules git@github.com:NearNodeFlash/nnf-deploy
 
 ## Updating the Submodules
 
-To update the submodules in this work area, run the [update.sh](./update.sh) script.  Use this to pick up recent changes in any of the submodules.
+To update the submodules in this work area, run the [update.sh](tools/update.sh) script.  Use this to pick up recent changes in any of the submodules.
 
 **Warning** If the current submodules have already been deployed to a K8s system, then teardown and delete any workflows and run `nnf-deploy undeploy` to remove the old CRDs and pods prior to updating the submodules.  An update may pull in new CRD changes that are incompatible with resources that are already on the K8s system.
 
 The update.sh command will update each submodule directory to the head of its master branch.
 
 ```bash
-./update.sh
+tools/update.sh
 ```
 
 ### Submodule Versions
@@ -52,22 +52,28 @@ Flags:
   -h, --help       Show context-sensitive help.
       --debug      Enable debug mode.
       --dry-run    Show what would be run.
+      --systems="config/systems.yaml"
+                   path to the systems config file
+      --repos="config/repositories.yaml"
+                   path to the repositories config file
+      --daemons="config/daemons.yaml"
+                   path to the daemons config file
 
 Commands:
-  init
-    Initialize cluster.
-
-  deploy
+  deploy [<only> ...]
     Deploy to current context.
 
-  undeploy
+  undeploy [<only> ...]
     Undeploy from current context.
 
-  make <command>
+  make <command> [<only> ...]
     Run make [COMMAND] in every repository.
 
-  install
-    Install daemons.
+  install [<node> ...]
+    Install daemons (EXPERIMENTAL).
+
+  init
+    Initialize cluster.
 
 Run "nnf-deploy <command> --help" for more information on a command.
 ```

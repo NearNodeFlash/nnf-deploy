@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021-2023 Hewlett Packard Enterprise Development LP
+# Copyright 2021-2024 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -18,8 +18,6 @@
 # limitations under the License.
 
 # Various Kubernetes in Docker (KinD) related scripts
-
-source common.sh
 
 CMD=$1
 
@@ -101,6 +99,7 @@ if [[ "$CMD" == reset ]]; then
 fi
 
 if [[ "$CMD" == push ]]; then
+  SUBMODULES=$(git submodule status | awk '{print $2}')
   for SUBMODULE in $SUBMODULES; do
     (cd $SUBMODULE && make kind-push)
   done
