@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Hewlett Packard Enterprise Development LP
+ * Copyright 2021-2024 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -97,11 +97,11 @@ func (cmd *DeployCmd) Run(ctx *Context) error {
 			return nil
 		}
 
-		if err := deployModule(ctx, system, module); err != nil {
+		if err := createSystemConfigFromSOS(ctx, system, module); err != nil {
 			return err
 		}
 
-		if err := createSystemConfigFromSOS(ctx, system, module); err != nil {
+		if err := deployModule(ctx, system, module); err != nil {
 			return err
 		}
 
@@ -483,16 +483,6 @@ func (cmd *InitCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	sysConfigCR, err := config.ReadSystemConfigurationCR("config/" + system.SystemConfiguration)
-	if err != nil {
-		return err
-	}
-	perRabbit := sysConfigCR.RabbitsAndComputes()
-
-	if err := applyLabelsTaints(perRabbit, ctx); err != nil {
-		return err
-	}
-
 	if err := installThirdPartyServices(ctx); err != nil {
 		return err
 	}
@@ -548,44 +538,6 @@ func installThirdPartyServices(ctx *Context) error {
 				return err
 			}
 		}
-	}
-	return nil
-}
-
-func applyLabelsTaints(perRabbit config.Rabbits, ctx *Context) error {
-	// Labels/Taints to apply to nnf nodes
-	nnfNodeLabels := []string{
-		"cray.nnf.node=true",
-	}
-	nnfNodeTaints := []string{
-		"cray.nnf.node=true:NoSchedule",
-	}
-
-	nnfNodes := []string{}
-	for rabbit := range perRabbit {
-		nnfNodes = append(nnfNodes, rabbit)
-	}
-
-	fmt.Printf("Applying NNF node labels and taints to rabbit nodes: %s...\n", strings.Join(nnfNodes, ", "))
-	for _, node := range nnfNodes {
-		if err := runKubectlLabelOrTaint(ctx, node, "label", nnfNodeLabels); err != nil {
-			return err
-		}
-
-		if err := runKubectlLabelOrTaint(ctx, node, "taint", nnfNodeTaints); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func runKubectlLabelOrTaint(ctx *Context, node string, kctlCmd string, labelsOrTaints []string) error {
-	args := []string{kctlCmd, "--overwrite=true", "node", node}
-	args = append(args, labelsOrTaints...)
-	cmd := exec.Command("kubectl", args...)
-	if _, err := runCommand(ctx, cmd); err != nil {
-		return err
 	}
 	return nil
 }
@@ -861,6 +813,10 @@ func deployModule(ctx *Context, system *config.System, module string) error {
 }
 
 func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
+	return runCommandErrAllowed(ctx, cmd, false)
+}
+
+func runCommandErrAllowed(ctx *Context, cmd *exec.Cmd, errAllowed bool) ([]byte, error) {
 	if ctx.DryRun {
 		fmt.Printf("  Dry-Run: Skipping command '%s'\n", cmd.String())
 		if len(cmd.Env) > 0 {
@@ -876,14 +832,15 @@ func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
 	if err != nil {
 		fmt.Printf("%s\n", stdoutStderr)
 
-		exitErr := &exec.ExitError{}
-		if errors.As(err, &exitErr) {
-			fmt.Printf("Exit Error: %s (%d)\n", exitErr, exitErr.ExitCode())
+		if !errAllowed {
+			exitErr := &exec.ExitError{}
+			if errors.As(err, &exitErr) {
+				fmt.Printf("Exit Error: %s (%d)\n", exitErr, exitErr.ExitCode())
+			}
 		}
 	}
 
 	return stdoutStderr, err
-
 }
 
 func runInModules(modules []string, runFn func(module string) error) error {
@@ -977,6 +934,9 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 	fmt.Println("Creating SystemConfiguration...")
 
 	cmd := exec.Command("kubectl", "create", "-f", "../config/"+system.SystemConfiguration)
-	_, err := runCommand(ctx, cmd)
+	stdoutStderr, err := runCommandErrAllowed(ctx, cmd, true)
+	if strings.Contains(string(stdoutStderr), "already exists") {
+		return nil
+	}
 	return err
 }
