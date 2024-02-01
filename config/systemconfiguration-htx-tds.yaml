@@ -6,23 +6,6 @@ metadata:
   name: default
   namespace: default
 spec:
-  computeNodes:
-  - name: x9000c1s0b0n0
-  - name: x9000c1s0b1n0
-  - name: x9000c1s1b0n0
-  - name: x9000c1s1b1n0
-  - name: x9000c1s2b0n0
-  - name: x9000c1s2b1n0
-  - name: x9000c1s3b0n0
-  - name: x9000c1s3b1n0
-  - name: x9000c1s4b0n0
-  - name: x9000c1s4b1n0
-  - name: x9000c1s5b0n0
-  - name: x9000c1s5b1n0
-  - name: x9000c1s6b0n0
-  - name: x9000c1s6b1n0
-  - name: x9000c1s7b0n0
-  - name: x9000c1s7b1n0
   ports:
   - 5000-5999
   portsCooldownInSeconds: 0

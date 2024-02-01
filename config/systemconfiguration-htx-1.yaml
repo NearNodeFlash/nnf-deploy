@@ -6,11 +6,6 @@ metadata:
   name: default
   namespace: default
 spec:
-  computeNodes:
-  - name: rabbit-compute-3
-  - name: rabbit-compute-2
-  - name: rabbit-compute-4
-  - name: rabbit-compute-5
   ports:
   - 5000-5999
   portsCooldownInSeconds: 0

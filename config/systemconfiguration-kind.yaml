@@ -7,11 +7,6 @@ metadata:
   name: default
   namespace: default
 spec:
-  computeNodes:
-  - name: compute-01
-  - name: compute-02
-  - name: compute-03
-  - name: compute-04
   ports:
   - 5000-5999
   portsCooldownInSeconds: 0
