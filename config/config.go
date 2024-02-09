@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Hewlett Packard Enterprise Development LP
+ * Copyright 2021-2024 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -162,9 +162,11 @@ func (data SystemConfigurationCRType) RabbitsAndComputes() Rabbits {
 		access := storageNode.(SystemConfigurationCRType)["computesAccess"]
 
 		var computes ComputesList
-		for _, compute := range access.([]interface{}) {
-			cname := compute.(SystemConfigurationCRType)["name"]
-			computes = append(computes, cname.(string))
+		if access != nil {
+			for _, compute := range access.([]interface{}) {
+				cname := compute.(SystemConfigurationCRType)["name"]
+				computes = append(computes, cname.(string))
+			}
 		}
 		perRabbit[rabbit.(string)] = computes
 	}
@@ -243,13 +245,12 @@ func GetThirdPartyServices(configPath string) ([]ThirdPartyService, error) {
 }
 
 type Daemon struct {
-	Name            string `yaml:"name"`
-	Bin             string `yaml:"bin"`
-	BuildCmd        string `yaml:"buildCmd"`
-	Repository      string `yaml:"repository"`
-	Path            string `yaml:"path"`
-	SkipNnfNodeName bool   `yaml:"skipNnfNodeName"`
-	ServiceAccount  struct {
+	Name           string `yaml:"name"`
+	Bin            string `yaml:"bin"`
+	BuildCmd       string `yaml:"buildCmd"`
+	Repository     string `yaml:"repository"`
+	Path           string `yaml:"path"`
+	ServiceAccount struct {
 		Name      string `yaml:"name"`
 		Namespace string `yaml:"namespace"`
 	} `yaml:"serviceAccount,omitempty"`
