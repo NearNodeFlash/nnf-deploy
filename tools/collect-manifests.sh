@@ -80,7 +80,9 @@ for SUBMODULE in $DO_MODULES; do
          # used not only to deploy but also to undeploy.
          # The namespace will be created by the ArgoCD Application resource,
          # and nothing will delete it.
-         bin/kustomize build config/begin | yq eval 'select(.kind != "Namespace")' > "$TREEDIR/$SUBMODULE/$SUBMODULE.yaml"
+         # Place the CRDs in a separate manifest.
+         bin/kustomize build config/begin | yq eval 'select(.kind != "Namespace" and .kind != "CustomResourceDefinition")' > "$TREEDIR/$SUBMODULE/$SUBMODULE.yaml"
+         bin/kustomize build config/begin | yq eval 'select(.kind == "CustomResourceDefinition")' > "$TREEDIR/$SUBMODULE/$SUBMODULE-crds.yaml"
      fi
      if [[ -d config/begin-examples ]]; then
          bin/kustomize build config/begin-examples > "$TREEDIR/$SUBMODULE/$SUBMODULE-examples.yaml"
