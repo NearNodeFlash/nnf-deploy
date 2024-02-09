@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021-2023 Hewlett Packard Enterprise Development LP
+# Copyright 2021-2024 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -19,15 +19,9 @@
 
 # Various Kubernetes in Docker (KinD) related scripts
 
-source common.sh
-
 CMD=$1
 
-if [ $# -eq 0 ]; then
-    echo "One of create, destroy, reset, or push is required"
-fi
-
-if [[ "$CMD" == "create" ]]; then
+function create_cluster {
     CONFIG=kind-config.yaml
 
     # Rabbit taints/labels, plus some host mounts for data movement
@@ -89,19 +83,33 @@ EOF
     # This applies taints and labels to rabbit nodes, and installs other
     # services that rabbit software requires.
     ./nnf-deploy init
-fi
+}
 
-if [[ "$CMD" == destroy ]]; then
+function destroy_cluster {
     kind delete cluster
-fi
+}
 
-if [[ "$CMD" == reset ]]; then
-    ./kind.sh destroy
-    ./kind.sh create
-fi
+function reset_cluster {
+  destroy_cluster
+  create_cluster
+}
 
-if [[ "$CMD" == push ]]; then
+function push_submodules {
+  SUBMODULES=$(git submodule status | awk '{print $2}')
   for SUBMODULE in $SUBMODULES; do
     (cd $SUBMODULE && make kind-push)
   done
+}
+
+if [[ "$CMD" == "create" ]]; then
+  create_cluster
+elif [[ "$CMD" == "destroy" ]]; then
+  destroy_cluster
+elif [[ "$CMD" == "reset" ]]; then
+  reset_cluster
+elif [[ "$CMD" == "push" ]]; then
+  push_submodules
+else
+  echo "Usage: $0 <create|destroy|reset|push>"
+  exit 1
 fi

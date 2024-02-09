@@ -11,17 +11,7 @@ spec:
   - 5000-5999
   portsCooldownInSeconds: 0
   storageNodes:
-  - computesAccess:
-    - index: 0
-      name: compute-01
-    - index: 1
-      name: compute-02
-    - index: 6
-      name: compute-03
-    name: kind-worker2
+  - name: kind-worker2
     type: Rabbit
-  - computesAccess:
-    - index: 4
-      name: compute-04
-    name: kind-worker3
+  - name: kind-worker3
     type: Rabbit

@@ -6,35 +6,8 @@ metadata:
   name: default
   namespace: default
 spec:
-  computeNodes:
-  - name: x9000c1s0b0n0
-  - name: x9000c1s0b1n0
-  - name: x9000c1s1b0n0
-  - name: x9000c1s1b1n0
-  - name: x9000c1s2b0n0
-  - name: x9000c1s2b1n0
-  - name: x9000c1s3b0n0
-  - name: x9000c1s3b1n0
-  - name: x9000c1s4b0n0
-  - name: x9000c1s4b1n0
-  - name: x9000c1s5b0n0
-  - name: x9000c1s5b1n0
-  - name: x9000c3s0b0n0
-  - name: x9000c3s0b1n0
-  - name: x9000c3s1b0n0
-  - name: x9000c3s1b1n0
-  - name: x9000c3s2b0n0
-  - name: x9000c3s2b1n0
-  - name: x9000c3s3b0n0
-  - name: x9000c3s3b1n0
-  - name: x9000c3s4b0n0
-  - name: x9000c3s4b1n0
-  - name: x9000c3s5b0n0
-  - name: x9000c3s5b1n0
-  - name: x9000c3s6b0n0
-  - name: x9000c3s6b1n0
-  - name: x9000c3s7b0n0
-  - name: x9000c3s7b1n0
+  externalComputeNodes:
+  - name: texas-lustre
   ports:
   - 5000-5999
   portsCooldownInSeconds: 0

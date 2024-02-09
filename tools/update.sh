@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021, 2022 Hewlett Packard Enterprise Development LP
+# Copyright 2021-2024 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -17,4 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-git submodule foreach git reset --hard
+SUBMODULES=$(git submodule status | awk '{print $2}')
+for SUBMODULE in $SUBMODULES; do
+    echo Updating submodule "$SUBMODULE"
+    # https://git-scm.com/book/en/v2/Git-Tools-Submodules:
+    # To also initialize, fetch and checkout any nested submodules,
+    # you can use the foolproof git submodule update --init --recursive.
+    git submodule update --init --recursive --remote "$SUBMODULE"
+done

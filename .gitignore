@@ -4,3 +4,6 @@ kind-config.yaml
 
 vendor/
 
+release-manifests/
+manifests.tar
+
