@@ -152,7 +152,7 @@ Kind clusters are built and deployed using locally compiled images. The followin
 - Deploy those images onto the Kind cluster nodes
 
 ```bash
-./kind.sh reset
+./tools/kind.sh reset
 ./nnf-deploy make docker-build
 ./nnf-deploy make kind-push
 ./nnf-deploy deploy
