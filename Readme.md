@@ -167,3 +167,16 @@ proper certs and tokens. Systemd files are used to manage and start the daemons.
 ./nnf-deploy install
 ```
 
+## ArgoCD Helm Chart
+
+To install the ArgoCD helm chart, run the following helm commands prior to
+running `tools/kind.sh` or `nnf-deploy init`.
+
+On a Mac, install helm with `brew install helm`.
+
+```bash
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+```
+
