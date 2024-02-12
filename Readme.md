@@ -78,6 +78,19 @@ Commands:
 Run "nnf-deploy <command> --help" for more information on a command.
 ```
 
+## ArgoCD Helm Chart
+
+To install the ArgoCD helm chart, run the following helm commands prior to
+running `tools/kind.sh` or `nnf-deploy init`.
+
+On a Mac, install helm with `brew install helm`.
+
+```bash
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+```
+
 ## Init
 
 The `init` subcommand applies the proper labels and taints to the cluster nodes. It also installs
@@ -165,18 +178,5 @@ proper certs and tokens. Systemd files are used to manage and start the daemons.
 
 ```bash
 ./nnf-deploy install
-```
-
-## ArgoCD Helm Chart
-
-To install the ArgoCD helm chart, run the following helm commands prior to
-running `tools/kind.sh` or `nnf-deploy init`.
-
-On a Mac, install helm with `brew install helm`.
-
-```bash
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo add jetstack https://charts.jetstack.io
-helm repo update
 ```
 

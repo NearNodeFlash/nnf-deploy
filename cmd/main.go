@@ -523,7 +523,7 @@ func installThirdPartyServices(ctx *Context) error {
 	for idx := range thirdPartyServices {
 		svc := thirdPartyServices[idx]
 		if svc.UseRemoteF {
-			fmt.Printf("Installing %s...\n", svc.Name)
+			fmt.Printf("Installing from remote %s...\n", svc.Name)
 			if err := runKubectlApplyF(ctx, svc.Url); err != nil {
 				return err
 			}

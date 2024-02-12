@@ -246,7 +246,6 @@ func FindRepository(configPath string, module string) (*Repository, *BuildConfig
 			for idx := range config.Repositories {
 				if config.Repositories[idx].Name == svc.Name {
 					config.Repositories[idx].UseRemoteK = svc.UseRemoteK
-
 				}
 			}
 		}
