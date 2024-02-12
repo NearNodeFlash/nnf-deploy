@@ -28,6 +28,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// The legacy overlay reverts 'nnf-deploy init' to pre-helm behavior.
+var legacyOverlay string = "overlay-legacy.yaml"
+
 var sysCfgPath string
 
 type System struct {
@@ -203,6 +206,8 @@ type ThirdPartyService struct {
 	UseRemoteF bool   `yaml:"useRemoteF,omitempty"`
 	Url        string `yaml:"url"`
 	WaitCmd    string `yaml:"waitCmd,omitempty"`
+	UseHelm    bool   `yaml:"useHelm,omitempty"`
+	HelmCmd    string `yaml:"helmCmd,omitempty"`
 }
 
 func readConfigFile(configPath string) (*RepositoryConfigFile, error) {
@@ -227,6 +232,26 @@ func FindRepository(configPath string, module string) (*Repository, *BuildConfig
 		return nil, nil, err
 	}
 
+	mergeOverlay := true
+	configOverlay, err := readConfigFile(legacyOverlay)
+	if err != nil {
+		if os.IsNotExist(err) {
+			mergeOverlay = false
+		} else {
+			return nil, nil, err
+		}
+	}
+	if mergeOverlay {
+		for _, svc := range configOverlay.Repositories {
+			for idx := range config.Repositories {
+				if config.Repositories[idx].Name == svc.Name {
+					config.Repositories[idx].UseRemoteK = svc.UseRemoteK
+
+				}
+			}
+		}
+	}
+
 	for _, repository := range config.Repositories {
 		if module == repository.Name {
 			return &repository, &config.BuildConfig, nil
@@ -240,6 +265,26 @@ func GetThirdPartyServices(configPath string) ([]ThirdPartyService, error) {
 	config, err := readConfigFile(configPath)
 	if err != nil {
 		return nil, err
+	}
+	mergeOverlay := true
+	configOverlay, err := readConfigFile(legacyOverlay)
+	if err != nil {
+		if os.IsNotExist(err) {
+			mergeOverlay = false
+		} else {
+			return nil, err
+		}
+	}
+	if mergeOverlay {
+		for _, svc := range configOverlay.ThirdPartyServices {
+			for idx := range config.ThirdPartyServices {
+				if config.ThirdPartyServices[idx].Name == svc.Name {
+					config.ThirdPartyServices[idx].UseRemoteF = svc.UseRemoteF
+					config.ThirdPartyServices[idx].UseHelm = svc.UseHelm
+					break
+				}
+			}
+		}
 	}
 	return config.ThirdPartyServices, nil
 }

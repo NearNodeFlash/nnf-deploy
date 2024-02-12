@@ -1,0 +1,21 @@
+# Revert `nnf-deploy init` to legacy behavior:
+#   $ cp config/overlay-legacy.yaml-template overlay-legacy.yaml
+#
+# Effects:
+#   - Do not install helm.
+#   - Install cert-manager, mpi-operator, lustre-csi-driver, and
+#     lustre-fs-operator.
+#
+repositories:
+  - name: lustre-csi-driver
+    useRemoteK: true
+  - name: lustre-fs-operator
+    useRemoteK: true
+
+thirdPartyServices:
+  - name: cert-manager
+    useRemoteF: true
+  - name: mpi-operator
+    useRemoteF: true
+  - name: argocd
+    useHelm: false

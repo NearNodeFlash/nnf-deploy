@@ -1,6 +1,7 @@
 nnf-deploy
 
 kind-config.yaml
+overlay-*.yaml
 
 vendor/
 
