@@ -87,7 +87,6 @@ On a Mac, install helm with `brew install helm`.
 
 ```bash
 helm repo add argo https://argoproj.github.io/argo-helm
-helm repo add jetstack https://charts.jetstack.io
 helm repo update
 ```
 
