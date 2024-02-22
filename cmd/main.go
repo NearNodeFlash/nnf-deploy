@@ -830,9 +830,9 @@ func runCommandErrAllowed(ctx *Context, cmd *exec.Cmd, errAllowed bool) ([]byte,
 	}
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("%s\n", stdoutStderr)
-
 		if !errAllowed {
+			fmt.Printf("%s\n", stdoutStderr)
+
 			exitErr := &exec.ExitError{}
 			if errors.As(err, &exitErr) {
 				fmt.Printf("Exit Error: %s (%d)\n", exitErr, exitErr.ExitCode())
@@ -931,12 +931,14 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 		return nil
 	}
 
-	fmt.Println("Creating SystemConfiguration...")
+	fmt.Println("Applying SystemConfiguration...")
 
 	cmd := exec.Command("kubectl", "create", "-f", "../config/"+system.SystemConfiguration)
 	stdoutStderr, err := runCommandErrAllowed(ctx, cmd, true)
 	if strings.Contains(string(stdoutStderr), "already exists") {
 		return nil
+	} else {
+		fmt.Printf("%s\n", stdoutStderr)
 	}
 	return err
 }
