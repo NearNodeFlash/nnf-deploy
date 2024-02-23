@@ -901,8 +901,11 @@ func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 	// Check if the SystemConfiguration resource exists, and return if it doesn't
 	getCmd := exec.Command("kubectl", "get", "systemconfiguration", "default", "--no-headers")
-	if _, err := runCommand(ctx, getCmd); err != nil {
+	stdoutStderr, err := runCommandErrAllowed(ctx, getCmd, true)
+	if strings.Contains(string(stdoutStderr), "could not find") {
 		return nil
+	} else if err != nil {
+		fmt.Printf("%s\n", stdoutStderr)
 	}
 
 	fmt.Println("Deleting SystemConfiguration")
@@ -912,8 +915,7 @@ func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 		return err
 	}
 
-	// Wait until the SystemConfiguration resource is completely gone. This may take
-	// some time if there are many compute node namespaces to delete
+	// Wait until the SystemConfiguration resource is completely gone.
 	for {
 		if _, err := runCommand(ctx, getCmd); err != nil {
 			break
