@@ -158,4 +158,15 @@ var _ = Describe("SystemConfiguration", func() {
 			}
 		}
 	})
+
+	It("allows external computes", func() {
+		const crPath = "./systemconfiguration-htx-tds.yaml"
+		data, err := config.ReadSystemConfigurationCR(crPath)
+		Expect(err).ToNot(HaveOccurred())
+
+		externalComputes := data.ExternalComputes()
+
+		Expect(externalComputes).To(HaveLen(1))
+		Expect(externalComputes[0] == "texas-lustre")
+	})
 })
