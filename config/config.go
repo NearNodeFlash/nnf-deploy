@@ -177,14 +177,13 @@ func (data SystemConfigurationCRType) ExternalComputes() ComputesList {
 	var computes ComputesList
 
 	computeNodes := data["spec"].(SystemConfigurationCRType)["externalComputeNodes"]
-	if computeNodes == nil {
-		return computes
+	if computeNodes != nil {
+		for _, compute := range computeNodes.([]interface{}) {
+			cname := compute.(SystemConfigurationCRType)["name"]
+			computes = append(computes, cname.(string))
+		}
 	}
 
-	for _, compute := range computeNodes.([]interface{}) {
-		cname := compute.(SystemConfigurationCRType)["name"]
-		computes = append(computes, cname.(string))
-	}
 	return computes
 }
 
