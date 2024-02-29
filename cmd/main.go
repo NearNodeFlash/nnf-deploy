@@ -237,6 +237,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		return err
 	}
 	perRabbit := sysConfigCR.RabbitsAndComputes()
+	externalComputes := sysConfigCR.ExternalComputes()
 
 	clusterConfig, err := currentClusterConfig()
 	if err != nil {
@@ -306,165 +307,183 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 				}
 			}
 
-			for rabbit, computes := range perRabbit {
-				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
+			installCompute := func(compute string) error {
+				fmt.Printf(" Checking for install on Compute Node %s\n", compute)
 
-				for _, compute := range computes {
-					fmt.Printf(" Checking for install on Compute Node %s\n", compute)
+				if shouldSkipNode(compute) {
+					return nil
+				}
 
-					if shouldSkipNode(compute) {
-						continue
+				fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
+
+				configDir := "/etc/" + d.Name
+				if len(token) != 0 || len(cert) != 0 {
+					cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
+					if _, err := runCommand(ctx, cmd); err != nil {
+						return err
 					}
+				}
 
-					fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
-
-					configDir := "/etc/" + d.Name
-					if len(token) != 0 || len(cert) != 0 {
-						cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-					}
-
-					serviceTokenPath := configDir
-					tokenNeedsUpdate := false
-					if len(token) != 0 {
-						if err := os.WriteFile("service.token", token, 0644); err != nil {
-							return err
-						}
-
-						tokenNeedsUpdate, err = checkNeedsUpdate(ctx, "service.token", compute, serviceTokenPath)
-						if tokenNeedsUpdate {
-							err = copyToNode(ctx, "service.token", compute, serviceTokenPath)
-						}
-
-						os.Remove("service.token")
-
-						if err != nil {
-							return err
-						}
-					}
-
-					certFilePath := configDir
-					certNeedsUpdate := false
-					if len(cert) != 0 {
-						if err := os.WriteFile("service.cert", cert, 0644); err != nil {
-							return err
-						}
-
-						certNeedsUpdate, err = checkNeedsUpdate(ctx, "service.cert", compute, certFilePath)
-						if certNeedsUpdate {
-							err = copyToNode(ctx, "service.cert", compute, certFilePath)
-						}
-
-						os.Remove("service.cert")
-
-						if err != nil {
-							return err
-						}
-					}
-
-					if d.Bin == "" {
-						continue
-					}
-
-					binaryNeedsUpdate, err := checkNeedsUpdate(ctx, d.Bin, compute, "/usr/bin")
-					if err != nil {
+				serviceTokenPath := configDir
+				tokenNeedsUpdate := false
+				if len(token) != 0 {
+					if err := os.WriteFile("service.token", token, 0644); err != nil {
 						return err
 					}
 
-					if binaryNeedsUpdate {
-
-						fmt.Printf("  Stopping %s service...", d.Name)
-						cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-						fmt.Printf("\n")
-
-						fmt.Printf("  Removing %s service...", d.Name)
-						cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-						fmt.Printf("\n")
-
-						if err := copyToNode(ctx, d.Bin, compute, "/usr/bin"); err != nil {
-							return err
-						}
-
-						fmt.Printf("  Installing %s service...", d.Name)
-						cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-						fmt.Printf("\n")
+					tokenNeedsUpdate, err = checkNeedsUpdate(ctx, "service.token", compute, serviceTokenPath)
+					if tokenNeedsUpdate {
+						err = copyToNode(ctx, "service.token", compute, serviceTokenPath)
 					}
 
-					overrideContents := ""
-					overrideContents += "[Service]\n"
-					overrideContents += "ExecStart=\n"
-					overrideContents += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
-					overrideContents += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
-					overrideContents += "  --kubernetes-service-port=" + k8sServerPort
+					os.Remove("service.token")
 
-					// optional command line arguments
-					if len(token) != 0 {
-						overrideContents += " \\\n" + "  --service-token-file=" + path.Join(serviceTokenPath, "service.token")
+					if err != nil {
+						return err
 					}
-					if len(cert) != 0 {
-						overrideContents += " \\\n" + "  --service-cert-file=" + path.Join(certFilePath, "service.cert")
-					}
-					if len(d.ExtraArgs) > 0 {
-						overrideContents += " \\\n  " + d.ExtraArgs
+				}
+
+				certFilePath := configDir
+				certNeedsUpdate := false
+				if len(cert) != 0 {
+					if err := os.WriteFile("service.cert", cert, 0644); err != nil {
+						return err
 					}
 
-					// Add environment variables - there should not be a \ on the preceding line
-					// otherwise the first env var will not work
-					for _, e := range d.Environment {
-						overrideContents += "\n" + "Environment=" + e.Name + "=" + e.Value
+					certNeedsUpdate, err = checkNeedsUpdate(ctx, "service.cert", compute, certFilePath)
+					if certNeedsUpdate {
+						err = copyToNode(ctx, "service.cert", compute, certFilePath)
 					}
 
-					fmt.Printf("  Creating override directory...")
-					overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
-					cmd := exec.Command("ssh", compute, "mkdir", "-p", overridePath)
+					os.Remove("service.cert")
+
+					if err != nil {
+						return err
+					}
+				}
+
+				if d.Bin == "" {
+					return nil
+				}
+
+				binaryNeedsUpdate, err := checkNeedsUpdate(ctx, d.Bin, compute, "/usr/bin")
+				if err != nil {
+					return err
+				}
+
+				if binaryNeedsUpdate {
+
+					fmt.Printf("  Stopping %s service...", d.Name)
+					cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
 					if _, err := runCommand(ctx, cmd); err != nil {
 						return err
 					}
 					fmt.Printf("\n")
 
-					fmt.Println("  Creating override configuration...")
-					if err := os.WriteFile("override.conf", []byte(overrideContents), 0644); err != nil {
+					fmt.Printf("  Removing %s service...", d.Name)
+					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
+					if _, err := runCommand(ctx, cmd); err != nil {
+						return err
+					}
+					fmt.Printf("\n")
+
+					if err := copyToNode(ctx, d.Bin, compute, "/usr/bin"); err != nil {
 						return err
 					}
 
-					overrideNeedsUpdate, err := checkNeedsUpdate(ctx, "override.conf", compute, overridePath)
-					if overrideNeedsUpdate {
-						err = copyToNode(ctx, "override.conf", compute, overridePath)
+					fmt.Printf("  Installing %s service...", d.Name)
+					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
+					if _, err := runCommand(ctx, cmd); err != nil {
+						return err
 					}
+					fmt.Printf("\n")
+				}
 
-					os.Remove("override.conf")
+				overrideContents := ""
+				overrideContents += "[Service]\n"
+				overrideContents += "ExecStart=\n"
+				overrideContents += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
+				overrideContents += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
+				overrideContents += "  --kubernetes-service-port=" + k8sServerPort
 
+				// optional command line arguments
+				if len(token) != 0 {
+					overrideContents += " \\\n" + "  --service-token-file=" + path.Join(serviceTokenPath, "service.token")
+				}
+				if len(cert) != 0 {
+					overrideContents += " \\\n" + "  --service-cert-file=" + path.Join(certFilePath, "service.cert")
+				}
+				if len(d.ExtraArgs) > 0 {
+					overrideContents += " \\\n  " + d.ExtraArgs
+				}
+
+				// Add environment variables - there should not be a \ on the preceding line
+				// otherwise the first env var will not work
+				for _, e := range d.Environment {
+					overrideContents += "\n" + "Environment=" + e.Name + "=" + e.Value
+				}
+
+				fmt.Printf("  Creating override directory...")
+				overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
+				cmd := exec.Command("ssh", compute, "mkdir", "-p", overridePath)
+				if _, err := runCommand(ctx, cmd); err != nil {
+					return err
+				}
+				fmt.Printf("\n")
+
+				fmt.Println("  Creating override configuration...")
+				if err := os.WriteFile("override.conf", []byte(overrideContents), 0644); err != nil {
+					return err
+				}
+
+				overrideNeedsUpdate, err := checkNeedsUpdate(ctx, "override.conf", compute, overridePath)
+				if overrideNeedsUpdate {
+					err = copyToNode(ctx, "override.conf", compute, overridePath)
+				}
+
+				os.Remove("override.conf")
+
+				if err != nil {
+					return err
+				}
+
+				if binaryNeedsUpdate || tokenNeedsUpdate || certNeedsUpdate || overrideNeedsUpdate {
+					// Reload the daemon to pick up the override.conf.
+					fmt.Printf("  Reloading service...")
+					cmd = exec.Command("ssh", compute, "systemctl daemon-reload")
+					if _, err := runCommand(ctx, cmd); err != nil {
+						return err
+					}
+					fmt.Printf("\n")
+
+					fmt.Printf("  Starting service...")
+					cmd = exec.Command("ssh", compute, "systemctl", "start", d.Bin)
+					if _, err := runCommand(ctx, cmd); err != nil {
+						return err
+					}
+					fmt.Printf("\n")
+				}
+
+				return nil
+			}
+
+			for rabbit, computes := range perRabbit {
+				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
+
+				for _, compute := range computes {
+					err := installCompute(compute)
 					if err != nil {
 						return err
 					}
+				}
+			}
 
-					if binaryNeedsUpdate || tokenNeedsUpdate || certNeedsUpdate || overrideNeedsUpdate {
-						// Reload the daemon to pick up the override.conf.
-						fmt.Printf("  Reloading service...")
-						cmd = exec.Command("ssh", compute, "systemctl daemon-reload")
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-						fmt.Printf("\n")
+			for _, compute := range externalComputes {
+				fmt.Printf(" Check external computes\n")
 
-						fmt.Printf("  Starting service...")
-						cmd = exec.Command("ssh", compute, "systemctl", "start", d.Bin)
-						if _, err := runCommand(ctx, cmd); err != nil {
-							return err
-						}
-						fmt.Printf("\n")
-					}
+				err := installCompute(compute)
+				if err != nil {
+					return err
 				}
 			}
 
@@ -901,8 +920,11 @@ func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 	// Check if the SystemConfiguration resource exists, and return if it doesn't
 	getCmd := exec.Command("kubectl", "get", "systemconfiguration", "default", "--no-headers")
-	if _, err := runCommand(ctx, getCmd); err != nil {
+	stdoutStderr, err := runCommandErrAllowed(ctx, getCmd, true)
+	if strings.Contains(string(stdoutStderr), "could not find") {
 		return nil
+	} else if err != nil {
+		fmt.Printf("%s\n", stdoutStderr)
 	}
 
 	fmt.Println("Deleting SystemConfiguration")
@@ -912,8 +934,7 @@ func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 		return err
 	}
 
-	// Wait until the SystemConfiguration resource is completely gone. This may take
-	// some time if there are many compute node namespaces to delete
+	// Wait until the SystemConfiguration resource is completely gone.
 	for {
 		if _, err := runCommand(ctx, getCmd); err != nil {
 			break
