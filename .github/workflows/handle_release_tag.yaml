@@ -22,11 +22,13 @@ jobs:
     - name: Submodule status
       run: git submodule status
     - name: Collect manifests
-      run: tools/collect-manifests.sh -d ~+/release-manifests -t ~+/manifests.tar
+      run: make manifests
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
         #prerelease: true
         generate_release_notes: true
-        files: manifests.tar
+        files: |
+            manifests.tar
+            manifests-kind.tar
 
