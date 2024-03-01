@@ -5,5 +5,7 @@ kind-config.yaml
 vendor/
 
 release-manifests/
+release-manifests-kind/
 manifests.tar
+manifests-kind.tar
 

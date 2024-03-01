@@ -18,9 +18,11 @@ test:
 
 .PHONY: manifests
 manifests:
-	tools/collect-manifests.sh -d ~+/release-manifests -t ~+/manifests.tar
+	tools/collect-manifests.sh -s kind -d ~+/release-manifests-kind -t ~+/manifests-kind.tar
+	tools/collect-manifests.sh -s rabbit -d ~+/release-manifests -t ~+/manifests.tar
 
 .PHONY: clean-manifests
 clean-manifests:
+	rm -rf ~+/release-manifests-kind ~+/manifests-kind.tar
 	rm -rf ~+/release-manifests ~+/manifests.tar
 
