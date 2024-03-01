@@ -23,6 +23,6 @@ manifests:
 
 .PHONY: clean-manifests
 clean-manifests:
-	rm -rf ~+/release-manifests-kind ~+/manifests-kind.tar
-	rm -rf ~+/release-manifests ~+/manifests.tar
+	rm -rf release-manifests-kind manifests-kind.tar
+	rm -rf release-manifests manifests.tar
 
