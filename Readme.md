@@ -81,7 +81,8 @@ Run "nnf-deploy <command> --help" for more information on a command.
 ## Init
 
 The `init` subcommand installs cert manager, mpi-operator, lustre-csi-driver,
-and lustre-fs-operator. This only needs to be done once on a new cluster.
+and lustre-fs-operator. This only needs to be done once on a new cluster or
+when one of them changes.
 
 ```bash
 ./nnf-deploy init
