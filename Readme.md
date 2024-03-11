@@ -80,21 +80,9 @@ Run "nnf-deploy <command> --help" for more information on a command.
 
 ## Init
 
-The `init` subcommand applies the proper labels and taints to the cluster nodes. It also installs
-cert manager via `common.sh`. This only needs to be done once on a new cluster.
-
-Note: This behavior replaces the `init`.sh script, which has been removed.
-
-The manager nodes (worker nodes) will obtain the following labels:
-
-- `cray.nnf.manager=true`
-
-Additionally, the NNF nodes (rabbit nodes) will obtain the `"cray.nnf.node=true"`
-label and the `"cray.nnf.node=true:NoSchedule"` taint.
-
-These labels/taint will be applied using the `--overwrite=true` option to `kubectl`.
-
-Once the labels/taint are applied, cert manager will be installed.
+The `init` subcommand installs cert manager, mpi-operator, lustre-csi-driver,
+and lustre-fs-operator. This only needs to be done once on a new cluster or
+when one of them changes.
 
 ```bash
 ./nnf-deploy init
