@@ -18,7 +18,7 @@ test:
 	CGO_ENABLED=0 ginkgo run -p --vv ./config/...
 
 .PHONY: manifests
-manifests:
+manifests: clean-manifests
 	tools/collect-manifests.sh -s kind -d $$PWD/release-manifests-kind -t $$PWD/manifests-kind.tar
 	tools/collect-manifests.sh -s rabbit -d $$PWD/release-manifests -t $$PWD/manifests.tar
 
