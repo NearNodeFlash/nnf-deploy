@@ -9,3 +9,6 @@ release-manifests-kind/
 manifests.tar
 manifests-kind.tar
 
+overlay-legacy.yaml
+
+

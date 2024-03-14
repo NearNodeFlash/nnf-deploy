@@ -545,12 +545,20 @@ func installThirdPartyServices(ctx *Context) error {
 
 	for idx := range thirdPartyServices {
 		svc := thirdPartyServices[idx]
-		if !svc.UseRemoteF {
+		if svc.UseRemoteF {
+			fmt.Printf("Installing %s...\n", svc.Name)
+			if err := runKubectlApplyF(ctx, svc.Url); err != nil {
+				return err
+			}
+		} else if svc.UseHelm {
+			fmt.Printf("Installing %s...\n", svc.Name)
+			cmd := exec.Command("bash", "-c", svc.HelmCmd)
+			_, err = runCommand(ctx, cmd)
+			if err != nil {
+				return err
+			}
+		} else {
 			continue
-		}
-		fmt.Printf("Installing %s...\n", svc.Name)
-		if err := runKubectlApplyF(ctx, svc.Url); err != nil {
-			return err
 		}
 		if len(svc.WaitCmd) > 0 {
 			fmt.Println("  waiting for it to be ready...")
