@@ -67,6 +67,14 @@ elif [[ $SYSTEM_TYPE != "kind" && $SYSTEM_TYPE != "rabbit" ]]; then
     exit 1
 fi
 
+if ! which python3 >/dev/null 2>&1; then
+    echo "Unable to find python3 in PATH"
+    exit 1
+elif ! python3 -c 'import yaml' 2>/dev/null; then
+    echo "Unable to find PyYAML"
+    exit 1
+fi
+
 set -e
 set -o pipefail
 
@@ -78,7 +86,8 @@ get_overlays() {
     local system_name="$1"
 
     local overlays=""
-    if ! overlays=$(yq -M eval '.systems[]|select(.name=="'"$system_name"'")|.overlays|join(" ")' $SYSTEMS_YAML); then
+    # Wishing for yq(1)...
+    if ! overlays=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [" ".join(sys["overlays"]) for sys in doc["systems"] if sys["name"] == "'"$system_name"'"]; print(x[0])' < $SYSTEMS_YAML); then
         echo "Unable to find overlays for $system_name"
         exit 1
     fi
@@ -130,8 +139,9 @@ collect_manifest() {
              # The namespace will be created by the ArgoCD Application resource,
              # and nothing will delete it.
              # Place the CRDs in a separate manifest.
-             bin/kustomize build config/begin | yq eval 'select(.kind != "Namespace" and .kind != "CustomResourceDefinition")' > "$SUBMOD_DIR/$SUBMODULE.yaml"
-             bin/kustomize build config/begin | yq eval 'select(.kind == "CustomResourceDefinition")' > "$SUBMOD_DIR/$SUBMODULE-crds.yaml"
+             # Wishing for yq(1)...
+             bin/kustomize build config/begin | python3 -c 'import yaml, sys; docs=yaml.safe_load_all(sys.stdin); _ = [print("%s---" % yaml.dump(doc)) for doc in docs if doc["kind"] not in ["Namespace", "CustomResourceDefinition"]]' > "$SUBMOD_DIR/$SUBMODULE.yaml"
+             bin/kustomize build config/begin | python3 -c 'import yaml, sys; docs=yaml.safe_load_all(sys.stdin); _ = [print("%s---" % yaml.dump(doc)) for doc in docs if doc["kind"] == "CustomResourceDefinition"]' > "$SUBMOD_DIR/$SUBMODULE-crds.yaml"
          fi
          if [[ -d config/begin-examples ]]; then
              bin/kustomize build config/begin-examples > "$SUBMOD_DIR/$SUBMODULE-examples.yaml"
@@ -144,7 +154,8 @@ collect_manifest() {
              # used not only to deploy but also to undeploy.
              # The namespace will be created by the ArgoCD Application resource,
              # and nothing will delete it.
-             bin/kustomize build deploy/kubernetes/begin | yq eval 'select(.kind != "Namespace")' > "$SUBMOD_DIR/$SUBMODULE.yaml"
+             # Wishing for yq(1)...
+             bin/kustomize build deploy/kubernetes/begin | python3 -c 'import yaml, sys; docs=yaml.safe_load_all(sys.stdin); _ = [print("%s---" % yaml.dump(doc)) for doc in docs if doc["kind"] != "Namespace"]' > "$SUBMOD_DIR/$SUBMODULE.yaml"
          fi
         )
     done
@@ -168,11 +179,12 @@ walk_overlays() {
 walk_overlays
 
 mkdir "$TREEDIR/cert-mgr"
-CERT_URL=$(yq -M '.thirdPartyServices[] | select(.name == "cert-manager") | .url' config/repositories.yaml)
+# Wishing for yq(1)...
+CERT_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "cert-manager"]; print(x[0])' < config/repositories.yaml)
 wget -O "$TREEDIR"/cert-mgr/cert-mgr.yaml "$CERT_URL"
 
 mkdir "$TREEDIR/mpi-operator"
-MPIOP_URL=$(yq -M '.thirdPartyServices[] | select(.name == "mpi-operator") | .url' config/repositories.yaml)
+MPIOP_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "mpi-operator"]; print(x[0])' < config/repositories.yaml)
 wget -O "$TREEDIR"/mpi-operator/mpi-operator.yaml "$MPIOP_URL"
 
 (cd "$TREEDIR" && tar cf "$TARFILE" ./*)
