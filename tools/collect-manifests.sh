@@ -146,6 +146,9 @@ collect_manifest() {
          if [[ -d config/begin-examples ]]; then
              bin/kustomize build config/begin-examples > "$SUBMOD_DIR/$SUBMODULE-examples.yaml"
          fi
+         if [[ $SUBMODULE == nnf-sos && -d config/ports ]]; then
+             bin/kustomize build config/ports > "$SUBMOD_DIR/$SUBMODULE-ports.yaml"
+         fi
          if [[ -d config/prometheus ]]; then
              bin/kustomize build config/prometheus > "$SUBMOD_DIR/$SUBMODULE-prometheus.yaml"
          fi
