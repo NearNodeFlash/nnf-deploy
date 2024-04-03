@@ -77,7 +77,7 @@ EOF
         mkdir -p /tmp/nnf && dd if=/dev/zero of=/tmp/nnf/file.in bs=128 count=0 seek=$((1024 * 1024))
     fi
 
-    kind create cluster --wait 60s --image=kindest/node:v1.27.2 --config $CONFIG
+    kind create cluster --wait 60s --image=kindest/node:v1.29.2 --config $CONFIG
 
     # Use the same init routines that we use on real hardware.
     # This applies taints and labels to rabbit nodes, and installs other
@@ -97,7 +97,7 @@ function reset_cluster {
 function push_submodules {
   SUBMODULES=$(git submodule status | awk '{print $2}')
   for SUBMODULE in $SUBMODULES; do
-    (cd $SUBMODULE && make kind-push)
+    (cd "$SUBMODULE" && make kind-push)
   done
 }
 
