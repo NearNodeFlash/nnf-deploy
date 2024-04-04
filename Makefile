@@ -1,7 +1,7 @@
 all: fmt vet nnf-deploy
 
 nnf-deploy: cmd/main.go config/config.go
-	go build -o ./nnf-deploy cmd/main.go
+	CGO_ENABLED=0 go build -o ./nnf-deploy cmd/main.go
 
 .PHONY: fmt
 fmt:
@@ -11,13 +11,14 @@ fmt:
 .PHONY: vet
 vet:
 	go vet cmd/main.go
+	go vet ./config/*.go
 
 .PHONY: test
 test:
-	ginkgo run -p --vv ./config/...
+	CGO_ENABLED=0 ginkgo run -p --vv ./config/...
 
 .PHONY: manifests
-manifests:
+manifests: clean-manifests
 	tools/collect-manifests.sh -s kind -d $$PWD/release-manifests-kind -t $$PWD/manifests-kind.tar
 	tools/collect-manifests.sh -s rabbit -d $$PWD/release-manifests -t $$PWD/manifests.tar
 

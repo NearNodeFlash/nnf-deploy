@@ -105,6 +105,10 @@ func (cmd *DeployCmd) Run(ctx *Context) error {
 			return err
 		}
 
+		if err := createDefaultStorageProfile(ctx, module); err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -132,7 +136,7 @@ func (cmd *UndeployCmd) Run(ctx *Context) error {
 			return nil
 		}
 
-		if err := deleteSystemConfigFromSOS(ctx, system, module); err != nil {
+		if err := deleteSystemConfigFromSOS(ctx, module); err != nil {
 			return err
 		}
 
@@ -541,12 +545,20 @@ func installThirdPartyServices(ctx *Context) error {
 
 	for idx := range thirdPartyServices {
 		svc := thirdPartyServices[idx]
-		if !svc.UseRemoteF {
+		if svc.UseRemoteF {
+			fmt.Printf("Installing %s...\n", svc.Name)
+			if err := runKubectlApplyF(ctx, svc.Url); err != nil {
+				return err
+			}
+		} else if svc.UseHelm {
+			fmt.Printf("Installing %s...\n", svc.Name)
+			cmd := exec.Command("bash", "-c", svc.HelmCmd)
+			_, err = runCommand(ctx, cmd)
+			if err != nil {
+				return err
+			}
+		} else {
 			continue
-		}
-		fmt.Printf("Installing %s...\n", svc.Name)
-		if err := runKubectlApplyF(ctx, svc.Url); err != nil {
-			return err
 		}
 		if len(svc.WaitCmd) > 0 {
 			fmt.Println("  waiting for it to be ready...")
@@ -913,7 +925,7 @@ func shouldSkipModule(ctx *Context, module string, permittedModulesOrEmpty []str
 	return true
 }
 
-func deleteSystemConfigFromSOS(ctx *Context, system *config.System, module string) error {
+func deleteSystemConfigFromSOS(ctx *Context, module string) error {
 	if !strings.Contains(module, "nnf-sos") {
 		return nil
 	}
@@ -962,4 +974,20 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 		fmt.Printf("%s\n", stdoutStderr)
 	}
 	return err
+}
+
+// createDefaultStorageProfile creates the default NnfStorageProfile.
+func createDefaultStorageProfile(ctx *Context, module string) error {
+	if !strings.Contains(module, "nnf-sos") {
+		return nil
+	}
+
+	fmt.Println("Creating default NnfStorageProfile...")
+
+	cmd := exec.Command("../tools/default-nnfstorageprofile.sh")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+
+	return nil
 }
