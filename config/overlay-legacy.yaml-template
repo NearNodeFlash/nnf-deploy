@@ -1,0 +1,17 @@
+# This overlay restores config/repositories.yaml to its pre-helm behavior.
+# To enable this, copy it to the nnf-deploy root and nnf-deploy will recognize
+# it during `nnf-deploy init`:
+#   cp config/overlay-legacy.yaml-template ./overlay-legacy.yaml
+
+repositories:
+  - name: lustre-csi-driver
+    useRemoteK: true
+  - name: lustre-fs-operator
+    useRemoteK: true
+thirdPartyServices:
+  - name: cert-manager
+    useRemoteF: true
+  - name: mpi-operator
+    useRemoteF: true
+  - name: argocd
+    useHelm: false

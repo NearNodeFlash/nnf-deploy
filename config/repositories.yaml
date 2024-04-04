@@ -31,16 +31,16 @@ repositories:
     overlays: [overlays/rabbit, overlays/kind]
     development: https://ghcr.io/hewlettpackard/lustre-csi-driver
     master: https://ghcr.io/hewlettpackard/lustre-csi-driver
-    useRemoteK: true
+    useRemoteK: false
     remoteReference:
-      build: v0.0.9
+      build: v0.1.0
       url: https://github.com/HewlettPackard/lustre-csi-driver.git/deploy/kubernetes/%s/?ref=%s
   - name: lustre-fs-operator
     development: https://ghcr.io/nearnodeflash/lustre-fs-operator
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
-    useRemoteK: true
+    useRemoteK: false
     remoteReference:
-      build: v0.0.10
+      build: v0.1.0
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 
 buildConfiguration:
@@ -58,11 +58,15 @@ thirdPartyServices:
   # Other services that NNF requires to be available on the system.
   # They will be installed in the order specified here.
   - name: cert-manager
-    useRemoteF: true
+    useRemoteF: false
     url: https://github.com/jetstack/cert-manager/releases/download/v1.13.1/cert-manager.yaml
     # The NNF services will dump errors at installation time if the
     # cert-manager webhook isn't ready.
     waitCmd: kubectl wait deploy -n cert-manager --timeout=180s cert-manager-webhook --for jsonpath='{.status.availableReplicas}=1'
   - name: mpi-operator
-    useRemoteF: true
+    useRemoteF: false
     url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
+  - name: argocd
+    useHelm: true
+    helmCmd: helm install argocd -n argocd --create-namespace argo/argo-cd --version 3.35.4 -f config/helm-values/argocd.yaml
+    waitCmd: kubectl wait deploy -n argocd --timeout=180s argocd-server --for jsonpath='{.status.availableReplicas}=1'
