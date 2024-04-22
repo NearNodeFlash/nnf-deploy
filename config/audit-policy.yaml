@@ -25,7 +25,7 @@ omitStages:
 - RequestReceived
 
 rules:
-- level: RequestResponse
+- level: Metadata
   verbs: ["create", "patch", "update", "delete", "deletecollection"]
   resources:
 
