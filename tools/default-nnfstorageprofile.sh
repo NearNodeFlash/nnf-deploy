@@ -26,8 +26,8 @@ fi
 
 TMPIN=$(mktemp)
 
-if ! kubectl get nnfstorageprofile -n nnf-system placeholder -o json > "$TMPIN";  then
-    echo "Unable to retrieve NnfStorageProfile/placeholder"
+if ! kubectl get nnfstorageprofile -n nnf-system template -o json > "$TMPIN";  then
+    echo "Unable to retrieve NnfStorageProfile/template"
     rm -f "$TMPIN"
     exit 1
 fi
