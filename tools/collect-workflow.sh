@@ -5,7 +5,8 @@ PROG=$(basename "$0")
 usage() {
     echo "$PROG: <-d collection_dir> <-w workflow> [-o yaml| -o json]"
     echo
-    echo "   -d collection_dir   Directory to create for data collection."
+    echo "   -d collection_dir   Directory to create for data collection"
+    echo "                       (default uses name of workflow)."
     echo "   -w workflow         Name of workflow."
     echo "   -o yaml|json        Use YAML or JSON output (default json)."
 }
@@ -43,8 +44,7 @@ if [[ -z $WORKFLOW ]]; then
     exit 1
 fi
 if [[ -z $WORKDIR ]]; then
-    echo "Must specify -d"
-    exit 1
+    WORKDIR="$WORKFLOW"
 fi
 
 if [[ -e $WORKDIR ]]; then
