@@ -3,7 +3,7 @@
 PROG=$(basename "$0")
 
 usage() {
-    echo "$PROG: <-d collection_dir> <-w workflow> [-o yaml| -o json]"
+    echo "$PROG: <-w workflow> [-d collection_dir] [-o yaml| -o json]"
     echo
     echo "   -d collection_dir   Directory to create for data collection"
     echo "                       (default uses name of workflow)."
