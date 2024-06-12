@@ -42,6 +42,10 @@ if [[ -z $WORKFLOW ]]; then
     echo "Must specify -w"
     exit 1
 fi
+if [[ -z $WORKDIR ]]; then
+    echo "Must specify -d"
+    exit 1
+fi
 
 if [[ -e $WORKDIR ]]; then
     echo "The workdir must not exist"
