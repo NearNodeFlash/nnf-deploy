@@ -73,3 +73,12 @@ kinds="computes,directivebreakdowns,servers,nnfnodestorages,nnfnodeblockstorages
 ) > summary.txt
 kubectl get "$kinds" -A -l "dataworkflowservices.github.io/workflow.uid=$wf_uid" -o "$FORMAT" > "all.$FORMAT"
 
+# Create a quick-reference.
+BASE_PATTERN='{"kind":.kind,"name":.metadata.name,"namespace":.metadata.namespace,"error":.status.error}'
+if [[ $FMTTOOL == yq ]]; then
+    PATTERN="[$BASE_PATTERN]"
+else
+    PATTERN="$BASE_PATTERN"
+fi
+"$FMTTOOL" -rM '.items[]|'"$PATTERN"'' "all.$FORMAT" > "quick.$FORMAT"
+
