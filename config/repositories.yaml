@@ -42,7 +42,6 @@ repositories:
     remoteReference:
       build: master
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
-
 buildConfiguration:
   # Environment variables to set when calling any 'make' or 'deploy'
   # command in a submodule.
@@ -53,7 +52,6 @@ buildConfiguration:
     #  - The most recent build from the master branch: master
     - name: NNFMFU_VERSION
       value: 0.1.0
-
 thirdPartyServices:
   # Other services that NNF requires to be available on the system.
   # They will be installed in the order specified here.
@@ -70,4 +68,3 @@ thirdPartyServices:
     useHelm: true
     helmCmd: helm install argocd -n argocd --create-namespace argo/argo-cd --version 3.35.4 -f config/helm-values/argocd.yaml
     waitCmd: kubectl wait deploy -n argocd --timeout=180s argocd-server --for jsonpath='{.status.availableReplicas}=1'
-
