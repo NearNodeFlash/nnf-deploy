@@ -659,6 +659,7 @@ check_repo_release_vX() {
         has_changes=true
     else
         msg "${indent}No new changes to release for $repo_name."
+        cd ..
         return
     fi
 
@@ -760,6 +761,7 @@ tag_release_vX() {
     # Is it already tagged?
     if git show "$merge_release" 2>/dev/null 1>&2; then
         msg "${indent}Already tagged as $merge_release"
+        cd ..
         return
     fi
 
