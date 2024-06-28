@@ -247,6 +247,8 @@ check_peer_modules() {
 
         # shellcheck disable=SC2086
         go get $peer_modules || do_fail "${indent}Failure getting modules: $peer_modules"
+        go mod tidy || do_fail "${indent}Failure in go mod tidy"
+        go mod vendor || do_fail "${indent}Failure in go mod vendor"
 
         # If the module update touched only go.mod, go.sum, or modules.txt then
         # forget about it.
