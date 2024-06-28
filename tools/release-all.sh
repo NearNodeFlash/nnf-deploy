@@ -241,7 +241,7 @@ check_peer_modules() {
 
     [[ ! -f go.mod ]] && return
 
-    peer_modules=$(grep -e DataWorkflowServices -e NearNodeFlash -e HewlettPackard go.mod | grep -v module | awk '{print $1"@master"}' | paste -s -)
+    peer_modules=$(grep -e DataWorkflowServices -e NearNodeFlash -e HewlettPackard go.mod | grep -v -e module -e structex | awk '{print $1"@master"}' | paste -s -)
     if [[ -n $peer_modules ]]; then 
         msg "${indent}Checking peer modules: $peer_modules"
 
