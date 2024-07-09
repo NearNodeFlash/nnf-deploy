@@ -267,6 +267,25 @@ check_peer_modules() {
     fi
 }
 
+summarize_submodule_commits() {
+    local indent="$1"
+
+    [[ ! -f .gitmodules ]] && return
+
+    if [[ $(git submodule status | grep -E '^\+' | wc -l) -gt 0 ]]; then
+        upd_submods=$(git submodule status | grep -E '^\+' | awk '{print $2}')
+        for mod in $upd_submods; do
+            echo
+            msg "${indent}Updates found in submodule $mod"
+            prev_commit=$(git diff "$mod" | grep -E '^-Subproject' | awk '{print $3}')
+            pushd "$mod" > /dev/null || do_fail "${indent}Unable to summarize submodule $mod"
+            git log --oneline "$prev_commit...HEAD"
+            popd > /dev/null || do_fail "${indent}Unable to popd from $mod"
+        done
+        echo
+    fi
+}
+
 check_submodules() {
     local branch="$1"
     local already_initialized="$2"
@@ -287,6 +306,7 @@ check_submodules() {
     git submodule foreach git pull || do_fail "${indent}Failure pulling latest commits in submodules"
 
     if [[ $already_initialized != true ]] && [[ $(git status -s | wc -l) -gt 0 ]]; then
+        summarize_submodule_commits "$indent"
         do_fail "${indent}Submodules are not up to date. I'll let you fix it."
     fi
 }
@@ -358,10 +378,10 @@ update_kustomization_file(){
     local indent="$4"
 
     make kustomize || do_fail "${indent}Unable to retrieve kustomize"
-    pushd "$kdir" || do_fail "${indent}Unable to change to $kdir"
+    pushd "$kdir" > /dev/null || do_fail "${indent}Unable to change to $kdir"
     image_name=$(yq -rM eval '.images[]|select(.name=="'"$name"'")|.newName' kustomization.yaml)
     ~-/bin/kustomize edit set image "$name=$image_name:$release_ver" || do_fail "${indent}Unable to set the $name version in kustomization.yaml"
-    popd || do_fail "${indent}Unable to popd from $kdir"
+    popd > /dev/null || do_fail "${indent}Unable to popd from $kdir"
 }
 
 find_latest_release(){
@@ -531,7 +551,7 @@ nnf_deploy_release_switch_submodules() {
     echo
     msg "${indent}Submodule status, pre-merge:"
     echo
-    git submodule
+    git submodule status
     echo
 }
 
@@ -613,7 +633,7 @@ check_repo_release_vX() {
                 echo
                 msg "${indent}Fixing conflicts now..."
                 echo
-                new_submods=$(git submodule | grep -E '^U' | awk '{print $2}')
+                new_submods=$(git submodule status | grep -E '^U' | awk '{print $2}')
                 for mod in $new_submods; do
                     git add "$mod"
                 done
@@ -624,7 +644,7 @@ check_repo_release_vX() {
                     msg "${indent}The conflicts have been fixed."
                     msg "${indent}Submodule status:"
                     echo
-                    git submodule
+                    git submodule status
                     echo
                 fi
             else
