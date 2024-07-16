@@ -18,9 +18,10 @@ test:
 	CGO_ENABLED=0 ginkgo run -p --vv ./config/...
 
 .PHONY: manifests
+manifests: NNF_VERSION ?= $(shell ./tools/git-version-gen)
 manifests: clean-manifests
-	tools/collect-manifests.sh -s kind -d $$PWD/release-manifests-kind -t $$PWD/manifests-kind.tar
-	tools/collect-manifests.sh -s rabbit -d $$PWD/release-manifests -t $$PWD/manifests.tar
+	NNF_VERSION=$(NNF_VERSION) tools/collect-manifests.sh -s kind -d $$PWD/release-manifests-kind -t $$PWD/manifests-kind.tar
+	NNF_VERSION=$(NNF_VERSION) tools/collect-manifests.sh -s rabbit -d $$PWD/release-manifests -t $$PWD/manifests.tar
 
 .PHONY: clean-manifests
 clean-manifests:
