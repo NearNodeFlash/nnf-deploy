@@ -219,20 +219,6 @@ verify_clean_workarea() {
     fi
 }
 
-verify_clean_submodule_release_workarea() {
-    local indent="$1"
-
-    if [[ -f .gitmodules ]]; then
-        if [[ $(git status -s | wc -l) -gt 0 ]]; then
-            msg "${indent}Submodule status"
-            git submodule status
-            if [[ $(git submodule status | grep -cE '^\+') -gt 0 ]]; then
-                do_fail "${indent}Has the submodule been released yet?"
-            fi
-        fi
-    fi
-}
-
 get_default_branch() {
     local repo_short_name="$1"
     local default_branch=master
@@ -550,12 +536,12 @@ update_remote_release_references() {
     fi
 }
 
-nnf_deploy_release_switch_submodules() {
+release_switch_submodules() {
     local new_branch="$1"
     local submod_branch="$2"
     local indent="$3"
 
-    msg "${indent}Checking nnf-deploy submodules"
+    msg "${indent}Checking submodules"
     if ! git status | grep -q -E '^On branch '"$new_branch"'$'; then
         do_fail "${indent}Not on expected release branch $new_branch"
     fi
@@ -628,51 +614,58 @@ check_repo_release_vX() {
         msg "${indent}Creating new branch $repo_name/$new_branch."
         echo
         git checkout -b "$new_branch" || do_fail "${indent}Failure checking out $new_release branch."
-        if [[ $repo_short_name == nnf_deploy ]]; then
-            nnf_deploy_release_switch_submodules "$new_branch" "$branch" "$indent"
-            # We're now pointing at the latest release of each submodule.
-        fi
-        local not_clean=false
-        if [[ $repo_short_name == nnf_deploy ]]; then
-            echo
-            msg "${indent}Expect messages about conflicts; I'll fix them."
-            echo
-        fi
-        if ! git merge --signoff --stat --no-edit "$default_branch"; then
-            if [[ $repo_short_name == nnf_deploy ]]; then
-                # The git-merge did not modify the submodules, but it did tell
-                # us that it cannot merge them. We already have them pointed at
-                # their latest releases, so add them as-is and complete the
-                # merge.
-                echo
-                msg "${indent}Fixing conflicts now..."
-                echo
-                new_submods=$(git submodule status | grep -E '^U' | awk '{print $2}')
-                for mod in $new_submods; do
-                    git add "$mod"
-                done
-                if ! git commit -s -m "Merge branch '$default_branch' into $new_branch"; then
-                    not_clean=true
-                else
-                    echo
-                    msg "${indent}The conflicts have been fixed."
-                    msg "${indent}Submodule status:"
-                    echo
-                    git submodule status
-                    echo
-                fi
-            else
-                not_clean=true
-            fi
-        fi
+    fi
 
-        if [[ $not_clean == true ]]; then
+    local not_clean=false
+    if [[ -f .gitmodules ]]; then
+        release_switch_submodules "$new_branch" "$branch" "$indent"
+        # We're now pointing at the latest release of each submodule.
+        echo
+        msg "${indent}Expect messages about conflicts; I'll fix them."
+        echo
+    fi
+    if ! git merge --signoff --stat --no-edit "$default_branch"; then
+        if [[ $repo_short_name == nnf_deploy ]]; then
+            # The git-merge did not modify the submodules, but it did tell
+            # us that it cannot merge them. We already have them pointed at
+            # their latest releases, so add them as-is and complete the
+            # merge.
             echo
-            do_fail "${indent}Merge is not clean: from $default_branch to $new_branch"
+            msg "${indent}Fixing conflicts now..."
+            echo
+            new_submods=$(git submodule status | grep -E '^U' | awk '{print $2}')
+            for mod in $new_submods; do
+                git add "$mod"
+            done
+            if ! git commit -s -m "Merge branch '$default_branch' into $new_branch"; then
+                not_clean=true
+            else
+                echo
+                msg "${indent}The conflicts have been fixed."
+                msg "${indent}Submodule status:"
+                echo
+                git submodule status
+                echo
+            fi
+        else
+            not_clean=true
         fi
     fi
 
-    verify_clean_submodule_release_workarea "$indent"
+    if [[ $not_clean == true ]]; then
+        echo
+        do_fail "${indent}Merge is not clean: from $default_branch to $new_branch"
+    fi
+
+    if [[ -f .gitmodules ]] && [[ $(git submodule status | grep -cE '^\+') -gt 0 ]]; then
+        msg "${indent}Update non-conflicting submodules"
+        new_submods=$(git submodule status | grep -E '^\+' | awk '{print $2}')
+        for mod in $new_submods; do
+            git add "$mod"
+        done
+        git commit -s -m 'Update released submodules'
+    fi
+
     verify_clean_workarea "$indent"
 
     update_nnf_mfu_release_references "$repo_short_name" "$indent"
