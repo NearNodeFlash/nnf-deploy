@@ -286,7 +286,7 @@ summarize_submodule_commits() {
 
     [[ ! -f .gitmodules ]] && return
 
-    if [[ $(git submodule status | grep -E '^\+' | wc -l) -gt 0 ]]; then
+    if [[ $(git submodule status | grep -cE '^\+') -gt 0 ]]; then
         upd_submods=$(git submodule status | grep -E '^\+' | awk '{print $2}')
         for mod in $upd_submods; do
             echo
