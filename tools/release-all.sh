@@ -219,6 +219,20 @@ verify_clean_workarea() {
     fi
 }
 
+verify_clean_submodule_release_workarea() {
+    local indent="$1"
+
+    if [[ -f .gitmodules ]]; then
+        if [[ $(git status -s | wc -l) -gt 0 ]]; then
+            msg "${indent}Submodule status"
+            git submodule status
+            if [[ $(git submodule status | grep -cE '^\+') -gt 0 ]]; then
+                do_fail "${indent}Has the submodule been released yet?"
+            fi
+        fi
+    fi
+}
+
 get_default_branch() {
     local repo_short_name="$1"
     local default_branch=master
@@ -658,6 +672,7 @@ check_repo_release_vX() {
         fi
     fi
 
+    verify_clean_submodule_release_workarea "$indent"
     verify_clean_workarea "$indent"
 
     update_nnf_mfu_release_references "$repo_short_name" "$indent"
