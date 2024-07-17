@@ -594,7 +594,7 @@ check_repo_release_vX() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
-    latest_release=$(git describe --match="v*" HEAD) || do_fail "${indent}Failure getting latest release tag."
+    latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
     new_release=$(semver_bump "$latest_release")
 
     echo
@@ -721,7 +721,7 @@ create_pr_release_vX() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
-    latest_release=$(git describe --match="v*" HEAD) || do_fail "${indent}Failure getting latest release tag."
+    latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
     new_release=$(semver_bump "$latest_release")
 
     verify_clean_workarea "$indent"
@@ -757,7 +757,7 @@ merge_pr_release_vX() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
-    latest_release=$(git describe --match="v*" HEAD) || do_fail "${indent}Failure getting latest release tag."
+    latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
     new_release=$(semver_bump "$latest_release")
     new_branch="release-$new_release"
 
@@ -785,7 +785,7 @@ tag_release_vX() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
-    latest_release=$(git describe --match="v*" HEAD) || do_fail "${indent}Failure getting latest release tag."
+    latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
 
     merge_release=$(git log --oneline -1 | sed 's/^.* Merge release \(.*\)/\1/')
     msg "${indent}Expecting to tag as release $merge_release"
@@ -793,18 +793,21 @@ tag_release_vX() {
     # Is it already tagged?
     if git show "$merge_release" 2>/dev/null 1>&2; then
         msg "${indent}Already tagged as $merge_release"
-        cd ..
-        return
+    else 
+        msg "${indent}Tagging as $merge_release"
+        git tag -a "$merge_release" -m "Release $merge_release" || do_fail "${indent}Failed tagging as $merge_release"
+        git push origin --tags || do_fail "${indent}Failed to push tags"
     fi
 
-    msg "${indent}Tagging as $merge_release"
-    git tag -a "$merge_release" -m "Release $merge_release" || do_fail "${indent}Failed tagging as $merge_release"
-    git push origin --tags || do_fail "${indent}Failed to push tags"
-
     if [[ $repo_short_name == nnf_doc ]]; then
-        msg "${indent}Creating $repo_short_name release."
-        msg "${indent}Generating notes from $latest_release to $merge_release."
-        gh release create --generate-notes --verify-tag --notes-start-tag "$latest_release" "$merge_release" || do_fail "${indent}Failed to generate release for $repo_short_name"
+        # Is the doc's release already created?
+        if gh release view "$merge_release" > /dev/null 2>&1; then
+            msg "${indent}Already created release doc"
+        else
+            msg "${indent}Creating release doc."
+            msg "${indent}Generating notes from $latest_release to $merge_release."
+            gh release create --generate-notes --verify-tag --notes-start-tag "$latest_release" "$merge_release" || do_fail "${indent}Failed to generate release for $repo_short_name"
+        fi
     fi
 
     echo
