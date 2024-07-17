@@ -119,19 +119,19 @@ usage() {
     echo "    ./$PROG -P master"
     echo "  2. Create the new release branches, merge master/main, but don't"
     echo "     push them:"
-    echo "    ./$PROG -P release [-R repos]"
+    echo "    ./$PROG -P release -R <repo>"
     echo
     echo "  The next steps use the gh(1) GitHub CLI tool and require a GH_TOKEN"
     echo "  environment variable containing a 'repo' scope classic token."
     echo
     echo "  3. If (2) was good, then repeat to push the branches:"
-    echo "    ./$PROG -P release-push [-R repos]"
+    echo "    ./$PROG -P release-push -R <repo>"
     echo "  4. Create PRs for the pushed release branches:"
-    echo "    ./$PROG -P create-pr [-R repos]"
+    echo "    ./$PROG -P create-pr -R <repo>"
     echo "  5. Merge PRs for the pushed release branches:"
-    echo "    ./$PROG -P merge-pr [-R repos]"
+    echo "    ./$PROG -P merge-pr -R <repo>"
     echo "  6. Tag the releases:"
-    echo "    ./$PROG -P tag-release [-R repos]"
+    echo "    ./$PROG -P tag-release -R <repo>"
     echo
 }
 
@@ -256,8 +256,11 @@ check_peer_modules() {
         # forget about it.
         # Let the user deal with any changes bigger than that.
         if [[ $(git status -s | grep -c -v -e go.mod -e go.sum -e vendor/modules.txt) -gt 0 ]]; then
-            msg "${indent}Peer modules are behind. I'll let you fix it. I used:"
-            msg "${indent}go get $peer_modules"
+            msg "${indent}Peer modules are behind."
+            msg "${indent}Update the modules and create a PR. I used:"
+            echo
+            echo "go get $peer_modules"
+            echo
             exit 1
         fi
 
@@ -307,7 +310,9 @@ check_submodules() {
 
     if [[ $already_initialized != true ]] && [[ $(git status -s | wc -l) -gt 0 ]]; then
         summarize_submodule_commits "$indent"
-        do_fail "${indent}Submodules are not up to date. I'll let you fix it."
+        msg "${indent}Submodules are not up to date."
+        msg "${indent}Update the modules and create a PR."
+        exit 1
     fi
 }
 
