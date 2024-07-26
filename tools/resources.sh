@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2023 Hewlett Packard Enterprise Development LP
+# Copyright 2024 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -17,68 +17,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-usage() {
-    cat <<EOF
-Run various debug commands against an NNF cluster
+# Dump a summary of all active resources.
 
-Usage: $0 COMMAND [ARGS...]
-
-Commands:
-    get-all [OUTPUT-FORMAT]             Run 'kubectl get ...' against all DWS and NNF related resources
-                                        with the desired OUTPUT-FORMAT (default: yaml)
-
-    remove-finalizers                   Remove the finalizers in all DWS and NNF related resources.
-                                        WARNING: Can result in possible system corruption. Use at your
-                                        own risk.
-EOF
-}
-
-if [ $# -lt 1 ]; then
-    usage
-    exit 1
-fi
-
-# for_all_resources <func CRD NAME NAMESPACE ARGS...>
-for_all_resources() {
-    local FUNCTION=$1 ARGS=( "${@:2}" )
-
-    CRDS=$(kubectl get crds | grep -E "(dws|nnf|lustrefilesystems)\.(cray\.)+hpe\.com" | awk '{print $1}')
-    for CRD in $CRDS
+kinds_dws_nnf=$(kubectl api-resources | grep -iE 'lus|dws|dataworkflowservices|nnf|dm' | awk '{print $1":"$2}' | sort)
+for want_kind in dws dataworkflowservices nnf lus dm
+do
+    for x in $(echo "$kinds_dws_nnf" | grep ":$want_kind\." | awk -F: '{print $1}')
     do
-        echo "Processing CRD $CRD"
-        IFS=$'\n' RESOURCES=$(kubectl get $CRD --all-namespaces --no-headers)
-        for RESOURCE in $RESOURCES
-        do
-            NAMESPACE=$(echo $RESOURCE | awk '{print $1}')
-            NAME=$(echo $RESOURCE | awk '{print $2}')
-
-            echo "  Resource $NAMESPACE/$NAME"
-            "$FUNCTION" "$CRD" "$NAME" "$NAMESPACE" "${ARGS[@]}"
-        done
+        echo "=== $x"
+        out=$(kubectl get -A --sort-by=.metadata.namespace "$x")
+        if (( $(echo "$out" | wc -l) > 10 )); then
+            echo "$out" | sed 10q
+            echo "[...]"
+        else
+            echo "$out"
+        fi
+        echo
     done
-}
+done
 
-case $1 in
-    get-all)
-        function get {
-            local CRD=$1 NAME=$2 NAMESPACE=$3 OUTPUT=$4
-
-            kubectl get "$CRD"/"$NAME" --namespace "$NAMESPACE" --output "$OUTPUT"
-        }
-
-        for_all_resources get "${2:-yaml}"
-        ;;
-    remove-finalizers)
-        function remove_finalizers() {
-            local CRD=$1 NAME=$2 NAMESPACE=$3
-
-            kubectl patch "$CRD"/"$NAME" --namespace "$NAMESPACE" --type merge --patch '{"metadata": {"finalizers": []}}'
-        }
-
-        for_all_resources remove_finalizers
-        ;;
-    *)
-        usage
-        exit 1
-        ;;
-esac
