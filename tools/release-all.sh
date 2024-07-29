@@ -235,6 +235,30 @@ get_repo_dir_name() {
     echo "${bn%.git}"
 }
 
+check_auto_gens() {
+    local indent="$1"
+
+    msg "${indent}Checking generated files"
+    if grep -qE '^manifests:' Makefile; then
+        make manifests || do_fail "${indent}Failed: make manifests"
+    fi
+    if grep -qE '^generate:' Makefile; then
+        make generate || do_fail "${indent}Failed: make generate"
+    fi
+    if grep -qE '^generate-go-conversions:' Makefile; then
+        make generate-go-conversions || do_fail "${indent}Failed: make generate-go-conversions"
+    fi
+}
+
+verify_crd_conversions() {
+    local indent="$1"
+
+    if grep -qE '^verify-conversions:' Makefile; then
+        msg "${indent}Checking CRD conversions"
+        make verify-conversions || do_fail "${indent}CRD conversion verifier failed"
+    fi
+}
+
 # Peer modules refers to the other DWS/NNF modules listed in go.mod.
 check_peer_modules() {
     local indent="$1"
@@ -572,6 +596,10 @@ check_repo_master() {
     begin_with_clean_workarea "$repo_name" "$indent"
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$default_branch" "$indent"
+
+    check_auto_gens "$indent"
+    verify_clean_workarea "$indent"
+    verify_crd_conversions "$indent"
 
     check_peer_modules "$indent"
     verify_clean_workarea "$indent"
