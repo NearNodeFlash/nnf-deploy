@@ -238,24 +238,28 @@ get_repo_dir_name() {
 check_auto_gens() {
     local indent="$1"
 
-    msg "${indent}Checking generated files"
-    if grep -qE '^manifests:' Makefile; then
-        make manifests || do_fail "${indent}Failed: make manifests"
-    fi
-    if grep -qE '^generate:' Makefile; then
-        make generate || do_fail "${indent}Failed: make generate"
-    fi
-    if grep -qE '^generate-go-conversions:' Makefile; then
-        make generate-go-conversions || do_fail "${indent}Failed: make generate-go-conversions"
+    if [[ -f Makefile ]]; then
+        msg "${indent}Checking generated files"
+        if grep -qE '^manifests:' Makefile; then
+            make manifests || do_fail "${indent}Failed: make manifests"
+        fi
+        if grep -qE '^generate:' Makefile; then
+            make generate || do_fail "${indent}Failed: make generate"
+        fi
+        if grep -qE '^generate-go-conversions:' Makefile; then
+            make generate-go-conversions || do_fail "${indent}Failed: make generate-go-conversions"
+        fi
     fi
 }
 
 verify_crd_conversions() {
     local indent="$1"
 
-    if grep -qE '^verify-conversions:' Makefile; then
-        msg "${indent}Checking CRD conversions"
-        make verify-conversions || do_fail "${indent}CRD conversion verifier failed"
+    if [[ -f Makefile ]]; then
+        if grep -qE '^verify-conversions:' Makefile; then
+            msg "${indent}Checking CRD conversions"
+            make verify-conversions || do_fail "${indent}CRD conversion verifier failed"
+        fi
     fi
 }
 
