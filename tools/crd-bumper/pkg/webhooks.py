@@ -274,11 +274,11 @@ class ConversionWebhooks:
 					"label1": "",
 				}},
 			}},
-			Spec: {group}{self._new_ver}.{kind}Spec{{
-				// ACTION: Fill in a few valid fields so
-				// they can be tested in the annotation checks
-				// below.
-			}},
+			//Spec: {group}{self._new_ver}.{kind}Spec{{
+			//	// ACTION: Fill in a few valid fields so
+			//	// they can be tested in the annotation checks
+			//	// below.
+			//}},
 		}}
 
 		dst := &unstructured.Unstructured{{}}

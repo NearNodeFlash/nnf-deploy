@@ -499,7 +499,7 @@ var _ = Describe("Conversion Webhook Test", func() {{
 					Name: id,
 					Namespace: corev1.NamespaceDefault,
 				}},
-				Spec: {group}{self._new_ver}.{kind}Spec{{}},
+				//Spec: {group}{self._new_ver}.{kind}Spec{{}},
 			}}
 
 			Expect(k8sClient.Create(context.TODO(), resHub)).To(Succeed())
