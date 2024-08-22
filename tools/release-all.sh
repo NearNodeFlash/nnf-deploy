@@ -119,19 +119,19 @@ usage() {
     echo "    ./$PROG -P master"
     echo "  2. Create the new release branches, merge master/main, but don't"
     echo "     push them:"
-    echo "    ./$PROG -P release [-R repos]"
+    echo "    ./$PROG -P release -R <repo>"
     echo
     echo "  The next steps use the gh(1) GitHub CLI tool and require a GH_TOKEN"
     echo "  environment variable containing a 'repo' scope classic token."
     echo
     echo "  3. If (2) was good, then repeat to push the branches:"
-    echo "    ./$PROG -P release-push [-R repos]"
+    echo "    ./$PROG -P release-push -R <repo>"
     echo "  4. Create PRs for the pushed release branches:"
-    echo "    ./$PROG -P create-pr [-R repos]"
+    echo "    ./$PROG -P create-pr -R <repo>"
     echo "  5. Merge PRs for the pushed release branches:"
-    echo "    ./$PROG -P merge-pr [-R repos]"
+    echo "    ./$PROG -P merge-pr -R <repo>"
     echo "  6. Tag the releases:"
-    echo "    ./$PROG -P tag-release [-R repos]"
+    echo "    ./$PROG -P tag-release -R <repo>"
     echo
 }
 
@@ -235,6 +235,34 @@ get_repo_dir_name() {
     echo "${bn%.git}"
 }
 
+check_auto_gens() {
+    local indent="$1"
+
+    if [[ -f Makefile ]]; then
+        msg "${indent}Checking generated files"
+        if grep -qE '^manifests:' Makefile; then
+            make manifests || do_fail "${indent}Failed: make manifests"
+        fi
+        if grep -qE '^generate:' Makefile; then
+            make generate || do_fail "${indent}Failed: make generate"
+        fi
+        if grep -qE '^generate-go-conversions:' Makefile; then
+            make generate-go-conversions || do_fail "${indent}Failed: make generate-go-conversions"
+        fi
+    fi
+}
+
+verify_crd_conversions() {
+    local indent="$1"
+
+    if [[ -f Makefile ]]; then
+        if grep -qE '^verify-conversions:' Makefile; then
+            msg "${indent}Checking CRD conversions"
+            make verify-conversions || do_fail "${indent}CRD conversion verifier failed"
+        fi
+    fi
+}
+
 # Peer modules refers to the other DWS/NNF modules listed in go.mod.
 check_peer_modules() {
     local indent="$1"
@@ -256,8 +284,11 @@ check_peer_modules() {
         # forget about it.
         # Let the user deal with any changes bigger than that.
         if [[ $(git status -s | grep -c -v -e go.mod -e go.sum -e vendor/modules.txt) -gt 0 ]]; then
-            msg "${indent}Peer modules are behind. I'll let you fix it. I used:"
-            msg "${indent}go get $peer_modules"
+            msg "${indent}Peer modules are behind."
+            msg "${indent}Update the modules and create a PR. I used:"
+            echo
+            echo "go get $peer_modules"
+            echo
             exit 1
         fi
 
@@ -307,7 +338,9 @@ check_submodules() {
 
     if [[ $already_initialized != true ]] && [[ $(git status -s | wc -l) -gt 0 ]]; then
         summarize_submodule_commits "$indent"
-        do_fail "${indent}Submodules are not up to date. I'll let you fix it."
+        msg "${indent}Submodules are not up to date."
+        msg "${indent}Update the modules and create a PR."
+        exit 1
     fi
 }
 
@@ -568,6 +601,10 @@ check_repo_master() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$default_branch" "$indent"
 
+    check_auto_gens "$indent"
+    verify_clean_workarea "$indent"
+    verify_crd_conversions "$indent"
+
     check_peer_modules "$indent"
     verify_clean_workarea "$indent"
 
@@ -594,7 +631,7 @@ check_repo_release_vX() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
-    latest_release=$(git describe --match="v*" HEAD) || do_fail "${indent}Failure getting latest release tag."
+    latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
     new_release=$(semver_bump "$latest_release")
 
     echo
@@ -721,7 +758,7 @@ create_pr_release_vX() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
-    latest_release=$(git describe --match="v*" HEAD) || do_fail "${indent}Failure getting latest release tag."
+    latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
     new_release=$(semver_bump "$latest_release")
 
     verify_clean_workarea "$indent"
@@ -757,7 +794,7 @@ merge_pr_release_vX() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
-    latest_release=$(git describe --match="v*" HEAD) || do_fail "${indent}Failure getting latest release tag."
+    latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
     new_release=$(semver_bump "$latest_release")
     new_branch="release-$new_release"
 
@@ -785,7 +822,7 @@ tag_release_vX() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
-    latest_release=$(git describe --match="v*" HEAD) || do_fail "${indent}Failure getting latest release tag."
+    latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
 
     merge_release=$(git log --oneline -1 | sed 's/^.* Merge release \(.*\)/\1/')
     msg "${indent}Expecting to tag as release $merge_release"
@@ -793,18 +830,21 @@ tag_release_vX() {
     # Is it already tagged?
     if git show "$merge_release" 2>/dev/null 1>&2; then
         msg "${indent}Already tagged as $merge_release"
-        cd ..
-        return
+    else 
+        msg "${indent}Tagging as $merge_release"
+        git tag -a "$merge_release" -m "Release $merge_release" || do_fail "${indent}Failed tagging as $merge_release"
+        git push origin --tags || do_fail "${indent}Failed to push tags"
     fi
 
-    msg "${indent}Tagging as $merge_release"
-    git tag -a "$merge_release" -m "Release $merge_release" || do_fail "${indent}Failed tagging as $merge_release"
-    git push origin --tags || do_fail "${indent}Failed to push tags"
-
     if [[ $repo_short_name == nnf_doc ]]; then
-        msg "${indent}Creating $repo_short_name release."
-        msg "${indent}Generating notes from $latest_release to $merge_release."
-        gh release create --generate-notes --verify-tag --notes-start-tag "$latest_release" "$merge_release" || do_fail "${indent}Failed to generate release for $repo_short_name"
+        # Is the doc's release already created?
+        if gh release view "$merge_release" > /dev/null 2>&1; then
+            msg "${indent}Already created release doc"
+        else
+            msg "${indent}Creating release doc."
+            msg "${indent}Generating notes from $latest_release to $merge_release."
+            gh release create --generate-notes --verify-tag --notes-start-tag "$latest_release" "$merge_release" || do_fail "${indent}Failed to generate release for $repo_short_name"
+        fi
     fi
 
     echo
