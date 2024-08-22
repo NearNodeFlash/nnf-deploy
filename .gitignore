@@ -14,3 +14,7 @@ overlay-legacy.yaml
 # For the release-all.sh tool.
 tools/workingspace/
 workingspace/
+
+# For crd-bumper tool.
+tools/crd-bumper/pkg/__pycache__/
+
