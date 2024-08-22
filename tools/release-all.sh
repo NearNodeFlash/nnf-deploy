@@ -310,7 +310,7 @@ summarize_submodule_commits() {
             msg "${indent}Updates found in submodule $mod"
             prev_commit=$(git diff "$mod" | grep -E '^-Subproject' | awk '{print $3}')
             pushd "$mod" > /dev/null || do_fail "${indent}Unable to summarize submodule $mod"
-            git log --oneline "$prev_commit...HEAD"
+            git log --oneline "$prev_commit...HEAD" | cat
             popd > /dev/null || do_fail "${indent}Unable to popd from $mod"
         done
         echo
@@ -736,7 +736,7 @@ check_repo_release_vX() {
 
     echo
     msg "${indent}Commits added to branch $repo_name/$new_branch:"
-    git log --oneline "$branch...HEAD"
+    git log --oneline "$branch...HEAD" | cat
     echo
 
     if [[ $has_changes = "true" && $PUSH_BRANCH = "true" ]]; then
