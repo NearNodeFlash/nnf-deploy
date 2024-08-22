@@ -17,4 +17,5 @@ workingspace/
 
 # For crd-bumper tool.
 tools/crd-bumper/pkg/__pycache__/
+tools/crd-bumper/venv/
 
