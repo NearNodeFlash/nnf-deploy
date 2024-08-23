@@ -10,9 +10,9 @@ This tool implements the hub-and-spoke model of CRD versioning. See Kubebuilder'
 
 The new CRD version will be the new hub, and the previous hub will become a new spoke. (Note: in the Kubebuilder book example, the old version is the hub and never changes, and all new versions are spokes.)
 
-# Using CRD Bumper
+## Using CRD Bumper
 
-## Create Environment
+Create the environment prior to running the tool:
 
 ```console
 $ python3 -m venv venv
@@ -20,8 +20,7 @@ $ . venv/bin/activate
 (venv) $ pip install -r requirements.txt
 ```
 
-
-## Run the Tool
+### Run the Tool
 
 Clone a fresh copy of the repository that contains the CRDs and controllers, checking out to the default branch (master or main). The tool expects a repository that is compatible with kubebuilder and will use the `./PROJECT` file that is maintained by kubebuilder.
 
@@ -35,13 +34,13 @@ crd-bumper.py --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 
 
 The new `api-v1beta2` branch will have a series of commits showing a progression of steps. Some of these commit messages will have an **ACTION** comment describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
 
-## Verification
+### Verification
 
 After the entire progression of steps has completed, verify the results by running `make vet`, and paying attention to any of the **ACTION** comments described above. Once `make vet` is clean, move to the next debug step by running `make test`.
 
 Do not run `make vet` or `make test` before the entire progression of steps has completed. **The individual commits do not build--the whole set of commits is required.**
 
-## Stepping
+### Stepping
 
 Sometimes it can be helpful to do the steps one at a time. If the first step has not yet been done, then begin by using the `step` command in place of the `all` command. It begins, as with the `all` command, by creating a new branch off `master` named `api-v1beta2`, where it will do all of its work.
 
@@ -98,19 +97,19 @@ Used in `internal/controller/conversion_test.go` to indicate where additional te
 
 Used in `internal/controller/conversion_test.go` to indicate where additional spoke conversion tests should be placed. Each kind will have its own `Context()` block within the main `Describe()`, and this should be the last statement within each of those Context blocks. Replace "GROUP.KIND" with the API's group and kind, using the same spelling and use of lower/upper case letters as found in the `./PROJECT` file.
 
-# References
+## References
 
-**Kubernetes**
+### Kubernetes
 
 [Versions in CustomResourceDefinitions](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/)
 
-**Kubebuilder**
+### Kubebuilder
 
 [Tutorial: Multi-Version API](https://book.kubebuilder.io/multiversion-tutorial/tutorial)
 
 [Hubs, spokes, and other wheel metaphors](https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts)
 
-**Cluster API**
+### Cluster API
 
 [Cluster API release 1.6 branch](https://github.com/kubernetes-sigs/cluster-api/tree/release-1.6)
 
