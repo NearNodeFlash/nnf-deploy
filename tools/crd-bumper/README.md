@@ -43,7 +43,7 @@ Do not run `make vet` or `make test` before the entire progression of steps has 
 
 ## Stepping
 
-Sometimes it can be helpful to do the steps one at a time. If the first step has not yet been done, then begin by using the `step` command in place of the `all` command. It begins, as with the `all` command, by creating a new branch off "master" named "api-v1beta2", where it will do all of its work.
+Sometimes it can be helpful to do the steps one at a time. If the first step has not yet been done, then begin by using the `step` command in place of the `all` command. It begins, as with the `all` command, by creating a new branch off `master` named `api-v1beta2`, where it will do all of its work.
 
 ```console
 crd-bumper.py --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 step
