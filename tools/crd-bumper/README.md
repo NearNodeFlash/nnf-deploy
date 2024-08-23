@@ -23,7 +23,7 @@ $ . venv/bin/activate
 
 ## Run the Tool
 
-Clone a fresh copy of the repository that contains the CRDs and controllers, checked out to the default branch (master or main). The tool expects a repository that is compatible with kubebuilder and will use the `./PROJECT` file that is maintained by kubebuilder.
+Clone a fresh copy of the repository that contains the CRDs and controllers, checking out to the default branch (master or main). The tool expects a repository that is compatible with kubebuilder and will use the `./PROJECT` file that is maintained by kubebuilder.
 
 The following example will create a new API version `v1beta2` for the lustre-fs-operator repository, where `v1beta1` is the existing hub and `v1alpha1` is the most recent existing spoke. It begins by creating a new branch off "master" named `api-v1beta2`, where it will do all of its work.
 
