@@ -18,75 +18,75 @@
 import os
 import re
 
+
 class FileUtil:
 
-  def __init__(self, dryrun, fpath):
-    self._dryrun = dryrun
-    self._fpath = fpath
-    self._input_data = None
+    def __init__(self, dryrun, fpath):
+        self._dryrun = dryrun
+        self._fpath = fpath
+        self._input_data = None
 
-  def read(self):
-    if self._input_data is None:
-      try:
-        with open(self._fpath, 'r', encoding='utf-8') as f1:
-          self._input_data = f1.read()
-      except Exception as ex:
-        print(f"{ex}: reading file {self._fpath}")
-        raise
-
-  def store(self):
-    if self._input_data is not None:
-      f2 = open(f"{self._fpath}.new", 'w', encoding='utf-8')
-      f2.write(self._input_data)
-      f2.close()
-
-      if not self._dryrun:
-        os.rename(f"{self._fpath}.new", self._fpath)
-
-  def replace_in_file(self, from_str, to_str):
-    self.read()
-    changed = False
-    if self._input_data is not None:
-      input_data = self._input_data.replace(from_str, to_str)
-      if input_data != self._input_data:
-        changed = True
-        self._input_data = input_data
+    def read(self):
         if self._input_data is None:
-          raise Exception("Hey, we lost the input data")
-    return changed
+            try:
+                with open(self._fpath, "r", encoding="utf-8") as f1:
+                    self._input_data = f1.read()
+            except Exception as ex:
+                print(f"{ex}: reading file {self._fpath}")
+                raise
 
-  def delete_from_file(self, from_str):
-    self.read()
-    changed = False
-    if self._input_data is not None:
-      new_data = ""
-      for line in self._input_data.split("\n"):
-         if line != from_str:
-           new_data += f"{line}\n"
-      if new_data != self._input_data:
-        changed = True
-        self._input_data = new_data
-    return changed
+    def store(self):
+        if self._input_data is not None:
+            f2 = open(f"{self._fpath}.new", "w", encoding="utf-8")
+            f2.write(self._input_data)
+            f2.close()
 
-  def find_in_file(self, substr):
-    self.read()
-    if self._input_data is not None:
-      for line in self._input_data.split('\n'):
-        if substr in line:
-          return line
-    return None
+            if not self._dryrun:
+                os.rename(f"{self._fpath}.new", self._fpath)
 
-  def find_with_pattern(self, pat):
-    self.read()
-    if self._input_data is not None:
-      for line in self._input_data.split('\n'):
-        if re.search(pat, line):
-          return line
-    return None
+    def replace_in_file(self, from_str, to_str):
+        self.read()
+        changed = False
+        if self._input_data is not None:
+            input_data = self._input_data.replace(from_str, to_str)
+            if input_data != self._input_data:
+                changed = True
+                self._input_data = input_data
+                if self._input_data is None:
+                    raise Exception("Hey, we lost the input data")
+        return changed
 
-  def append(self, line):
-    self.read()
-    if self._input_data is None:
-      self._input_data = ""
-    self._input_data += line
+    def delete_from_file(self, from_str):
+        self.read()
+        changed = False
+        if self._input_data is not None:
+            new_data = ""
+            for line in self._input_data.split("\n"):
+                if line != from_str:
+                    new_data += f"{line}\n"
+            if new_data != self._input_data:
+                changed = True
+                self._input_data = new_data
+        return changed
 
+    def find_in_file(self, substr):
+        self.read()
+        if self._input_data is not None:
+            for line in self._input_data.split("\n"):
+                if substr in line:
+                    return line
+        return None
+
+    def find_with_pattern(self, pat):
+        self.read()
+        if self._input_data is not None:
+            for line in self._input_data.split("\n"):
+                if re.search(pat, line):
+                    return line
+        return None
+
+    def append(self, line):
+        self.read()
+        if self._input_data is None:
+            self._input_data = ""
+        self._input_data += line
