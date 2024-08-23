@@ -33,7 +33,7 @@ cd lustre-fs-operator
 crd-bumper.py --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 all
 ```
 
-The new "api-v1beta2" branch will have a series of commits showing a progression of steps. Some of these commit messages will have an **ACTION** comment describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
+The new `api-v1beta2` branch will have a series of commits showing a progression of steps. Some of these commit messages will have an **ACTION** comment describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
 
 ## Verification
 
