@@ -95,44 +95,17 @@ usage() {
     echo "                      when creating releases for the repos. Some repos"
     echo "                      have references to others, so the order matters."
     echo "  -P phase          Indicates which phase to run. Default: '$PHASE'."
-    echo "                      'master'      Validate the master/main branches."
-    echo "                      'release'     Create the release branches, but don't push."
+    echo "                      'master'       Validate the master/main branches."
+    echo "                      'release'      Create the release branches, but don't push."
     echo "                      'release-push' Create and push the release branches."
-    echo "                      'create-pr'   Create PR for release branches."
-    echo "                      'merge-pr'    Merge PR for release branches."
-    echo "                      'tag-release' Tag the releases."
+    echo "                      'create-pr'    Create PR for release branches."
+    echo "                      'merge-pr'     Merge PR for release branches."
+    echo "                      'tag-release'  Tag the release."
     echo "  -R repo_names     Comma-separated list of repo names to operate on."
     echo "                    If unspecified, then all repos will be used."
     echo "  -w workspace_dir  Name for working directory. Default: '$WORKSPACE'"
     echo
-    echo "Run the steps in this order:"
-    echo
-    echo "  Note that you will almost always want to use the -R option to"
-    echo "  focus these activities."
-    echo
-    echo "  0. Get repo names to use with -R option. Do the releases in the order"
-    echo "     shown in this list:"
-    echo "    ./$PROG -L"
-    echo
-    echo "  1. Check each master branch; determine whether any of them need to"
-    echo "     be re-vendored:"
-    echo "    ./$PROG -P master"
-    echo "  2. Create the new release branches, merge master/main, but don't"
-    echo "     push them:"
-    echo "    ./$PROG -P release -R <repo>"
-    echo
-    echo "  The next steps use the gh(1) GitHub CLI tool and require a GH_TOKEN"
-    echo "  environment variable containing a 'repo' scope classic token."
-    echo
-    echo "  3. If (2) was good, then repeat to push the branches:"
-    echo "    ./$PROG -P release-push -R <repo>"
-    echo "  4. Create PRs for the pushed release branches:"
-    echo "    ./$PROG -P create-pr -R <repo>"
-    echo "  5. Merge PRs for the pushed release branches:"
-    echo "    ./$PROG -P merge-pr -R <repo>"
-    echo "  6. Tag the releases:"
-    echo "    ./$PROG -P tag-release -R <repo>"
-    echo
+    echo "See README.md for detailed instructions"
 }
 
 while getopts "B:LP:R:w:h" opt; do
@@ -270,7 +243,7 @@ check_peer_modules() {
     [[ ! -f go.mod ]] && return
 
     peer_modules=$(grep -e DataWorkflowServices -e NearNodeFlash -e HewlettPackard go.mod | grep -v -e module -e structex | awk '{print $1"@master"}' | paste -s -)
-    if [[ -n $peer_modules ]]; then 
+    if [[ -n $peer_modules ]]; then
         msg "${indent}Checking peer modules: $peer_modules"
 
         # shellcheck disable=SC2086
@@ -561,7 +534,7 @@ update_remote_release_references() {
     msg "${indent}Current latest lustre-csi-driver release is $lustre_csi_release"
 
     yq -i e -M '(.repositories[] | select(.name=="lustre-csi-driver") | .remoteReference.build) = "'"v$lustre_csi_release"'"' config/repositories.yaml
-    yq -i e -M '(.repositories[] | select(.name=="lustre-fs-operator") | .remoteReference.build) = "'"v$lustre_fs_release"'"' config/repositories.yaml 
+    yq -i e -M '(.repositories[] | select(.name=="lustre-fs-operator") | .remoteReference.build) = "'"v$lustre_fs_release"'"' config/repositories.yaml
     git add config/repositories.yaml
 
     if [[ $(git status -s | wc -l) -gt 0 ]]; then
@@ -830,7 +803,7 @@ tag_release_vX() {
     # Is it already tagged?
     if git show "$merge_release" 2>/dev/null 1>&2; then
         msg "${indent}Already tagged as $merge_release"
-    else 
+    else
         msg "${indent}Tagging as $merge_release"
         git tag -a "$merge_release" -m "Release $merge_release" || do_fail "${indent}Failed tagging as $merge_release"
         git push origin --tags || do_fail "${indent}Failed to push tags"
