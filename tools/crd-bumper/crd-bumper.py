@@ -19,7 +19,6 @@
 
 import argparse
 import sys
-import time
 
 from pkg.webhooks import MvWebhooks, ConversionWebhooks
 from pkg.project import Project
