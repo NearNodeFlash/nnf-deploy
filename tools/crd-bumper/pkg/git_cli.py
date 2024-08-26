@@ -203,3 +203,33 @@ class GitCLI:
                 raise ValueError(
                     f"Operation {next_operation} wants to build on {expect_token}, but found that the previous operation was {prev_cmd_token}."
                 )
+
+    def clone_and_cd(self, repo, workdir):
+        """Clone the specified repo and 'cd' into it."""
+
+        if os.path.isdir(workdir) is False:
+            os.mkdir(workdir)
+        os.chdir(workdir)
+
+        newdir = os.path.basename(repo).removesuffix(".git")
+        if os.path.isdir(newdir) is False:
+            cmd = f"git clone {repo}"
+            if self._dryrun:
+                print(f"Dryrun: {cmd}")
+                print(f"Dryrun: cd {newdir}")
+            else:
+                print(f"Run: {cmd}")
+                res = subprocess.run(
+                    shlex.split(cmd),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if res.returncode != 0:
+                    raise RuntimeError(f"Unable to clone repo {repo}: {res.stderr}")
+
+                if os.path.isdir(newdir) is False:
+                    raise FileNotFoundError(
+                        f"Expected to find directory ({newdir}) after clone."
+                    )
+        os.chdir(newdir)

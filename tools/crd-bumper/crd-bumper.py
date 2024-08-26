@@ -30,6 +30,8 @@ from pkg.git_cli import GitCLI
 from pkg.conversion_gen import ConversionGen
 from pkg.make_cmd import MakeCmd
 
+WORKING_DIR = "workingspace"
+
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument(
     "--prev-ver",
@@ -49,6 +51,13 @@ PARSER.add_argument(
     dest="most_recent_spoke",
     required=False,
     help="If you have an existing, most recent spoke that is just before the version in --prev-ver, then tell me what it is.",
+)
+PARSER.add_argument(
+    "--repo",
+    "-r",
+    type=str,
+    required=True,
+    help="Git repository URL which has the APIs to be bumped.",
 )
 PARSER.add_argument(
     "--branch",
@@ -82,6 +91,13 @@ PARSER.add_argument(
     action="store_true",
     dest="nocommit",
     help="Skip git-commit. Implies only one step.",
+)
+PARSER.add_argument(
+    "--workdir",
+    type=str,
+    required=False,
+    default=WORKING_DIR,
+    help=f"Name for working directory. All repos will be cloned below this directory. Default: {WORKING_DIR}.",
 )
 
 SUBPARSERS = PARSER.add_subparsers(help="COMMANDS", dest="cmd", required=True)
@@ -118,6 +134,9 @@ def main():
     if args.dryrun or args.nocommit:
         args.cmd = "step"
 
+    gitcli = GitCLI(args.dryrun, args.nocommit)
+    gitcli.clone_and_cd(args.repo, args.workdir)
+
     project = Project(args.dryrun)
     cgen = ConversionGen(
         args.dryrun, project, args.prev_ver, args.new_ver, args.most_recent_spoke
@@ -126,7 +145,6 @@ def main():
 
     validate_args(args, cgen)
 
-    gitcli = GitCLI(args.dryrun, args.nocommit)
     if args.branch is None:
         args.branch = f"api-{args.new_ver}"
     if args.this_branch:

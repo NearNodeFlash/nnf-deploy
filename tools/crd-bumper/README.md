@@ -27,10 +27,11 @@ Clone a fresh copy of the repository that contains the CRDs and controllers, che
 The following example will create a new API version `v1beta2` for the lustre-fs-operator repository, where `v1beta1` is the existing hub and `v1alpha1` is the most recent existing spoke. It begins by creating a new branch off "master" named `api-v1beta2`, where it will do all of its work.
 
 ```console
-git clone git@github.com:NearNodeFlash/lustre-fs-operator.git
-cd lustre-fs-operator
-crd-bumper.py --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 all
+REPO=git@github.com:NearNodeFlash/lustre-fs-operator.git
+crd-bumper.py --repo $REPO --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 all
 ```
+
+The repository with its new API will be found under a directory named `workingspace/lustre-fs-operator`.
 
 The new `api-v1beta2` branch will have a series of commits showing a progression of steps. Some of these commit messages will have an **ACTION** comment describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
 
