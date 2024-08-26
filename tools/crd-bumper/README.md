@@ -46,13 +46,13 @@ Do not run `make vet` or `make test` before the entire progression of steps has 
 Sometimes it can be helpful to do the steps one at a time. If the first step has not yet been done, then begin by using the `step` command in place of the `all` command. It begins, as with the `all` command, by creating a new branch off `master` named `api-v1beta2`, where it will do all of its work.
 
 ```console
-crd-bumper.py --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 step
+crd-bumper.py --repo $REPO --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 step
 ```
 
 Follow that with more steps, telling the tool to continue in the current branch that was created during the first step by adding `--this-branch`. The other args **must** remain the same as they were on the first command. The tool knows when there are no more steps to be done.
 
 ```console
-crd-bumper.py --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 --this-branch step
+crd-bumper.py --repo $REPO --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new-ver v1beta2 --this-branch step
 ```
 
 Do not attempt to run `make vet` or `make test` between steps. The individual commits do not build.
