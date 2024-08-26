@@ -26,10 +26,11 @@ from .fileutil import FileUtil
 
 
 class MvWebhooks:
+    """Move webhooks. This includes adjusting Go code, manifests, and the PROJECT file."""
 
     def __init__(self, dryrun, project, prev_ver, new_ver, preferred_alias, module):
         if not isinstance(project, Project):
-            raise Exception("need a Project")
+            raise TypeError("need a Project")
         self._dryrun = dryrun
         self._project = project
         self._prev_ver = prev_ver
@@ -38,6 +39,8 @@ class MvWebhooks:
         self._module = module
 
     def edit_go_files(self):
+        """Edit the API version in the webhook Go files."""
+
         for root, _, f_names in os.walk(f"api/{self._new_ver}", followlinks=False):
             for fname in f_names:
                 if "webhook" in fname:
@@ -66,6 +69,8 @@ class MvWebhooks:
         fu.store()
 
     def edit_manifests(self):
+        """Edit the API version in the manifests."""
+
         kinds = self._project.kinds(self._prev_ver)
         fu = FileUtil(self._dryrun, "config/webhook/manifests.yaml")
         for k in kinds:
@@ -76,6 +81,7 @@ class MvWebhooks:
         fu.store()
 
     def mv_project_webhooks(self):
+        """Update the webhook metadata in the PROJECT file."""
 
         kinds = self._project.kinds(self._prev_ver)
         kinds_new_ver = self._project.kinds(self._new_ver)
@@ -104,10 +110,11 @@ class MvWebhooks:
 
 
 class ConversionWebhooks:
+    """Add or update the conversion webhooks."""
 
     def __init__(self, dryrun, project, prev_ver, new_ver, preferred_alias, module):
         if not isinstance(project, Project):
-            raise Exception("need a Project")
+            raise TypeError("need a Project")
         self._dryrun = dryrun
         self._project = project
         self._prev_ver = prev_ver
@@ -116,6 +123,7 @@ class ConversionWebhooks:
         self._module = module
 
     def create(self):
+        """Create a conversion webhhook using kubebuilder."""
 
         kinds = self._project.kinds(self._prev_ver)
 
@@ -130,21 +138,17 @@ class ConversionWebhooks:
                     new_webhook_test = True
                 else:
                     print(f"Running: {cmd}")
-                    cr_child = subprocess.Popen(
+                    res = subprocess.run(
                         shlex.split(cmd),
-                        shell=False,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                        capture_output=True,
                         text=True,
+                        check=False,
                     )
-                    res = cr_child.communicate()
-                    if cr_child.returncode != 0:
-                        print(f"Error: {res[1]}")
-                        raise Exception(
-                            f"Unable to create webhook for {k}.{self._new_ver}"
+                    if res.returncode != 0:
+                        raise RuntimeError(
+                            f"Unable to create webhook for {k}.{self._new_ver}: {res.stderr}"
                         )
-                    else:
-                        new_webhook_test = True
+                    new_webhook_test = True
 
                     if new_webhook_test:
                         self._update_suite_test(k)
@@ -153,6 +157,7 @@ class ConversionWebhooks:
         return new_webhook_test
 
     def hub(self):
+        """Create a hub-style conversion.go file for the new API."""
 
         hub_file = f"api/{self._new_ver}/conversion.go"
         if not os.path.isfile(hub_file):
@@ -173,6 +178,7 @@ class ConversionWebhooks:
             fu.store()
 
     def enable_in_crd(self):
+        """Enable the conversion webhook in the CRD manifest."""
 
         kustomization = "config/crd/kustomization.yaml"
         fu = FileUtil(self._dryrun, kustomization)
@@ -213,13 +219,13 @@ class ConversionWebhooks:
             # Skip it. We don't have a reference we can use to place the comment.
             return
 
-        # Wake up!  Multi-line f-string:
-        template = f"""
+        # Wake up!  Multi-line string:
+        template = """
 	// We already have api/<spoke_ver>/conversion_test.go that is
 	// digging deep into the conversion routines, and we have
 	// internal/controllers/conversion_test.go that is verifing that the
 	// conversion webhook is hooked up to those routines.
-"""  # END multi-line f-string.
+"""  # END multi-line string.
 
         fu.replace_in_file(has_intro, f"{template}\n{has_intro}")
         fu.store()

@@ -23,6 +23,7 @@ from .fileutil import FileUtil
 
 
 class Controllers:
+    """Point controllers and spokes at new hub."""
 
     def __init__(
         self,
@@ -35,7 +36,7 @@ class Controllers:
         topdir=None,
     ):
         if not isinstance(project, Project):
-            raise Exception("need a Project")
+            raise TypeError("need a Project")
         self._dryrun = dryrun
         self._project = project
         self._prev_ver = prev_ver
@@ -45,6 +46,7 @@ class Controllers:
         self._topdir = topdir
 
     def has_earlier_spokes(self):
+        """Determine whether the repo has enough API versions to have an existing spoke."""
 
         for _, dir_names, _ in os.walk("api", followlinks=False):
             if len(dir_names) > 2:
@@ -52,6 +54,7 @@ class Controllers:
         return False
 
     def bump_earlier_spokes(self):
+        """If the repo has earlier spokes, update them to point at the new hub."""
 
         earlier_spokes = self.has_earlier_spokes()
         if earlier_spokes:
@@ -65,14 +68,15 @@ class Controllers:
 
         kinds = self._project.kinds(self._prev_ver)
         if len(kinds) == 0:
-            raise Exception(f"Nothing found at version {self._prev_ver}")
+            raise ValueError(f"Nothing found at version {self._prev_ver}")
         self._walk_files("github/cluster-api/util/conversion", kinds)
 
     def run(self):
+        """Walk over APIs and controllers, bumping them to point at the new hub."""
 
         kinds = self._project.kinds(self._prev_ver)
         if len(kinds) == 0:
-            raise Exception(f"Nothing found at version {self._prev_ver}")
+            raise ValueError(f"Nothing found at version {self._prev_ver}")
 
         if self._topdir is not None:
             self._walk_files(self._topdir, kinds)
@@ -82,6 +86,8 @@ class Controllers:
                     self._walk_files(top, kinds)
 
     def _walk_files(self, top, kinds):
+        """Walk the files in the given directory, and update them to point at the new hub."""
+
         for root, _, f_names in os.walk(top, followlinks=False):
             for fname in f_names:
                 this_api = os.path.basename(root)
@@ -107,6 +113,7 @@ class Controllers:
                     self._point_at_new_hub(kinds, full_path)
 
     def _point_at_new_hub(self, kinds, path):
+        """Update the given file to point it at the new hub."""
 
         fu = FileUtil(self._dryrun, path)
         for k in kinds:
@@ -131,6 +138,7 @@ class Controllers:
             fu.store()
 
     def _update_suite_test(self, kinds, path):
+        """Update the suite_test.go file to include the setup of the new hub."""
 
         fu = FileUtil(self._dryrun, path)
 
@@ -184,6 +192,7 @@ class Controllers:
             fu.store()
 
     def _update_spoke_conversion(self, kinds, path, this_api):
+        """Update the conversion.go in each pre-existing spoke to point at the new hub."""
 
         if this_api == self._prev_ver:
             # Adjust only the established spokes; the new spoke is already correct.

@@ -24,10 +24,11 @@ from .fileutil import FileUtil
 
 
 class ConversionGen:
+    """Create conversion routines and tests."""
 
     def __init__(self, dryrun, project, prev_ver, new_ver, most_recent_spoke):
         if not isinstance(project, Project):
-            raise Exception("need a Project")
+            raise TypeError("need a Project")
         self._dryrun = dryrun
         self._project = project
         self._prev_ver = prev_ver
@@ -109,21 +110,23 @@ class ConversionGen:
         #    fu.store()
 
     def module(self):
+        """Return the name of this Go module."""
+
         if self._module is not None:
             return self._module
 
         go_mod = "go.mod"
         if not os.path.isfile(go_mod):
-            raise Exception(f"unable to find {go_mod}")
+            raise FileNotFoundError(f"unable to find {go_mod}")
 
         # Get the module name.
         fu = FileUtil(self._dryrun, go_mod)
         module_line = fu.find_with_pattern("^module ")
         if module_line is None:
-            raise Exception(f"unable to find module name in {go_mod}")
+            raise ValueError(f"unable to find module name in {go_mod}")
         m = re.search(r"^module\s+(.*)", module_line)
         if m is None:
-            raise Exception(f"unable to parse module name in {go_mod}")
+            raise ValueError(f"unable to parse module name in {go_mod}")
         self._module = m.group(1)
         return self._module
 
@@ -152,7 +155,7 @@ class ConversionGen:
         Update the file to add an import for the new hub.
         """
         if not isinstance(fu, FileUtil):
-            raise Exception("need a FileUtil")
+            raise TypeError("need a FileUtil")
 
         if self._preferred_alias is None:
             # Pick the first kind, use its group.
@@ -302,7 +305,7 @@ func (dst *{kind}List) ConvertFrom(srcRaw conversion.Hub) error {{
 
     def _update_spoke_conversion(self, kinds, fu):
         if not isinstance(fu, FileUtil):
-            raise Exception("need a FileUtil")
+            raise TypeError("need a FileUtil")
 
         if self._preferred_alias is None:
             # Pick the first kind, use its group.

@@ -25,10 +25,11 @@ from .fileutil import FileUtil
 
 
 class CreateApis:
+    """Create the new API versions."""
 
     def __init__(self, dryrun, project, prev_ver, new_ver, preferred_alias, module):
         if not isinstance(project, Project):
-            raise Exception("need a Project")
+            raise TypeError("need a Project")
         self._dryrun = dryrun
         self._project = project
         self._prev_ver = prev_ver
@@ -55,10 +56,11 @@ class CreateApis:
         return True
 
     def create(self):
+        """For each kind, create a new API version using kubebuilder."""
 
         kinds = self._project.kinds(self._prev_ver)
         if len(kinds) == 0:
-            raise Exception(f"Nothing found at version {self._prev_ver}")
+            raise ValueError(f"Nothing found at version {self._prev_ver}")
         kinds_new_ver = self._project.kinds(self._new_ver)
 
         for k in kinds:
@@ -70,27 +72,26 @@ class CreateApis:
                     print(f"Dryrun: {cmd}")
                 else:
                     print(f"Running: {cmd}")
-                    child = subprocess.Popen(
+                    res = subprocess.run(
                         shlex.split(cmd),
-                        shell=False,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                        capture_output=True,
                         text=True,
+                        check=False,
                     )
-                    res = child.communicate()
-                    if child.returncode != 0:
-                        raise Exception(
-                            f"Unable to create API for {k}.{self._new_ver}:\n{res[1]}"
+                    if res.returncode != 0:
+                        raise RuntimeError(
+                            f"Unable to create API for {k}.{self._new_ver}:\n{res.stderr}"
                         )
 
     def copy_content(self, git):
+        """Copy the API content from the previous hub to the new hub."""
 
         kinds_prev_ver = self._project.kinds(self._prev_ver)
         if len(kinds_prev_ver) == 0:
-            raise Exception(f"Nothing found at version {self._prev_ver}")
+            raise ValueError(f"Nothing found at version {self._prev_ver}")
         kinds_new_ver = self._project.kinds(self._new_ver)
 
-        copied = dict()
+        copied = {}
         for k in kinds_new_ver:
             if k in kinds_prev_ver:
                 src = f"api/{self._prev_ver}/{k.lower()}_types.go"
@@ -159,7 +160,7 @@ class CreateApis:
                 if line is None:
                     line = fu.find_in_file("+kubebuilder:object:root=true")
                 if line is None:
-                    raise Exception(
+                    raise LookupError(
                         f"Unable to place kubebuilder:storageversion in {fname}"
                     )
                 fu.replace_in_file(line, f"""{line}\n// +kubebuilder:storageversion""")
@@ -182,6 +183,10 @@ class CreateApis:
         fu.store()
 
     def edit_new_api_files(self):
+        """
+        Update the API version reference in the Go files that have content that
+        was relocated from the previous hub to the new hub.
+        """
 
         kinds = self._project.kinds(self._new_ver)
         for root, _, f_names in os.walk(f"api/{self._new_ver}", followlinks=False):
@@ -205,7 +210,7 @@ class CreateApis:
                             # Before: '\tdwsv1alpha1 "github.com/hewpack/dws/api/v1alpha1"'
                             # After:  '\tdwsv1alpha2 "github.com/hewpack/dws/api/v1alpha2"'
                             line2 = f'\t{group}{self._new_ver} "{self._module}/api/{self._new_ver}"'
-                            fu.replace_in_file(line, new)
+                            fu.replace_in_file(line, line2)
 
                         # This matches: dwsv1alpha1.  (yes, dot)
                         fu.replace_in_file(

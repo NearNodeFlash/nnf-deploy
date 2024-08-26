@@ -22,12 +22,15 @@ from .fileutil import FileUtil
 
 
 class Copyright:
+    """Update copyright on files."""
 
     def __init__(self, dryrun):
         self._dryrun = dryrun
         self._year = str(datetime.date.today().year)
 
     def update(self, path):
+        """Search for copyright strings and update the dates."""
+
         fu = FileUtil(self._dryrun, path)
         line = fu.find_in_file("Copyright")
         if line is None:

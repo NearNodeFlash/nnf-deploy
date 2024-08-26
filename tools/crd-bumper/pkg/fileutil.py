@@ -20,6 +20,7 @@ import re
 
 
 class FileUtil:
+    """Read and update files."""
 
     def __init__(self, dryrun, fpath):
         self._dryrun = dryrun
@@ -27,6 +28,8 @@ class FileUtil:
         self._input_data = None
 
     def read(self):
+        """Read the file if it has not already been read."""
+
         if self._input_data is None:
             try:
                 with open(self._fpath, "r", encoding="utf-8") as f1:
@@ -36,15 +39,18 @@ class FileUtil:
                 raise
 
     def store(self):
+        """Store the file if it has data to be stored."""
+
         if self._input_data is not None:
-            f2 = open(f"{self._fpath}.new", "w", encoding="utf-8")
-            f2.write(self._input_data)
-            f2.close()
+            with open(f"{self._fpath}.new", "w", encoding="utf-8") as f2:
+                f2.write(self._input_data)
 
             if not self._dryrun:
                 os.rename(f"{self._fpath}.new", self._fpath)
 
     def replace_in_file(self, from_str, to_str):
+        """Replace one string with another throughout the file."""
+
         self.read()
         changed = False
         if self._input_data is not None:
@@ -52,11 +58,11 @@ class FileUtil:
             if input_data != self._input_data:
                 changed = True
                 self._input_data = input_data
-                if self._input_data is None:
-                    raise Exception("Hey, we lost the input data")
         return changed
 
     def delete_from_file(self, from_str):
+        """Delete all instances of a line from the file."""
+
         self.read()
         changed = False
         if self._input_data is not None:
@@ -70,6 +76,8 @@ class FileUtil:
         return changed
 
     def find_in_file(self, substr):
+        """Find the first line having a given substring."""
+
         self.read()
         if self._input_data is not None:
             for line in self._input_data.split("\n"):
@@ -78,6 +86,8 @@ class FileUtil:
         return None
 
     def find_with_pattern(self, pat):
+        """Find the first line matching a given pattern."""
+
         self.read()
         if self._input_data is not None:
             for line in self._input_data.split("\n"):
@@ -86,6 +96,8 @@ class FileUtil:
         return None
 
     def append(self, line):
+        """Append the given line to the file."""
+
         self.read()
         if self._input_data is None:
             self._input_data = ""

@@ -22,6 +22,7 @@ from .fileutil import FileUtil
 
 
 class Project:
+    """Manage the ./PROJECT file."""
 
     def __init__(self, dryrun, project_file=None):
         self._dryrun = dryrun
@@ -42,6 +43,8 @@ class Project:
             self._yaml = yaml.safe_load(stream)
 
     def store(self):
+        """Store the PROJECT file."""
+
         newname = f"{self._fname}.new"
         with open(newname, "w", encoding="utf-8") as stream:
             if self._comment != "":
@@ -77,11 +80,15 @@ class Project:
         return kinds
 
     def name(self):
+        """Return the project's name."""
+
         return self._yaml["projectName"]
 
     def has_webhooks(self, kind, version):
+        """Determine whether a given resource has webhooks."""
+
         idx = self.find_idx(kind, version)
-        return True if "webhooks" in self._yaml["resources"][idx] else False
+        return "webhooks" in self._yaml["resources"][idx]
 
     def group(self, kind, version):
         """Return the group for the "kind" at the given API version."""
@@ -96,7 +103,7 @@ class Project:
                 and self._yaml["resources"][i]["version"] == version
             ):
                 return i
-        raise Exception(
+        raise ValueError(
             f"unable to find resource API: {kind}.{version} in {self._fname}"
         )
 

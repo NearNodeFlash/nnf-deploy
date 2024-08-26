@@ -16,12 +16,14 @@
 # limitations under the License.
 
 import os
+import shlex
 import subprocess
 
 from .copyright import Copyright
 
 
 class GitCLI:
+    """Git Commands"""
 
     def __init__(self, dryrun, nocommit):
         self._dryrun = dryrun
@@ -29,58 +31,47 @@ class GitCLI:
             nocommit = True
         self._nocommit = nocommit
 
-    def verify_branch(self, branch):
-        cmd = "git status | sed 1q | awk '{{print $3}}'"
-        child = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-        res = child.communicate()
-        if child.returncode != 0:
-            raise Exception(f"Unable to confirm branch: {res[1]}")
-        bname = res[0].strip()
-        if bname != self._branch:
-            raise Exception(f"Current branch is {bname}, desired branch is {branch}")
-
     def checkout_branch(self, branch):
+        """Checkout a named branch."""
+
         if branch in ["main", "master", "releases/v0"]:
-            raise Exception("Branch name must not be main, master, or releases/v0")
+            raise ValueError("Branch name must not be main, master, or releases/v0")
         self.verify_clean()
         cmd = f"git checkout -b {branch}"
         if self._dryrun:
             print(f"Dryrun: {cmd}")
         else:
             print(f"Run: {cmd}")
-            child = subprocess.Popen(
-                cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            res = subprocess.run(
+                shlex.split(cmd),
+                capture_output=True,
                 text=True,
+                check=False,
             )
-            res = child.communicate()
-            if child.returncode != 0:
-                raise Exception(f"Unable to checkout branch {branch}: {res[1]}")
+            if res.returncode != 0:
+                raise RuntimeError(f"Unable to checkout branch {branch}: {res.stderr}")
 
     def mv(self, src, dst):
+        """Execute a git-mv."""
+
         cmd = f"git mv {src} {dst}"
         if self._dryrun:
             print(f"Dryrun: {cmd}")
         else:
             print(f"Run: {cmd}")
-            mv_child = subprocess.Popen(
-                cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            res = subprocess.run(
+                shlex.split(cmd),
+                capture_output=True,
                 text=True,
+                check=False,
             )
-            res = mv_child.communicate()
-            if mv_child.returncode != 0:
-                raise Exception(
-                    f"Unable to execute command to move code: {mv_child.returncode}, err: {res[1]}"
+            if res.returncode != 0:
+                raise RuntimeError(
+                    f"Unable to execute command to move code: {res.stderr}"
                 )
 
     def _add_files(self):
+        """Execute a git-add."""
 
         self._update_copyrights()
 
@@ -89,35 +80,33 @@ class GitCLI:
             print(f"Dryrun: {cmd}")
         else:
             print(f"Run: {cmd}")
-            child = subprocess.Popen(
-                cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            res = subprocess.run(
+                shlex.split(cmd),
+                capture_output=True,
                 text=True,
+                check=False,
             )
-            res = child.communicate()
-            if child.returncode != 0:
-                raise Exception(f"Unable to add files: {res[1]}")
+            if res.returncode != 0:
+                raise RuntimeError(f"Unable to add files: {res.stderr}")
 
     def _update_copyrights(self):
+        """Find all modified files, attempt to update the copyright in each one."""
+
         cmd = "git status -s"
         if self._dryrun:
             print(f"Dryrun: {cmd}")
         else:
             print(f"Run: {cmd}")
-            child = subprocess.Popen(
-                cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            res = subprocess.run(
+                shlex.split(cmd),
+                capture_output=True,
                 text=True,
+                check=False,
             )
-            res = child.communicate()
-            if child.returncode != 0:
-                raise Exception(f"Unable to query git status: {res[1]}")
+            if res.returncode != 0:
+                raise RuntimeError(f"Unable to query git status: {res.stderr}")
             cright = Copyright(self._dryrun)
-            for x in res[0].split("\n"):
+            for x in res.stdout.split("\n"):
                 if len(x) == 0:
                     break
                 fname = x.split()[-1]
@@ -126,24 +115,26 @@ class GitCLI:
                         cright.update(fname)
 
     def verify_clean(self):
+        """Determine whether there are any uncommitted changes or untracked files."""
+
         cmd = "git status -s"
         if self._dryrun:
             print(f"Dryrun: {cmd}")
         else:
             print(f"Run: {cmd}")
-            child = subprocess.Popen(
-                cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            res = subprocess.run(
+                shlex.split(cmd),
+                capture_output=True,
                 text=True,
+                check=False,
             )
-            res = child.communicate()
-            if child.returncode != 0:
-                raise Exception(f"Unable to verify that workarea is clean: {res[1]}")
-            status = res[0].strip()
+            if res.returncode != 0:
+                raise RuntimeError(
+                    f"Unable to verify that workarea is clean: {res.stderr}"
+                )
+            status = res.stdout.strip()
             if len(status) > 0:
-                raise Exception(f"Workarea is not clean: {res[0]}")
+                raise RuntimeError(f"Workarea is not clean: {res.stdout}")
 
     def commit_stage(self, operation, msg_in):
         """
@@ -160,16 +151,14 @@ class GitCLI:
             print(f"Dryrun: {cmd}")
         else:
             print(f"Run: {cmd}")
-            child = subprocess.Popen(
-                cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            res = subprocess.run(
+                shlex.split(cmd),
+                capture_output=True,
                 text=True,
+                check=False,
             )
-            res = child.communicate()
-            if child.returncode != 0:
-                raise Exception(f"Unable to commit: {res[0]}\n{res[1]}")
+            if res.returncode != 0:
+                raise RuntimeError(f"Unable to commit: {res.stdout}\n{res.stderr}")
             self.verify_clean()
 
     def get_previous(self):
@@ -178,13 +167,15 @@ class GitCLI:
         """
 
         cmd = "git log -1 --format='%B'"
-        child = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        res = subprocess.run(
+            shlex.split(cmd),
+            capture_output=True,
+            text=True,
+            check=False,
         )
-        res = child.communicate()
-        if child.returncode != 0:
-            raise Exception(f"Unable to get log: {res[1]}")
-        operation = res[0].strip().split("\n", maxsplit=1)[0]
+        if res.returncode != 0:
+            raise RuntimeError(f"Unable to get log: {res.stderr}")
+        operation = res.stdout.strip().split("\n", maxsplit=1)[0]
         if operation.startswith("CRDBUMPER-"):
             # Return the stage symbol that follows the CRDBUMPER token.
             return operation.split("-", 1)[1]
@@ -209,6 +200,6 @@ class GitCLI:
             prev_cmd_token = f"CRDBUMPER-{prev_cmd}"
             expect_token = f"CRDBUMPER-{prev_operation}"
             if prev_cmd_token != expect_token:
-                raise Exception(
+                raise ValueError(
                     f"Operation {next_operation} wants to build on {expect_token}, but found that the previous operation was {prev_cmd_token}."
                 )
