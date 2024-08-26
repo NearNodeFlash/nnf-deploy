@@ -21,7 +21,7 @@
 > **Note:** You almost always want to use the -R option to focus the `phase` activity to a specific repo.
 
 0. **List Repos:** Get the ordered list of repo names to use with -R option in subsequent steps. This is referred to as `repo-list`
-    > **Pro tip** Keep this list in a separate window for easy viewing
+    > **Pro tip:** Keep this list in a separate window for easy viewing
     ./release-all.sh -L
 
 1. **Check Vendoring:** For each repo's master/main branch; determine whether any of them need to be re-vendored.
@@ -41,9 +41,11 @@
 
 3. **Generate Release:** For each repo in `repo-list`, proceed through the following steps in sequence before moving on to the next repo.
     > **Note:** The next steps use the gh(1) GitHub CLI tool and require a GH_TOKEN environment variable containing a 'repo' scope classic token.
+    1. If the **Create Trial Release Branch** had no errors\
 
-    1. If the **Create Trial Release Branch** had no errors
-      ./release-all.sh -P release-push -R <repo>
+        ```bash
+        ./release-all.sh -P release-push -R <repo>
+        ```
 
         Else if **Create Trial Release Branch** was unable to auto merge, manually merge and push the release branch
 
@@ -59,8 +61,20 @@
         ```
 
     2. Create PR for the pushed release branch:
-      ./release-all.sh -P create-pr -R <repo>
-    3. Merge PR for the pushed release branch: **Note: Do NOT manually merge the PR, let `release-all.sh` do it**
-      ./release-all.sh -P merge-pr -R <repo>
+
+       ```bash
+       ./release-all.sh -P create-pr -R <repo>
+       ```
+
+    3. Merge PR for the pushed release branch:
+    **Note: Do NOT manually merge the PR, let `release-all.sh` merge it**
+
+       ```bash
+       ./release-all.sh -P merge-pr -R <repo>
+       ```
+
     4. Tag the release:
-      ./release-all.sh -P tag-release -R <repo>
+
+       ```bash
+       ./release-all.sh -P tag-release -R <repo>
+       ```
