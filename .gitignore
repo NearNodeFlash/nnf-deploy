@@ -15,3 +15,8 @@ overlay-legacy.yaml
 tools/release-all/workingspace
 tools/workingspace/
 workingspace/
+
+# For crd-bumper tool.
+tools/crd-bumper/pkg/__pycache__/
+tools/crd-bumper/venv/
+
