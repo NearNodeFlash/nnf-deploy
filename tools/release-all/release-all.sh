@@ -567,7 +567,9 @@ check_repo_master() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$default_branch" "$indent"
 
-    check_auto_gens "$indent"
+    if [[ $repo_short_name != nnf_deploy ]]; then
+        check_auto_gens "$indent"
+    fi
     verify_clean_workarea "$indent"
     verify_crd_conversions "$indent"
 
