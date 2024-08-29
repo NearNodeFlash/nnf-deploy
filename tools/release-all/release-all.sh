@@ -253,7 +253,6 @@ check_peer_modules() {
             go mod vendor || do_fail "${indent}Failure in go mod vendor"
         fi
 
-        # Let the user deal with any changes bigger than that.
         if [[ $(git status -s | wc -l) -gt 0 ]]; then
             msg "${indent}Peer modules are behind."
             msg "${indent}Update the modules and create a PR. I used:"
