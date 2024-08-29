@@ -253,10 +253,8 @@ check_peer_modules() {
             go mod vendor || do_fail "${indent}Failure in go mod vendor"
         fi
 
-        # If the module update touched only go.mod, go.sum, or modules.txt then
-        # forget about it.
         # Let the user deal with any changes bigger than that.
-        if [[ $(git status -s | grep -c -v -e go.mod -e go.sum -e vendor/modules.txt) -gt 0 ]]; then
+        if [[ $(git status -s | wc -l) -gt 0 ]]; then
             msg "${indent}Peer modules are behind."
             msg "${indent}Update the modules and create a PR. I used:"
             echo
@@ -264,10 +262,6 @@ check_peer_modules() {
             echo
             exit 1
         fi
-
-        # It was only go.mod, go.sum, or modules.txt, so toss those.
-        git restore go.mod go.sum
-        [[ -f vendor/modules.txt ]] && git restore vendor/modules.txt
     fi
 }
 
