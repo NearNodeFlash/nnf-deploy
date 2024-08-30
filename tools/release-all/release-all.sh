@@ -24,21 +24,23 @@ repomap_keys[0]=dws
 repomap_keys[1]=lustre_csi_driver
 repomap_keys[2]=lustre_fs_operator
 repomap_keys[3]=nnf_mfu
-repomap_keys[4]=nnf_sos
-repomap_keys[5]=nnf_dm
-repomap_keys[6]=nnf_integration_test
-repomap_keys[7]=nnf_deploy
-repomap_keys[8]=nnf_doc
+repomap_keys[4]=nnf_ec
+repomap_keys[5]=nnf_sos
+repomap_keys[6]=nnf_dm
+repomap_keys[7]=nnf_integration_test
+repomap_keys[8]=nnf_deploy
+repomap_keys[9]=nnf_doc
 
 declare "repomap_${repomap_keys[0]}"='git@github.com:DataWorkflowServices/dws.git'
 declare "repomap_${repomap_keys[1]}"='git@github.com:HewlettPackard/lustre-csi-driver.git'
 declare "repomap_${repomap_keys[2]}"='git@github.com:NearNodeFlash/lustre-fs-operator.git'
 declare "repomap_${repomap_keys[3]}"='git@github.com:NearNodeFlash/nnf-mfu.git'
-declare "repomap_${repomap_keys[4]}"='git@github.com:NearNodeFlash/nnf-sos.git'
-declare "repomap_${repomap_keys[5]}"='git@github.com:NearNodeFlash/nnf-dm.git'
-declare "repomap_${repomap_keys[6]}"='git@github.com:NearNodeFlash/nnf-integration-test.git'
-declare "repomap_${repomap_keys[7]}"='git@github.com:NearNodeFlash/nnf-deploy.git'
-declare "repomap_${repomap_keys[8]}"='git@github.com:NearNodeFlash/NearNodeFlash.github.io.git'
+declare "repomap_${repomap_keys[4]}"='git@github.com:NearNodeFlash/nnf-ec.git'
+declare "repomap_${repomap_keys[5]}"='git@github.com:NearNodeFlash/nnf-sos.git'
+declare "repomap_${repomap_keys[6]}"='git@github.com:NearNodeFlash/nnf-dm.git'
+declare "repomap_${repomap_keys[7]}"='git@github.com:NearNodeFlash/nnf-integration-test.git'
+declare "repomap_${repomap_keys[8]}"='git@github.com:NearNodeFlash/nnf-deploy.git'
+declare "repomap_${repomap_keys[9]}"='git@github.com:NearNodeFlash/NearNodeFlash.github.io.git'
 
 getter() {
     # Getter for the associative-array-ish thingy that works in bash v3 for Mac.
@@ -567,7 +569,7 @@ check_repo_master() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$default_branch" "$indent"
 
-    if [[ $repo_short_name != nnf_deploy ]]; then
+    if [[ $repo_short_name != nnf_deploy ]] && [[ $repo_short_name != nnf_ec ]]; then
         check_auto_gens "$indent"
     fi
     verify_clean_workarea "$indent"
