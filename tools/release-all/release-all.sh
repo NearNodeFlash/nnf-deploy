@@ -24,21 +24,23 @@ repomap_keys[0]=dws
 repomap_keys[1]=lustre_csi_driver
 repomap_keys[2]=lustre_fs_operator
 repomap_keys[3]=nnf_mfu
-repomap_keys[4]=nnf_sos
-repomap_keys[5]=nnf_dm
-repomap_keys[6]=nnf_integration_test
-repomap_keys[7]=nnf_deploy
-repomap_keys[8]=nnf_doc
+repomap_keys[4]=nnf_ec
+repomap_keys[5]=nnf_sos
+repomap_keys[6]=nnf_dm
+repomap_keys[7]=nnf_integration_test
+repomap_keys[8]=nnf_deploy
+repomap_keys[9]=nnf_doc
 
 declare "repomap_${repomap_keys[0]}"='git@github.com:DataWorkflowServices/dws.git'
 declare "repomap_${repomap_keys[1]}"='git@github.com:HewlettPackard/lustre-csi-driver.git'
 declare "repomap_${repomap_keys[2]}"='git@github.com:NearNodeFlash/lustre-fs-operator.git'
 declare "repomap_${repomap_keys[3]}"='git@github.com:NearNodeFlash/nnf-mfu.git'
-declare "repomap_${repomap_keys[4]}"='git@github.com:NearNodeFlash/nnf-sos.git'
-declare "repomap_${repomap_keys[5]}"='git@github.com:NearNodeFlash/nnf-dm.git'
-declare "repomap_${repomap_keys[6]}"='git@github.com:NearNodeFlash/nnf-integration-test.git'
-declare "repomap_${repomap_keys[7]}"='git@github.com:NearNodeFlash/nnf-deploy.git'
-declare "repomap_${repomap_keys[8]}"='git@github.com:NearNodeFlash/NearNodeFlash.github.io.git'
+declare "repomap_${repomap_keys[4]}"='git@github.com:NearNodeFlash/nnf-ec.git'
+declare "repomap_${repomap_keys[5]}"='git@github.com:NearNodeFlash/nnf-sos.git'
+declare "repomap_${repomap_keys[6]}"='git@github.com:NearNodeFlash/nnf-dm.git'
+declare "repomap_${repomap_keys[7]}"='git@github.com:NearNodeFlash/nnf-integration-test.git'
+declare "repomap_${repomap_keys[8]}"='git@github.com:NearNodeFlash/nnf-deploy.git'
+declare "repomap_${repomap_keys[9]}"='git@github.com:NearNodeFlash/NearNodeFlash.github.io.git'
 
 getter() {
     # Getter for the associative-array-ish thingy that works in bash v3 for Mac.
@@ -95,44 +97,17 @@ usage() {
     echo "                      when creating releases for the repos. Some repos"
     echo "                      have references to others, so the order matters."
     echo "  -P phase          Indicates which phase to run. Default: '$PHASE'."
-    echo "                      'master'      Validate the master/main branches."
-    echo "                      'release'     Create the release branches, but don't push."
+    echo "                      'master'       Validate the master/main branches."
+    echo "                      'release'      Create the release branches, but don't push."
     echo "                      'release-push' Create and push the release branches."
-    echo "                      'create-pr'   Create PR for release branches."
-    echo "                      'merge-pr'    Merge PR for release branches."
-    echo "                      'tag-release' Tag the releases."
+    echo "                      'create-pr'    Create PR for release branches."
+    echo "                      'merge-pr'     Merge PR for release branches."
+    echo "                      'tag-release'  Tag the release."
     echo "  -R repo_names     Comma-separated list of repo names to operate on."
     echo "                    If unspecified, then all repos will be used."
     echo "  -w workspace_dir  Name for working directory. Default: '$WORKSPACE'"
     echo
-    echo "Run the steps in this order:"
-    echo
-    echo "  Note that you will almost always want to use the -R option to"
-    echo "  focus these activities."
-    echo
-    echo "  0. Get repo names to use with -R option. Do the releases in the order"
-    echo "     shown in this list:"
-    echo "    ./$PROG -L"
-    echo
-    echo "  1. Check each master branch; determine whether any of them need to"
-    echo "     be re-vendored:"
-    echo "    ./$PROG -P master"
-    echo "  2. Create the new release branches, merge master/main, but don't"
-    echo "     push them:"
-    echo "    ./$PROG -P release -R <repo>"
-    echo
-    echo "  The next steps use the gh(1) GitHub CLI tool and require a GH_TOKEN"
-    echo "  environment variable containing a 'repo' scope classic token."
-    echo
-    echo "  3. If (2) was good, then repeat to push the branches:"
-    echo "    ./$PROG -P release-push -R <repo>"
-    echo "  4. Create PRs for the pushed release branches:"
-    echo "    ./$PROG -P create-pr -R <repo>"
-    echo "  5. Merge PRs for the pushed release branches:"
-    echo "    ./$PROG -P merge-pr -R <repo>"
-    echo "  6. Tag the releases:"
-    echo "    ./$PROG -P tag-release -R <repo>"
-    echo
+    echo "See README.md for detailed instructions"
 }
 
 while getopts "B:LP:R:w:h" opt; do
@@ -270,7 +245,7 @@ check_peer_modules() {
     [[ ! -f go.mod ]] && return
 
     peer_modules=$(grep -e DataWorkflowServices -e NearNodeFlash -e HewlettPackard go.mod | grep -v -e module -e structex | awk '{print $1"@master"}' | paste -s -)
-    if [[ -n $peer_modules ]]; then 
+    if [[ -n $peer_modules ]]; then
         msg "${indent}Checking peer modules: $peer_modules"
 
         # shellcheck disable=SC2086
@@ -280,10 +255,7 @@ check_peer_modules() {
             go mod vendor || do_fail "${indent}Failure in go mod vendor"
         fi
 
-        # If the module update touched only go.mod, go.sum, or modules.txt then
-        # forget about it.
-        # Let the user deal with any changes bigger than that.
-        if [[ $(git status -s | grep -c -v -e go.mod -e go.sum -e vendor/modules.txt) -gt 0 ]]; then
+        if [[ $(git status -s | wc -l) -gt 0 ]]; then
             msg "${indent}Peer modules are behind."
             msg "${indent}Update the modules and create a PR. I used:"
             echo
@@ -291,10 +263,6 @@ check_peer_modules() {
             echo
             exit 1
         fi
-
-        # It was only go.mod, go.sum, or modules.txt, so toss those.
-        git restore go.mod go.sum
-        [[ -f vendor/modules.txt ]] && git restore vendor/modules.txt
     fi
 }
 
@@ -310,7 +278,7 @@ summarize_submodule_commits() {
             msg "${indent}Updates found in submodule $mod"
             prev_commit=$(git diff "$mod" | grep -E '^-Subproject' | awk '{print $3}')
             pushd "$mod" > /dev/null || do_fail "${indent}Unable to summarize submodule $mod"
-            git log --oneline "$prev_commit...HEAD"
+            git log --oneline "$prev_commit...HEAD" | cat
             popd > /dev/null || do_fail "${indent}Unable to popd from $mod"
         done
         echo
@@ -561,7 +529,7 @@ update_remote_release_references() {
     msg "${indent}Current latest lustre-csi-driver release is $lustre_csi_release"
 
     yq -i e -M '(.repositories[] | select(.name=="lustre-csi-driver") | .remoteReference.build) = "'"v$lustre_csi_release"'"' config/repositories.yaml
-    yq -i e -M '(.repositories[] | select(.name=="lustre-fs-operator") | .remoteReference.build) = "'"v$lustre_fs_release"'"' config/repositories.yaml 
+    yq -i e -M '(.repositories[] | select(.name=="lustre-fs-operator") | .remoteReference.build) = "'"v$lustre_fs_release"'"' config/repositories.yaml
     git add config/repositories.yaml
 
     if [[ $(git status -s | wc -l) -gt 0 ]]; then
@@ -601,7 +569,9 @@ check_repo_master() {
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$default_branch" "$indent"
 
-    check_auto_gens "$indent"
+    if [[ $repo_short_name != nnf_deploy ]] && [[ $repo_short_name != nnf_ec ]]; then
+        check_auto_gens "$indent"
+    fi
     verify_clean_workarea "$indent"
     verify_crd_conversions "$indent"
 
@@ -736,7 +706,7 @@ check_repo_release_vX() {
 
     echo
     msg "${indent}Commits added to branch $repo_name/$new_branch:"
-    git log --oneline "$branch...HEAD"
+    git log --oneline "$branch...HEAD" | cat
     echo
 
     if [[ $has_changes = "true" && $PUSH_BRANCH = "true" ]]; then
@@ -830,7 +800,7 @@ tag_release_vX() {
     # Is it already tagged?
     if git show "$merge_release" 2>/dev/null 1>&2; then
         msg "${indent}Already tagged as $merge_release"
-    else 
+    else
         msg "${indent}Tagging as $merge_release"
         git tag -a "$merge_release" -m "Release $merge_release" || do_fail "${indent}Failed tagging as $merge_release"
         git push origin --tags || do_fail "${indent}Failed to push tags"
