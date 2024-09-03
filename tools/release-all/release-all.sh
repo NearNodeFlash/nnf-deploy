@@ -17,6 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e
+set -o pipefail
+
 PROG=$(basename "$0")
 
 # Crude associative-array-ish thingy that works in bash v3 for Mac.
