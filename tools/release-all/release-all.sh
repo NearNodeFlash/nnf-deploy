@@ -635,7 +635,7 @@ check_repo_release_vX() {
         echo
     fi
     if ! git merge --signoff --stat --no-edit "$default_branch"; then
-        if [[ $repo_short_name == nnf_deploy ]]; then
+        if [[ -f .gitmodules ]]; then
             # The git-merge did not modify the submodules, but it did tell
             # us that it cannot merge them. We already have them pointed at
             # their latest releases, so add them as-is and complete the
