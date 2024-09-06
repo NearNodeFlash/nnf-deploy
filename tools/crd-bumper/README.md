@@ -65,7 +65,19 @@ In the "References" section you'll find a link to a video from the Cluster API t
 
 ### Lossless Conversions
 
-The libraries from the Cluster API project use an annotation on the spoke version of a resource to contain a serialized copy of the hub version of that resource. The libraries and tests use this to avoid data loss during hub->spoke->hub conversions.
+The libraries from the Cluster API project use an annotation on the spoke version of a resource to contain a serialized copy of the hub version of that resource. The libraries and tests use this to avoid data loss during `hub->spoke->hub` conversions.
+
+## Writing Conversion Routines
+
+### Conversion Library Lifecycle in Spoke APIs
+
+After an API version has been bumped, the spoke API should be frozen. However, the spoke API conversion library in `api/<spoke-ver>/conversion.go` will continue to be updated, following the progression and development of the hub.
+
+### Conversion Must Not Fail
+
+When writing conversion routines be aware that the conversion routine must not report a failure:
+
+"Failing conversion can disrupt read and write access to the custom resources, including the ability to update or delete the resources. Conversion failures should be avoided whenever possible, and should not be used to enforce validation constraints (use validation schemas or webhook admission instead)." Kubernetes "Versions in CustomResourceDefinitions" [Response](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/#response).
 
 ## Code Markers
 

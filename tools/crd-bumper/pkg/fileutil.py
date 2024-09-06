@@ -70,9 +70,9 @@ class FileUtil:
             for line in self._input_data.split("\n"):
                 if line != from_str:
                     new_data += f"{line}\n"
-            if new_data != self._input_data:
-                changed = True
-                self._input_data = new_data
+                else:
+                    changed = True
+            self._input_data = new_data
         return changed
 
     def find_in_file(self, substr):
