@@ -18,7 +18,6 @@
 # limitations under the License.
 
 set -e
-set -o pipefail
 
 PROG=$(basename "$0")
 
@@ -168,6 +167,11 @@ shift $((OPTIND-1))
 # Remaining args in: "$@"
 if [[ -n $* ]]; then
     echo "Unexpected extra args: $*"
+    exit 1
+fi
+
+if ! which yq > /dev/null 2>&1; then
+    echo "Unable to find yq in PATH"
     exit 1
 fi
 
