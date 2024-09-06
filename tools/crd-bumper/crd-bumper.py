@@ -20,6 +20,7 @@
 """Bump the CRD version, adding conversion webhooks and tests."""
 
 import argparse
+import os
 import sys
 
 from pkg.webhooks import MvWebhooks, ConversionWebhooks
@@ -73,12 +74,6 @@ PARSER.add_argument(
     help="Continue working in the current branch. Use when stepping through with 'step'.",
 )
 PARSER.add_argument(
-    "--allow-alternate",
-    action="store_true",
-    dest="allow_alternate",
-    help="Allow an alternate previous step. Not all steps have a defined alternate. Use with care, and only when the previous step was a no-op, such as when the bump-apis step reports that there are no pre-existing spokes to bump.",
-)
-PARSER.add_argument(
     "--dry-run",
     "-n",
     action="store_true",
@@ -116,19 +111,31 @@ def main():
     """main"""
 
     operation_order = [
-        ["create-apis", create_apis, None],
-        ["copy-api-content", copy_api_content, None],
-        ["mv-webhooks", mv_webhooks, None],
-        ["conversion-webhooks", conversion_webhooks, None],
-        ["conversion-gen", conversion_gen, None],
-        ["bump-controllers", bump_controllers, None],
-        ["bump-apis", bump_apis, None],
-        [
-            "auto-gens",
-            auto_gens,
-            {"alternate-prev": "bump-controllers"},
-        ],
+        ["create-apis", create_apis],
+        ["copy-api-content", copy_api_content],
+        ["mv-webhooks", mv_webhooks],
+        ["conversion-webhooks", conversion_webhooks],
+        ["conversion-gen", conversion_gen],
+        ["bump-controllers", bump_controllers],
+        ["bump-apis", bump_apis],
+        ["auto-gens", auto_gens],
     ]
+
+    omit_step = os.getenv("OMIT_STEP")
+    if omit_step is not None:
+        # Just in case a step has nothing to do when it runs on your repo, you
+        # have this debug aid to skip that step.
+        found = False
+        op_order = operation_order.copy()
+        for x in op_order.copy():
+            if x[0] == omit_step:
+                op_order.remove(x)
+                found = True
+                break
+        if not found:
+            print(f"Did not find a step named '{omit_step}'.")
+            sys.exit(1)
+        operation_order = op_order
 
     args = PARSER.parse_args()
     if args.dryrun or args.nocommit:
@@ -151,7 +158,14 @@ def main():
         print("Continuing work in current branch")
     else:
         print(f"Creating branch {args.branch}")
-        gitcli.checkout_branch(args.branch)
+        try:
+            gitcli.checkout_branch(args.branch)
+        except RuntimeError as ex:
+            print(str(ex))
+            print(
+                "If you are continuing in an existing branch, then specify `--this-branch`."
+            )
+            sys.exit(1)
 
     cmd_elem = find_next_cmd(gitcli, operation_order)
     if cmd_elem is None:
@@ -161,14 +175,15 @@ def main():
         print("The last command has been done.")
         sys.exit(1)
     if args.this_branch and cmd_elem == operation_order[0]:
-        print("Arg --this_branch is allowed only after the first step.")
-        sys.exit(1)
+        if os.getenv("USE_EXISTING_WORKAREA") is None:
+            print("Arg --this_branch is allowed only after the first step.")
+            sys.exit(1)
 
     while len(cmd_elem) > 0:
         prologue(gitcli, cmd_elem, operation_order)
         done = cmd_elem[1](cgen, makecmd, gitcli, cmd_elem[0], project, args)
-        if done is False and args.allow_alternate is False:
-            print(f"Stop on incomplete step {cmd_elem[0]}")
+        if done is False:
+            print(f"\nStop on incomplete step {cmd_elem[0]}\n")
             break
         if args.cmd != "all":
             break
