@@ -118,6 +118,23 @@ class MakeCmd:
             if res.returncode != 0:
                 raise RuntimeError(f"Unable to {cmd}: {res.stderr}")
 
+    def clean_bin(self):
+        """Execute 'make clean-bin'"""
+
+        cmd = "make clean-bin"
+        if self._dryrun:
+            print(f"Dryrun: {cmd}")
+        else:
+            print(f"Run: {cmd}")
+            res = subprocess.run(
+                shlex.split(cmd),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if res.returncode != 0:
+                raise RuntimeError(f"Unable to {cmd}: {res.stderr}")
+
     def commit(self, git, stage):
         """
         Create commit with a message about the auto-generated files.

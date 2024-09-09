@@ -85,6 +85,25 @@ class Controllers:
                 if os.path.isdir(top):
                     self._walk_files(top, kinds)
 
+    def update_extras(self, dirname):
+        """Walk over extra files and bump them to point at the new hub.
+        This is for anything that is not in cmd/, internal/, or api/; basically
+        anything that wasn't put in place by kubebuilder.
+        """
+
+        kinds = self._project.kinds(self._prev_ver)
+        if len(kinds) == 0:
+            raise ValueError(f"Nothing found at version {self._prev_ver}")
+
+        if os.path.isdir(dirname) is False:
+            raise ValueError(f"{dirname} is not a directory")
+
+        for root, _, f_names in os.walk(dirname, followlinks=False):
+            for fname in f_names:
+                full_path = os.path.join(root, fname)
+                if fname.endswith(".go"):
+                    self._point_at_new_hub(kinds, full_path)
+
     def _walk_files(self, top, kinds):
         """Walk the files in the given directory, and update them to point at the new hub."""
 
@@ -96,6 +115,8 @@ class Controllers:
                 if fname.startswith("zz_"):
                     # Skip generated files. Appropriate makefile targets will be used
                     # to regenerate them.
+                    continue
+                if fname.endswith(".go") is False:
                     continue
                 if top == "api" and this_api == self._new_ver:
                     # Don't try to fix the new hub; it's done already.
@@ -123,9 +144,8 @@ class Controllers:
                 group = self._preferred_alias
 
             # Find the import.
-            line = fu.find_in_file(
-                f'{self._prev_ver} "{self._module}/api/{self._prev_ver}"'
-            )
+            pat = f'{group}{self._prev_ver} "{self._module}/api/{self._prev_ver}"'
+            line = fu.find_in_file(pat)
             if line is not None:
                 # Rewrite the import statement.
                 # Before: '\tdwsv1alpha1 "github.com/hewpack/dws/api/v1alpha1"'
@@ -150,7 +170,7 @@ class Controllers:
 
         # Find the import.
         line = fu.find_in_file(
-            f'{self._prev_ver} "{self._module}/api/{self._prev_ver}"'
+            f'{group}{self._prev_ver} "{self._module}/api/{self._prev_ver}"'
         )
         if line is not None:
             # Add a new import statement, using the previous for the pattern.
