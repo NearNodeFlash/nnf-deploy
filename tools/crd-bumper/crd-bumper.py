@@ -22,6 +22,7 @@
 import argparse
 import os
 import sys
+import yaml
 
 from pkg.webhooks import MvWebhooks, ConversionWebhooks
 from pkg.project import Project
@@ -145,6 +146,13 @@ def main():
     gitcli.clone_and_cd(args.repo, args.workdir)
 
     project = Project(args.dryrun)
+
+    # Load any repo-specific local config.
+    bumper_cfg = None
+    if os.path.isfile("crd-bumper.yaml"):
+        with open("crd-bumper.yaml", "r", encoding="utf-8") as fi:
+            bumper_cfg = yaml.safe_load(fi)
+
     cgen = ConversionGen(
         args.dryrun, project, args.prev_ver, args.new_ver, args.most_recent_spoke
     )
@@ -181,7 +189,9 @@ def main():
 
     while len(cmd_elem) > 0:
         prologue(gitcli, cmd_elem, operation_order)
-        done = cmd_elem[1](cgen, makecmd, gitcli, cmd_elem[0], project, args)
+        done = cmd_elem[1](
+            cgen, makecmd, gitcli, cmd_elem[0], project, args, bumper_cfg
+        )
         if done is False:
             print(f"\nStop on incomplete step {cmd_elem[0]}\n")
             break
@@ -193,10 +203,11 @@ def main():
         cmd_elem = find_next_cmd(gitcli, operation_order)
 
 
-def create_apis(cgen, makecmd, git, stage, project, args):
+def create_apis(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Create a new hub API for each Kind.
     """
+    _ = bumper_cfg
 
     _ = makecmd
     createapis = CreateApis(
@@ -216,10 +227,11 @@ def create_apis(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def copy_api_content(cgen, makecmd, git, stage, project, args):
+def copy_api_content(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Copy the previous hub API content to the new hub API.
     """
+    _ = bumper_cfg
 
     createapis = CreateApis(
         args.dryrun,
@@ -240,10 +252,11 @@ def copy_api_content(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def mv_webhooks(cgen, makecmd, git, stage, project, args):
+def mv_webhooks(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Move the webhooks from the previous hub to the new hub.
     """
+    _ = bumper_cfg
 
     webhooks = MvWebhooks(
         args.dryrun,
@@ -262,10 +275,11 @@ def mv_webhooks(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def conversion_webhooks(cgen, makecmd, git, stage, project, args):
+def conversion_webhooks(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Add a conversion webhook to anything in the new hub that needs it.
     """
+    _ = bumper_cfg
 
     webhooks = ConversionWebhooks(
         args.dryrun,
@@ -286,12 +300,13 @@ def conversion_webhooks(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def conversion_gen(cgen, makecmd, git, stage, project, args):
+def conversion_gen(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Create the spoke conversion routines and tests.
     """
     _ = project
     _ = args
+    _ = bumper_cfg
 
     cgen.mk_doc_go()
     cgen.mk_spoke()
@@ -303,7 +318,7 @@ def conversion_gen(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def bump_controllers(cgen, makecmd, git, stage, project, args):
+def bump_controllers(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Bump controllers to new hub version
     """
@@ -319,15 +334,21 @@ def bump_controllers(cgen, makecmd, git, stage, project, args):
     controllers.run()
     controllers.edit_util_conversion_test()
 
+    # Bump any other, non-controller, directories of code.
+    if bumper_cfg is not None and 'extra_go_dirs' in bumper_cfg:
+        for extra_dir in bumper_cfg["extra_go_dirs"].split(","):
+            controllers.update_extras(extra_dir)
+
     makecmd.fmt()
     controllers.commit_bump_controllers(git, stage)
     return True
 
 
-def bump_apis(cgen, makecmd, git, stage, project, args):
+def bump_apis(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Bump earlier spoke APIs to new hub version.
     """
+    _ = bumper_cfg
 
     controllers = Controllers(
         args.dryrun,
@@ -348,19 +369,21 @@ def bump_apis(cgen, makecmd, git, stage, project, args):
     return bumped
 
 
-def auto_gens(cgen, makecmd, git, stage, project, args):
+def auto_gens(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Make auto-generated files.
     """
     _ = cgen
     _ = project
     _ = args
+    _ = bumper_cfg
 
     makecmd.update_spoke_list()
     makecmd.manifests()
     makecmd.generate()
     makecmd.generate_go_conversions()
     makecmd.fmt()
+    makecmd.clean_bin()
 
     makecmd.commit(git, stage)
     return True
