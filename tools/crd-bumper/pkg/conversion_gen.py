@@ -102,13 +102,6 @@ class ConversionGen:
         )
         fu.store()
 
-        # for root, _, f_names in os.walk(f"api/{self._new_ver}", followlinks=False):
-        #  for fname in f_names:
-        #    full_path = os.path.join(root, fname)
-        #    fu = FileUtil(self._dryrun, full_path)
-        #    fu.replace_in_file(f"{group}{self._new_ver}", f"{self._preferred_alias}{self._new_ver}")
-        #    fu.store()
-
     def module(self):
         """Return the name of this Go module."""
 
@@ -389,6 +382,7 @@ func TestFuzzyConversion(t *testing.T) {{
             fu.append(template)
 
         # Wake up!  Multi-line f-string:
+        # pylint: disable=f-string-without-interpolation
         template = f"""
 }}
 
