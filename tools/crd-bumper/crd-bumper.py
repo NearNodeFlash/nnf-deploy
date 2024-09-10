@@ -335,9 +335,13 @@ def bump_controllers(cgen, makecmd, git, stage, project, args, bumper_cfg):
     controllers.edit_util_conversion_test()
 
     # Bump any other, non-controller, directories of code.
-    if bumper_cfg is not None and 'extra_go_dirs' in bumper_cfg:
+    if bumper_cfg is not None and "extra_go_dirs" in bumper_cfg:
         for extra_dir in bumper_cfg["extra_go_dirs"].split(","):
             controllers.update_extras(extra_dir)
+    # Bump any necessary references in the config/ dir.
+    if bumper_cfg is not None and "extra_config_dirs" in bumper_cfg:
+        for extra_dir in bumper_cfg["extra_config_dirs"].split(","):
+            controllers.update_extra_config(extra_dir)
 
     makecmd.fmt()
     controllers.commit_bump_controllers(git, stage)
