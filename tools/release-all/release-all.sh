@@ -273,6 +273,29 @@ check_peer_modules() {
     fi
 }
 
+# Peer modules refers to the other DWS/NNF modules listed in go.mod. This
+# verifies that we vendored only one API version for each peer module.
+check_peer_module_api_count() {
+    local indent="$1"
+
+    [[ ! -f go.mod ]] && return
+
+    peer_modules=$(grep -e DataWorkflowServices -e NearNodeFlash -e HewlettPackard go.mod | grep -v -e module -e structex | awk '{print $1}')
+    if [[ -n $peer_modules ]]; then
+        echo
+        for mod in $peer_modules; do
+            modpath="vendor/$mod/api"
+            if [[ -d $modpath ]]; then
+                if [[ $(/bin/ls -1 "$modpath" | wc -l) -gt 1 ]]; then
+                    msg "${indent}Vendored multiple APIs in $modpath."
+                    msg "${indent}Update the code to use only one."
+                    exit 1
+                fi
+            fi
+        done
+    fi
+}
+
 summarize_submodule_commits() {
     local indent="$1"
 
@@ -584,6 +607,7 @@ check_repo_master() {
 
     check_peer_modules "$indent"
     verify_clean_workarea "$indent"
+    check_peer_module_api_count "$indent"
 
     check_submodules master "false" "$indent"
     verify_clean_workarea "$indent"
