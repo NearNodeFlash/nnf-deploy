@@ -27,8 +27,6 @@ class MakeCmd:
     """Run make commands or updating the Makefile."""
 
     def __init__(self, dryrun, project, prev_ver, new_ver):
-        if not isinstance(project, Project):
-            raise TypeError("need a Project")
         self._dryrun = dryrun
         self._project = project
         self._prev_ver = prev_ver
