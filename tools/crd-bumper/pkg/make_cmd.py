@@ -27,8 +27,6 @@ class MakeCmd:
     """Run make commands or updating the Makefile."""
 
     def __init__(self, dryrun, project, prev_ver, new_ver):
-        if not isinstance(project, Project):
-            raise TypeError("need a Project")
         self._dryrun = dryrun
         self._project = project
         self._prev_ver = prev_ver
@@ -87,6 +85,9 @@ class MakeCmd:
     def generate_go_conversions(self):
         """Execute 'make generate-go-conversions'"""
 
+        fu = FileUtil(self._dryrun, "Makefile")
+        if fu.find_with_pattern("^generate-go-conversions:") is None:
+            return
         cmd = "make generate-go-conversions"
         if self._dryrun:
             print(f"Dryrun: {cmd}")

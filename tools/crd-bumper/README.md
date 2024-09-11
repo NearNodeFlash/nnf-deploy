@@ -57,6 +57,23 @@ crd-bumper.py --repo $REPO --most-recent-spoke v1alpha1 --prev-ver v1beta1 --new
 
 Do not attempt to run `make vet` or `make test` between steps. The individual commits do not build.
 
+## Vendor the New API
+
+Vendor this new API into another repository using the `vendor-new-api` tool. This tool will update that repo to change its Go code references and its Kustomize config references to point at the new API.
+
+### Executing the Tool
+
+The following example will vendor the new `v1beta2` API we created above for lustre-fs-operator into the nnf-sos repository. The module representing lustre-fs-operator is specified in the same form that it would appear in the `go.mod` file in nnf-sos. It begins by creating a new branch in nnf-sos off "master" named `api-lustre-fs-operator-v1beta2`, where it will do all of its work.
+
+```console
+DEST_REPO=git@github.com:NearNodeFlash/nnf-sos.git
+vendor-new-api.py -r $DEST_REPO --hub-ver v1beta2 --module github.com/NearNodeFlash/lustre-fs-operator
+```
+
+The repository with its new API will be found under a directory named `workingspace/nnf-sos`.
+
+The new `api-lustre-fs-operator-v1beta2` branch will have a commit containing the newly-vendored API and adjusted code. This commit message will have **ACTION** comments describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
+
 ## Library and Tool Support
 
 The library and tool support is taken from the [Cluster API](https://github.com/kubernetes-sigs/cluster-api) project. See [release v1.6.6](https://github.com/kubernetes-sigs/cluster-api/tree/release-1.6) for a version that contains multi-version support for CRDs where they have a hub with one spoke. (Note: In v1.7.0 they removed the old API--the old spoke--and their repo contains only one version, the hub.)
