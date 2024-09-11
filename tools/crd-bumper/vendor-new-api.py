@@ -156,11 +156,17 @@ def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
         for extra_dir in bumper_cfg["extra_config_dirs"].split(","):
             vendor.update_config_files(extra_dir)
 
-    makecmd.fmt()
     gocli.get(args.module, "master")
     gocli.tidy()
     gocli.vendor()
     vendor.verify_one_api_version()
+
+    makecmd.manifests()
+    makecmd.generate()
+    makecmd.generate_go_conversions()
+    makecmd.fmt()
+    makecmd.clean_bin()
+
     vendor.commit(git, "vendor-new-api")
 
 

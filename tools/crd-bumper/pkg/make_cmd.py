@@ -85,6 +85,9 @@ class MakeCmd:
     def generate_go_conversions(self):
         """Execute 'make generate-go-conversions'"""
 
+        fu = FileUtil(self._dryrun, "Makefile")
+        if fu.find_with_pattern("^generate-go-conversions:") is None:
+            return
         cmd = "make generate-go-conversions"
         if self._dryrun:
             print(f"Dryrun: {cmd}")
