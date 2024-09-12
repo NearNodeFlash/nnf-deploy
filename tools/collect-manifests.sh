@@ -179,9 +179,45 @@ walk_overlays() {
     fi
 }
 
+# Find the latest API version used in each submodule.
+collect_api_versions() {
+
+    for SUBMODULE in $DO_MODULES; do
+        SUBMOD_DIR="$TREEDIR/$SUBMODULE"
+        apiver=
+        [[ ! -d $SUBMODULE/api ]] && continue
+        echo "Collecting the API version from $SUBMODULE"
+        if [[ $(/bin/ls -1 "$SUBMODULE"/api | wc -l) -eq 1 ]]; then
+            fname=$(/bin/ls -1 "$SUBMODULE"/api)
+            if [[ -d $SUBMODULE/api/$fname && $fname == v* ]]; then
+                apiver="$fname"
+            fi
+        elif [[ $(/bin/ls -1 "$SUBMODULE"/api | wc -l) -gt 1 ]]; then
+            # Find the API hub.
+            conversion_files=$(find "$SUBMODULE"/api -name conversion.go)
+            if [[ -n $conversion_files ]]; then
+                for fname in $conversion_files; do
+                    if grep -q " Hub() " "$fname"; then
+                        # Found the hub.
+                        apiver="$(basename "$(dirname "$fname")")"
+                        break
+                    fi
+                done
+            fi
+        fi
+        if [[ -n $apiver ]]; then
+            # Pick the first group/domain from PROJECT.
+            group=$(grep -E '^  group:' "$SUBMODULE"/PROJECT | sed 1q | awk '{print $2}')
+            domain=$(grep -E '^  domain:' "$SUBMODULE"/PROJECT | sed 1q | awk '{print $2}')
+            echo "$group.$domain/$apiver" > "$SUBMOD_DIR"/api-version.txt
+        fi
+    done
+}
+
 walk_overlays
 
 echo "$NNF_VERSION" > "$TREEDIR/manifest-release.txt"
+collect_api_versions
 
 mkdir "$TREEDIR/cert-mgr"
 # Wishing for yq(1)...
