@@ -181,6 +181,8 @@ walk_overlays() {
 
 walk_overlays
 
+echo "$NNF_VERSION" > "$TREEDIR/manifest-release.txt"
+
 mkdir "$TREEDIR/cert-mgr"
 # Wishing for yq(1)...
 CERT_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "cert-manager"]; print(x[0])' < config/repositories.yaml)
