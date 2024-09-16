@@ -223,7 +223,7 @@ class ConversionWebhooks:
         template = """
 	// We already have api/<spoke_ver>/conversion_test.go that is
 	// digging deep into the conversion routines, and we have
-	// internal/controllers/conversion_test.go that is verifing that the
+	// internal/controllers/conversion_test.go that is verifying that the
 	// conversion webhook is hooked up to those routines.
 """  # END multi-line string.
 

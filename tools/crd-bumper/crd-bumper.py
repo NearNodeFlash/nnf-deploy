@@ -20,7 +20,9 @@
 """Bump the CRD version, adding conversion webhooks and tests."""
 
 import argparse
+import os
 import sys
+import yaml
 
 from pkg.webhooks import MvWebhooks, ConversionWebhooks
 from pkg.project import Project
@@ -73,12 +75,6 @@ PARSER.add_argument(
     help="Continue working in the current branch. Use when stepping through with 'step'.",
 )
 PARSER.add_argument(
-    "--allow-alternate",
-    action="store_true",
-    dest="allow_alternate",
-    help="Allow an alternate previous step. Not all steps have a defined alternate. Use with care, and only when the previous step was a no-op, such as when the bump-apis step reports that there are no pre-existing spokes to bump.",
-)
-PARSER.add_argument(
     "--dry-run",
     "-n",
     action="store_true",
@@ -116,19 +112,31 @@ def main():
     """main"""
 
     operation_order = [
-        ["create-apis", create_apis, None],
-        ["copy-api-content", copy_api_content, None],
-        ["mv-webhooks", mv_webhooks, None],
-        ["conversion-webhooks", conversion_webhooks, None],
-        ["conversion-gen", conversion_gen, None],
-        ["bump-controllers", bump_controllers, None],
-        ["bump-apis", bump_apis, None],
-        [
-            "auto-gens",
-            auto_gens,
-            {"alternate-prev": "bump-controllers"},
-        ],
+        ["create-apis", create_apis],
+        ["copy-api-content", copy_api_content],
+        ["mv-webhooks", mv_webhooks],
+        ["conversion-webhooks", conversion_webhooks],
+        ["conversion-gen", conversion_gen],
+        ["bump-controllers", bump_controllers],
+        ["bump-apis", bump_apis],
+        ["auto-gens", auto_gens],
     ]
+
+    omit_step = os.getenv("OMIT_STEP")
+    if omit_step is not None:
+        # Just in case a step has nothing to do when it runs on your repo, you
+        # have this debug aid to skip that step.
+        found = False
+        op_order = operation_order.copy()
+        for x in op_order.copy():
+            if x[0] == omit_step:
+                op_order.remove(x)
+                found = True
+                break
+        if not found:
+            print(f"Did not find a step named '{omit_step}'.")
+            sys.exit(1)
+        operation_order = op_order
 
     args = PARSER.parse_args()
     if args.dryrun or args.nocommit:
@@ -138,6 +146,13 @@ def main():
     gitcli.clone_and_cd(args.repo, args.workdir)
 
     project = Project(args.dryrun)
+
+    # Load any repo-specific local config.
+    bumper_cfg = None
+    if os.path.isfile("crd-bumper.yaml"):
+        with open("crd-bumper.yaml", "r", encoding="utf-8") as fi:
+            bumper_cfg = yaml.safe_load(fi)
+
     cgen = ConversionGen(
         args.dryrun, project, args.prev_ver, args.new_ver, args.most_recent_spoke
     )
@@ -151,7 +166,14 @@ def main():
         print("Continuing work in current branch")
     else:
         print(f"Creating branch {args.branch}")
-        gitcli.checkout_branch(args.branch)
+        try:
+            gitcli.checkout_branch(args.branch)
+        except RuntimeError as ex:
+            print(str(ex))
+            print(
+                "If you are continuing in an existing branch, then specify `--this-branch`."
+            )
+            sys.exit(1)
 
     cmd_elem = find_next_cmd(gitcli, operation_order)
     if cmd_elem is None:
@@ -161,14 +183,17 @@ def main():
         print("The last command has been done.")
         sys.exit(1)
     if args.this_branch and cmd_elem == operation_order[0]:
-        print("Arg --this_branch is allowed only after the first step.")
-        sys.exit(1)
+        if os.getenv("USE_EXISTING_WORKAREA") is None:
+            print("Arg --this_branch is allowed only after the first step.")
+            sys.exit(1)
 
     while len(cmd_elem) > 0:
         prologue(gitcli, cmd_elem, operation_order)
-        done = cmd_elem[1](cgen, makecmd, gitcli, cmd_elem[0], project, args)
-        if done is False and args.allow_alternate is False:
-            print(f"Stop on incomplete step {cmd_elem[0]}")
+        done = cmd_elem[1](
+            cgen, makecmd, gitcli, cmd_elem[0], project, args, bumper_cfg
+        )
+        if done is False:
+            print(f"\nStop on incomplete step {cmd_elem[0]}\n")
             break
         if args.cmd != "all":
             break
@@ -178,10 +203,11 @@ def main():
         cmd_elem = find_next_cmd(gitcli, operation_order)
 
 
-def create_apis(cgen, makecmd, git, stage, project, args):
+def create_apis(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Create a new hub API for each Kind.
     """
+    _ = bumper_cfg
 
     _ = makecmd
     createapis = CreateApis(
@@ -201,10 +227,11 @@ def create_apis(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def copy_api_content(cgen, makecmd, git, stage, project, args):
+def copy_api_content(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Copy the previous hub API content to the new hub API.
     """
+    _ = bumper_cfg
 
     createapis = CreateApis(
         args.dryrun,
@@ -225,10 +252,11 @@ def copy_api_content(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def mv_webhooks(cgen, makecmd, git, stage, project, args):
+def mv_webhooks(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Move the webhooks from the previous hub to the new hub.
     """
+    _ = bumper_cfg
 
     webhooks = MvWebhooks(
         args.dryrun,
@@ -247,10 +275,11 @@ def mv_webhooks(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def conversion_webhooks(cgen, makecmd, git, stage, project, args):
+def conversion_webhooks(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Add a conversion webhook to anything in the new hub that needs it.
     """
+    _ = bumper_cfg
 
     webhooks = ConversionWebhooks(
         args.dryrun,
@@ -271,12 +300,13 @@ def conversion_webhooks(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def conversion_gen(cgen, makecmd, git, stage, project, args):
+def conversion_gen(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Create the spoke conversion routines and tests.
     """
     _ = project
     _ = args
+    _ = bumper_cfg
 
     cgen.mk_doc_go()
     cgen.mk_spoke()
@@ -288,7 +318,7 @@ def conversion_gen(cgen, makecmd, git, stage, project, args):
     return True
 
 
-def bump_controllers(cgen, makecmd, git, stage, project, args):
+def bump_controllers(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Bump controllers to new hub version
     """
@@ -304,15 +334,25 @@ def bump_controllers(cgen, makecmd, git, stage, project, args):
     controllers.run()
     controllers.edit_util_conversion_test()
 
+    # Bump any other, non-controller, directories of code.
+    if bumper_cfg is not None and "extra_go_dirs" in bumper_cfg:
+        for extra_dir in bumper_cfg["extra_go_dirs"].split(","):
+            controllers.update_extras(extra_dir)
+    # Bump any necessary references in the config/ dir.
+    if bumper_cfg is not None and "extra_config_dirs" in bumper_cfg:
+        for extra_dir in bumper_cfg["extra_config_dirs"].split(","):
+            controllers.update_extra_config(extra_dir)
+
     makecmd.fmt()
     controllers.commit_bump_controllers(git, stage)
     return True
 
 
-def bump_apis(cgen, makecmd, git, stage, project, args):
+def bump_apis(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Bump earlier spoke APIs to new hub version.
     """
+    _ = bumper_cfg
 
     controllers = Controllers(
         args.dryrun,
@@ -333,19 +373,21 @@ def bump_apis(cgen, makecmd, git, stage, project, args):
     return bumped
 
 
-def auto_gens(cgen, makecmd, git, stage, project, args):
+def auto_gens(cgen, makecmd, git, stage, project, args, bumper_cfg):
     """
     Make auto-generated files.
     """
     _ = cgen
     _ = project
     _ = args
+    _ = bumper_cfg
 
     makecmd.update_spoke_list()
     makecmd.manifests()
     makecmd.generate()
     makecmd.generate_go_conversions()
     makecmd.fmt()
+    makecmd.clean_bin()
 
     makecmd.commit(git, stage)
     return True
