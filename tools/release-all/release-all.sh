@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e
+
 PROG=$(basename "$0")
 
 # Crude associative-array-ish thingy that works in bash v3 for Mac.
@@ -168,6 +170,11 @@ if [[ -n $* ]]; then
     exit 1
 fi
 
+if ! which yq > /dev/null 2>&1; then
+    echo "Unable to find yq in PATH"
+    exit 1
+fi
+
 if [[ -n $REPO_LIST ]]; then
     echo "Working on repos: $REPO_LIST"
 else
@@ -263,6 +270,29 @@ check_peer_modules() {
             echo
             exit 1
         fi
+    fi
+}
+
+# Peer modules refers to the other DWS/NNF modules listed in go.mod. This
+# verifies that we vendored only one API version for each peer module.
+check_peer_module_api_count() {
+    local indent="$1"
+
+    [[ ! -f go.mod ]] && return
+
+    peer_modules=$(grep -e DataWorkflowServices -e NearNodeFlash -e HewlettPackard go.mod | grep -v -e module -e structex | awk '{print $1}')
+    if [[ -n $peer_modules ]]; then
+        echo
+        for mod in $peer_modules; do
+            modpath="vendor/$mod/api"
+            if [[ -d $modpath ]]; then
+                if [[ $(/bin/ls -1 "$modpath" | wc -l) -gt 1 ]]; then
+                    msg "${indent}Vendored multiple APIs in $modpath."
+                    msg "${indent}Update the code to use only one."
+                    exit 1
+                fi
+            fi
+        done
     fi
 }
 
@@ -577,6 +607,7 @@ check_repo_master() {
 
     check_peer_modules "$indent"
     verify_clean_workarea "$indent"
+    check_peer_module_api_count "$indent"
 
     check_submodules master "false" "$indent"
     verify_clean_workarea "$indent"
@@ -632,7 +663,7 @@ check_repo_release_vX() {
         echo
     fi
     if ! git merge --signoff --stat --no-edit "$default_branch"; then
-        if [[ $repo_short_name == nnf_deploy ]]; then
+        if [[ -f .gitmodules ]]; then
             # The git-merge did not modify the submodules, but it did tell
             # us that it cannot merge them. We already have them pointed at
             # their latest releases, so add them as-is and complete the

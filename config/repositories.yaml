@@ -40,7 +40,7 @@ repositories:
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
     useRemoteK: false
     remoteReference:
-      build: v0.1.6
+      build: v0.1.7
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 buildConfiguration:
   # Environment variables to set when calling any 'make' or 'deploy'

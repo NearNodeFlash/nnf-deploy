@@ -3,6 +3,7 @@
 - [Overview](#overview)
 - [Assumptions](#assumptions)
 - [Steps](#steps)
+- [Compare](#compare)
 
 ## Overview
 
@@ -78,3 +79,37 @@
        ```bash
        ./release-all.sh -P tag-release -R <repo>
        ```
+
+## Compare
+
+Compare the new NNF release manifest to a previous NNF release manifest. This can be useful for a variety of purposes. For example, this is a quick way to check for any problems in the release or to see which submodules were updated in the release.
+
+```console
+./compare-releases.sh v0.1.6 v0.1.7
+```
+
+The output will be:
+
+```console
+Manifest diffs for v0.1.6 to v0.1.7 are in workingspace/manifest-v0.1.6-to-v0.1.7.diff
+```
+
+Peruse the release manifest differences:
+
+```console
+less workingspace/manifest-v0.1.6-to-v0.1.7.diff
+```
+
+Quickly see which submodules were updated between the releases:
+
+```console
+grep image: workingspace/manifest-v0.1.6-to-v0.1.7.diff
+```
+
+Quickly determine the scope of the differences between the releases:
+
+```console
+brew install patchutils diffstat
+lsdiff workingspace/manifest-v0.1.6-to-v0.1.7.diff
+diffstat workingspace/manifest-v0.1.6-to-v0.1.7.diff
+```
