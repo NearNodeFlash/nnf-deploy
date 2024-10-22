@@ -3,7 +3,8 @@
 - [Overview](#overview)
 - [Assumptions](#assumptions)
 - [Steps](#steps)
-- [Compare](#compare)
+- [Finalize the release notes](#finalize-the-release-notes)
+- [Compare release manifests](#compare-release-manifests)
 
 ## Overview
 
@@ -42,7 +43,7 @@
 
 3. **Generate Release:** For each repo in `repo-list`, proceed through the following steps in sequence before moving on to the next repo.
     > **Note:** The next steps use the gh(1) GitHub CLI tool and require a GH_TOKEN environment variable containing a 'repo' scope classic token.
-    1. If the **Create Trial Release Branch** had no errors\
+    1. If the **Create Trial Release Branch** had no errors:
 
         ```bash
         ./release-all.sh -P release-push -R <repo>
@@ -68,7 +69,7 @@
        ```
 
     3. Merge PR for the pushed release branch:
-    **Note: Do NOT manually merge the PR, let `release-all.sh` merge it**
+    **Note: Do NOT manually merge the PR, let `release-all.sh` merge it.**
 
        ```bash
        ./release-all.sh -P merge-pr -R <repo>
@@ -80,7 +81,24 @@
        ./release-all.sh -P tag-release -R <repo>
        ```
 
-## Compare
+## Finalize the release notes
+
+Finalize the release by updating the `nnf-deploy` release notes to include the release notes from all submodules that were modified by this release. Do this after the release steps have been completed for all repositories, including the NearNodeFlash.github.io repository.
+
+1. Generate complete release notes for the specified `nnf-deploy` release for review:
+**Note: If this release does not include a new release of NearNodeFlash.github.io, the docs, then specify `-D` to skip the docs.**
+
+    ```bash
+    ./final-release-notes.sh -r $NNF_RELEASE [-D]
+    ```
+
+2. Generate and commit the release notes to the specified `nnf-deploy` release:
+
+    ```bash
+    ./final-release-notes.sh -r $NNF_RELEASE -C [-D]
+    ```
+
+## Compare release manifests
 
 Compare the new NNF release manifest to a previous NNF release manifest. This can be useful for a variety of purposes. For example, this is a quick way to check for any problems in the release or to see which submodules were updated in the release.
 
