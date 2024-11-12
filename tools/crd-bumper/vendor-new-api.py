@@ -39,11 +39,25 @@ PARSER.add_argument(
     help="Version of the hub API.",
 )
 PARSER.add_argument(
+    "--vendor-hub-ver",
+    type=str,
+    required=True,
+    help="Version of the hub API for the repo being vendored.",
+)
+PARSER.add_argument(
     "--module",
     "-m",
     type=str,
     required=True,
     help="Go module which has the versioned API, specified the way it is found in go.mod.",
+)
+PARSER.add_argument(
+    "--version",
+    "-v",
+    type=str,
+    required=False,
+    default="master",
+    help="Version for the go module which has the versioned API",
 )
 PARSER.add_argument(
     "--repo",
@@ -128,7 +142,7 @@ def main():
 def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
     """Vendor the new API into the repo."""
 
-    vendor = Vendor(args.dryrun, args.module, args.hub_ver)
+    vendor = Vendor(args.dryrun, args.module, args.hub_ver, args.vendor_hub_ver)
 
     if vendor.uses_module() is False:
         print(
@@ -156,10 +170,9 @@ def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
         for extra_dir in bumper_cfg["extra_config_dirs"].split(","):
             vendor.update_config_files(extra_dir)
 
-    gocli.get(args.module, "master")
+    gocli.get(args.module, args.version)
     gocli.tidy()
     gocli.vendor()
-    vendor.verify_one_api_version()
 
     makecmd.manifests()
     makecmd.generate()
