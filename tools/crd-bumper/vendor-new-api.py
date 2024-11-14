@@ -122,7 +122,7 @@ def main():
 
     if args.branch is None:
         bn = os.path.basename(args.module)
-        args.branch = f"api-{bn}-{args.hub_ver}"
+        args.branch = f"api-{bn}-{args.vendor_hub_ver}"
     if args.this_branch:
         print("Continuing work in current branch")
     else:
