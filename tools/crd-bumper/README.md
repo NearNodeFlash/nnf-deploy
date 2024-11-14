@@ -67,12 +67,29 @@ The following example will vendor the new `v1beta2` API we created above for lus
 
 ```console
 DEST_REPO=git@github.com:NearNodeFlash/nnf-sos.git
-vendor-new-api.py -r --hub-ver v1alpha3 $DEST_REPO --vendor-hub-ver v1beta2 --module github.com/NearNodeFlash/lustre-fs-operator --version master
+vendor-new-api.py -r $DEST_REPO --hub-ver v1alpha3  --vendor-hub-ver v1beta2 --module github.com/NearNodeFlash/lustre-fs-operator --version master
 ```
 
 The repository with its new API will be found under a directory named `workingspace/nnf-sos`.
 
 The new `api-lustre-fs-operator-v1beta2` branch will have a commit containing the newly-vendored API and adjusted code. This commit message will have **ACTION** comments describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
+
+## Removing an Old API Version
+
+An old API version should first be shipped in a deprecated state. Use the `unserve` tool to mark that API version as no longer being served by the API server. After that has shipped, that version of the API can be removed in a later release.
+
+### Unserve the API
+
+The following example will mark the old `v1alpha1` API in lustre-fs-operator as no longer being served. This will place a `+kubebuilder:unservedversion` in each CRD of that version, which `controller-gen` will translate into `served: false` for that version when it regenerates the CRD manifest. It begins by creating a new branch in lustre-fs-operator off "master" named `api-v1alpha1-unserve`, where it will do all of its work.
+
+```console
+REPO=git@github.com:NearNodeFlash/lustre-fs-operator.git
+unserve.py -r $REPO --spoke-ver v1alpha1
+```
+
+The repository with its new API will be found under a directory named `workingspace/lustre-fs-operator`.
+
+The new `api-v1alpha1-unserve` branch will have a commit containing the adjusted API and adjusted code. This commit message will have **ACTION** comments describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
 
 ## Library and Tool Support
 

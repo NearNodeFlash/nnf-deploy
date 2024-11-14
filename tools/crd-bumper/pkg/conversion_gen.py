@@ -36,7 +36,7 @@ class ConversionGen:
         self._most_recent_spoke = most_recent_spoke
         self._module = None
         self.module()
-        self._preferred_alias = self.preferred_api_alias()
+        self._preferred_alias = self.set_preferred_api_alias()
 
     def is_spoke(self, ver):
         """
@@ -52,6 +52,10 @@ class ConversionGen:
         return True
 
     def preferred_api_alias(self):
+        """Return the preferred alias."""
+        return self._preferred_alias
+
+    def set_preferred_api_alias(self):
         """
         Is this repo using the API "group" as the alias or is it using something
         else?
