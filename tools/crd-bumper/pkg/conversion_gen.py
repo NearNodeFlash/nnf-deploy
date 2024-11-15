@@ -38,19 +38,6 @@ class ConversionGen:
         self.module()
         self._preferred_alias = self.set_preferred_api_alias()
 
-    def is_spoke(self, ver):
-        """
-        Determine whether or not the 'ver' API is a spoke.
-        """
-        path = f"api/{ver}/conversion.go"
-        if not os.path.isfile(path):
-            return False
-        fu = FileUtil(self._dryrun, path)
-        line = fu.find_in_file(" ConvertTo(dstRaw conversion.Hub) ")
-        if line is None:
-            return False
-        return True
-
     def preferred_api_alias(self):
         """Return the preferred alias."""
         return self._preferred_alias

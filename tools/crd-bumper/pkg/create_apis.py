@@ -22,6 +22,7 @@ import shutil
 
 from .project import Project
 from .fileutil import FileUtil
+from .hub_spoke_util import HubSpokeUtil
 
 
 class CreateApis:
@@ -45,14 +46,7 @@ class CreateApis:
 
         for _, dir_names, _ in os.walk("api", followlinks=False):
             if len(dir_names) > 1:
-                path = f"api/{self._prev_ver}/conversion.go"
-                if not os.path.isfile(path):
-                    return False
-                fu = FileUtil(self._dryrun, path)
-                line = fu.find_in_file(" Hub() ")
-                if line is None:
-                    return False
-                break
+                return HubSpokeUtil.is_hub(self._prev_ver)
         return True
 
     def create(self):

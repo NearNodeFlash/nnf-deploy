@@ -27,6 +27,7 @@ from pkg.git_cli import GitCLI
 from pkg.make_cmd import MakeCmd
 from pkg.project import Project
 from pkg.unserve import Unserve
+from pkg.hub_spoke_util import HubSpokeUtil
 
 WORKING_DIR = "workingspace"
 BRANCH_SUFFIX = "unserve"
@@ -109,7 +110,7 @@ def main():
             )
             sys.exit(1)
 
-    if not cgen.is_spoke(args.spoke_ver):
+    if not HubSpokeUtil.is_spoke(args.spoke_ver):
         print(f"API --spoke-ver {args.spoke_ver} is not a spoke.")
         sys.exit(1)
 
