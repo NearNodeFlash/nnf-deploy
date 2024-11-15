@@ -74,6 +74,23 @@ The repository with its new API will be found under a directory named `workingsp
 
 The new `api-lustre-fs-operator-v1beta2` branch will have a commit containing the newly-vendored API and adjusted code. This commit message will have **ACTION** comments describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
 
+## Removing an Old API Version
+
+An old API version should first be shipped in a deprecated state. Use the `unserve` tool to mark that API version as no longer being served by the API server. After that has shipped, that version of the API can be removed in a later release.
+
+### Unserve the API
+
+The following example will mark the old `v1alpha1` API in lustre-fs-operator as no longer being served. This will place a `+kubebuilder:unservedversion` in each CRD of that version, which `controller-gen` will translate into `served: false` for that version when it regenerates the CRD manifest. It begins by creating a new branch in lustre-fs-operator off "master" named `api-v1alpha1-unserve`, where it will do all of its work.
+
+```console
+REPO=git@github.com:NearNodeFlash/lustre-fs-operator.git
+unserve.py -r $REPO --spoke-ver v1alpha1
+```
+
+The repository with its adjusted API will be found under a directory named `workingspace/lustre-fs-operator`.
+
+The new `api-v1alpha1-unserve` branch will have a commit containing the adjusted API and adjusted code. This commit message will have **ACTION** comments describing something that must be manually verified, and possibly adjusted, before the tests will succeed.
+
 ## Library and Tool Support
 
 The library and tool support is taken from the [Cluster API](https://github.com/kubernetes-sigs/cluster-api) project. See [release v1.6.6](https://github.com/kubernetes-sigs/cluster-api/tree/release-1.6) for a version that contains multi-version support for CRDs where they have a hub with one spoke. (Note: In v1.7.0 they removed the old API--the old spoke--and their repo contains only one version, the hub.)
