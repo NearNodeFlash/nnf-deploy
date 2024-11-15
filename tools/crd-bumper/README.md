@@ -67,7 +67,7 @@ The following example will vendor the new `v1beta2` API we created above for lus
 
 ```console
 DEST_REPO=git@github.com:NearNodeFlash/nnf-sos.git
-vendor-new-api.py -r $DEST_REPO --hub-ver v1alpha3  --vendor-hub-ver v1beta2 --module github.com/NearNodeFlash/lustre-fs-operator --version master
+vendor-new-api.py -r $DEST_REPO --hub-ver v1alpha3 --vendor-hub-ver v1beta2 --module github.com/NearNodeFlash/lustre-fs-operator --version master
 ```
 
 The repository with its new API will be found under a directory named `workingspace/nnf-sos`.
