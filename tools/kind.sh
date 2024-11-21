@@ -25,6 +25,13 @@ set -o pipefail
 CMD="$1"
 shift
 
+function clear_mock_fs {
+    if [[ -d /tmp/nnf ]]; then
+        rm -rf /tmp/nnf
+        mkdir /tmp/nnf
+    fi
+}
+
 function create_cluster {
     CONFIG=kind-config.yaml
 
@@ -33,7 +40,7 @@ function create_cluster {
 
   extraMounts:
     - hostPath: /tmp/nnf
-      containerPath: /nnf
+      containerPath: /mnt/nnf
       propagation: None
 EOF
 )
@@ -76,6 +83,8 @@ nodes:
 - role: worker $RABBITCONFIG
 EOF
 
+    # Clear any earlier mock filesystem environment.
+    clear_mock_fs
     # create a file for data movement
     if [ ! -f /tmp/nnf/file.in ]; then
         mkdir -p /tmp/nnf && dd if=/dev/zero of=/tmp/nnf/file.in bs=128 count=0 seek=$((1024 * 1024))
@@ -156,6 +165,7 @@ function argocd_add_git_repo {
 
 function destroy_cluster {
     kind delete cluster
+    clear_mock_fs
 }
 
 function reset_cluster {
