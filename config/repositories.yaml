@@ -21,6 +21,7 @@ repositories:
     development: https://ghcr.io/dataworkflowservices/dws
     master: https://ghcr.io/dataworkflowservices/dws
   - name: nnf-dm
+    overlays: [kind, dp0]
     development: https://ghcr.io/nearnodeflash/nnf-dm
     master: https://ghcr.io/nearnodeflash/nnf-dm
   - name: nnf-sos
