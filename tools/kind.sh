@@ -90,7 +90,7 @@ EOF
         mkdir -p /tmp/nnf && dd if=/dev/zero of=/tmp/nnf/file.in bs=128 count=0 seek=$((1024 * 1024))
     fi
 
-    kind create cluster --wait 60s --image=kindest/node:v1.29.8 --config $CONFIG
+    kind create cluster --wait 60s --image=kindest/node:v1.31.2 --config $CONFIG
 
     # Use the same init routines that we use on real hardware.
     # This applies taints and labels to rabbit nodes, and installs other
