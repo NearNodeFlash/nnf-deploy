@@ -9,10 +9,6 @@
 #   --version $CHART_VER -f $THIS_OVERRIDE_FILE
 
 ---
-global:
-  image:
-    tag: "v2.6.6"
-
 server:
   extraArgs:
     # Prevent argocd from generating self-cert and redirect http to https.

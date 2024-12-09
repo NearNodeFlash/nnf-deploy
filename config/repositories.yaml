@@ -21,6 +21,7 @@ repositories:
     development: https://ghcr.io/dataworkflowservices/dws
     master: https://ghcr.io/dataworkflowservices/dws
   - name: nnf-dm
+    overlays: [kind, dp0]
     development: https://ghcr.io/nearnodeflash/nnf-dm
     master: https://ghcr.io/nearnodeflash/nnf-dm
   - name: nnf-sos
@@ -40,7 +41,7 @@ repositories:
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
     useRemoteK: false
     remoteReference:
-      build: v0.1.8
+      build: v0.1.9
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 buildConfiguration:
   # Environment variables to set when calling any 'make' or 'deploy'
@@ -51,7 +52,7 @@ buildConfiguration:
     #  - A specific release build: 0.0.1 (without the "v" prefix)
     #  - The most recent build from the master branch: master
     - name: NNFMFU_VERSION
-      value: 0.1.3
+      value: 0.1.4
 thirdPartyServices:
   # Other services that NNF requires to be available on the system.
   # They will be installed in the order specified here.
@@ -66,5 +67,5 @@ thirdPartyServices:
     url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
   - name: argocd
     useHelm: true
-    helmCmd: helm install argocd -n argocd --create-namespace argo/argo-cd --version 3.35.4 -f config/helm-values/argocd.yaml
-    waitCmd: kubectl wait deploy -n argocd --timeout=180s argocd-server --for jsonpath='{.status.availableReplicas}=1'
+    helmCmd: helm install nnf -n argocd --create-namespace charts/argo-cd-7.6.12.tgz -f config/helm-values/argocd.yaml
+    waitCmd: kubectl wait deploy -n argocd --timeout=180s nnf-argocd-server --for jsonpath='{.status.availableReplicas}=1'

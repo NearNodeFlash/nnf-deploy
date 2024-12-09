@@ -24,10 +24,11 @@ from .fileutil import FileUtil
 class Vendor:
     """Tools for vendoring a new API version."""
 
-    def __init__(self, dryrun, module, hub_ver):
+    def __init__(self, dryrun, module, hub_ver, vendor_hub_ver):
         self._dryrun = dryrun
         self._module = module
         self._hub_ver = hub_ver
+        self._vendor_hub_ver = vendor_hub_ver
         self._current_ver = None
         self._preferred_alias = None
 
@@ -67,7 +68,7 @@ class Vendor:
         self._current_ver = None
         self.set_current_api_version()
 
-    def set_preferred_api_alias(self):
+    def set_preferred_api_alias(self, main_file=None):
         """
         What is this repo using as the alias for this module's API?
 
@@ -80,7 +81,10 @@ class Vendor:
         We'll look at cmd/main.go to get an answer.
         """
 
-        fname = "cmd/main.go"
+        if main_file is not None:
+            fname = main_file
+        else:
+            fname = "cmd/main.go"
         fu = FileUtil(self._dryrun, fname)
         # Find the import.
         line = fu.find_in_file(
@@ -94,6 +98,10 @@ class Vendor:
         if self._preferred_alias is None:
             raise ValueError(f"Expected to find the module's alias in {fname}.")
 
+    def update_go_file(self, full_path):
+        """Bump the given Go file to point at the new hub."""
+        self._point_go_files_at_new_hub(full_path)
+
     def update_go_files(self, top=None):
         """Walk over Go files, bumping them to point at the new hub
         If top=None then this walks over the cmd/, internal/, and api/ directories
@@ -105,7 +113,9 @@ class Vendor:
                 raise NotADirectoryError(f"{top} is not a directory.")
             top = [top]
         else:
-            top = ["cmd", "api", "internal/controller", "controllers"]
+            top = ["cmd", "internal/controller", "controllers"]
+            if self._hub_ver is not None:
+                top.append("api/" + self._hub_ver)
 
         for dname in top:
             if os.path.isdir(dname):
@@ -136,10 +146,12 @@ class Vendor:
             # Rewrite the import statement.
             # Before: '\tdwsv1alpha1 "github.com/hewpack/dws/api/v1alpha1"'
             # After:  '\tdwsv1alpha2 "github.com/hewpack/dws/api/v1alpha2"'
-            line2 = line.replace(self._current_ver, self._hub_ver)
+            line2 = line.replace(self._current_ver, self._vendor_hub_ver)
             fu.replace_in_file(line, line2)
         # This matches: dwsv1alpha1. (yes, dot)
-        fu.replace_in_file(f"{group}{self._current_ver}.", f"{group}{self._hub_ver}.")
+        fu.replace_in_file(
+            f"{group}{self._current_ver}.", f"{group}{self._vendor_hub_ver}."
+        )
         fu.store()
 
     def update_config_files(self, top):
@@ -171,14 +183,14 @@ class Vendor:
         pat = f"apiVersion: {group}"
         line = fu.find_in_file(pat)
         if line is not None:
-            line2 = line.replace(self._current_ver, self._hub_ver)
+            line2 = line.replace(self._current_ver, self._vendor_hub_ver)
             fu.replace_in_file(line, line2)
         fu.store()
 
     def commit(self, git, stage):
         """Create a commit message."""
 
-        msg = f"""Vendor {self._hub_ver} API from {self._module}.
+        msg = f"""Vendor {self._vendor_hub_ver} API from {self._module}.
 
 ACTION: If any of the code in this repo was referencing non-local
   APIs, the references to them may have been inadvertently

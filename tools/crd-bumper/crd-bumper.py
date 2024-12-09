@@ -31,6 +31,7 @@ from pkg.controllers import Controllers
 from pkg.git_cli import GitCLI
 from pkg.conversion_gen import ConversionGen
 from pkg.make_cmd import MakeCmd
+from pkg.hub_spoke_util import HubSpokeUtil
 
 WORKING_DIR = "workingspace"
 
@@ -148,7 +149,7 @@ def main():
     project = Project(args.dryrun)
 
     # Load any repo-specific local config.
-    bumper_cfg = None
+    bumper_cfg = {}
     if os.path.isfile("crd-bumper.yaml"):
         with open("crd-bumper.yaml", "r", encoding="utf-8") as fi:
             bumper_cfg = yaml.safe_load(fi)
@@ -158,7 +159,7 @@ def main():
     )
     makecmd = MakeCmd(args.dryrun, project, args.prev_ver, args.new_ver)
 
-    validate_args(args, cgen)
+    validate_args(args)
 
     if args.branch is None:
         args.branch = f"api-{args.new_ver}"
@@ -335,11 +336,11 @@ def bump_controllers(cgen, makecmd, git, stage, project, args, bumper_cfg):
     controllers.edit_util_conversion_test()
 
     # Bump any other, non-controller, directories of code.
-    if bumper_cfg is not None and "extra_go_dirs" in bumper_cfg:
+    if "extra_go_dirs" in bumper_cfg:
         for extra_dir in bumper_cfg["extra_go_dirs"].split(","):
             controllers.update_extras(extra_dir)
     # Bump any necessary references in the config/ dir.
-    if bumper_cfg is not None and "extra_config_dirs" in bumper_cfg:
+    if "extra_config_dirs" in bumper_cfg:
         for extra_dir in bumper_cfg["extra_config_dirs"].split(","):
             controllers.update_extra_config(extra_dir)
 
@@ -423,11 +424,11 @@ def prologue(git, cmd_elem, operation_order):
     git.expect_previous(cmd_elem[0], op_cmd_list)
 
 
-def validate_args(args, cgen):
+def validate_args(args):
     """Validate the commandline args"""
 
     if args.most_recent_spoke:
-        if not cgen.is_spoke(args.most_recent_spoke):
+        if not HubSpokeUtil.is_spoke(args.most_recent_spoke):
             print(f"API --most-recent-spoke {args.most_recent_spoke} is not a spoke.")
             sys.exit(1)
         if args.most_recent_spoke in [args.prev_ver, args.new_ver]:

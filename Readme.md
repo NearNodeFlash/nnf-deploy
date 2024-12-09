@@ -81,8 +81,7 @@ Run "nnf-deploy <command> --help" for more information on a command.
 ## Init
 
 The `init` subcommand will install ArgoCD via helm. The user must have the helm
-CLI installed and the argoproj helm repo added to their local cache. This init
-command should be done only once on a new cluster.
+CLI installed. This init command should be done only once on a new cluster.
 
 ```bash
 ./nnf-deploy init
