@@ -52,7 +52,7 @@ buildConfiguration:
     #  - A specific release build: 0.0.1 (without the "v" prefix)
     #  - The most recent build from the master branch: master
     - name: NNFMFU_VERSION
-      value: 0.1.3
+      value: 0.1.4
 thirdPartyServices:
   # Other services that NNF requires to be available on the system.
   # They will be installed in the order specified here.
