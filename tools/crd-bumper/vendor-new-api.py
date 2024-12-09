@@ -24,10 +24,12 @@ import os
 import sys
 import yaml
 
+from pkg.conversion_gen import ConversionGen
 from pkg.git_cli import GitCLI
 from pkg.make_cmd import MakeCmd
 from pkg.vendoring import Vendor
 from pkg.go_cli import GoCLI
+from pkg.hub_spoke_util import HubSpokeUtil
 
 WORKING_DIR = "workingspace"
 
@@ -35,8 +37,14 @@ PARSER = argparse.ArgumentParser()
 PARSER.add_argument(
     "--hub-ver",
     type=str,
+    required=False,
+    help="Version of the hub API of the target repo.",
+)
+PARSER.add_argument(
+    "--vendor-hub-ver",
+    type=str,
     required=True,
-    help="Version of the hub API.",
+    help="Version of the hub API for the repo being vendored.",
 )
 PARSER.add_argument(
     "--module",
@@ -44,6 +52,14 @@ PARSER.add_argument(
     type=str,
     required=True,
     help="Go module which has the versioned API, specified the way it is found in go.mod.",
+)
+PARSER.add_argument(
+    "--version",
+    "-v",
+    type=str,
+    required=False,
+    default="master",
+    help="Version for the go module which has the versioned API",
 )
 PARSER.add_argument(
     "--repo",
@@ -63,7 +79,7 @@ PARSER.add_argument(
     "--this-branch",
     action="store_true",
     dest="this_branch",
-    help="Continue working in the current branch. Use when stepping through with 'step'.",
+    help="Continue working in the current branch.",
 )
 PARSER.add_argument(
     "--dry-run",
@@ -98,8 +114,13 @@ def main():
 
     gocli = GoCLI(args.dryrun)
 
+    if args.hub_ver:
+        if not HubSpokeUtil.is_hub(args.hub_ver):
+            print(f"API --hub-ver {args.hub_ver} is not a hub.")
+            sys.exit(1)
+
     # Load any repo-specific local config.
-    bumper_cfg = None
+    bumper_cfg = {}
     if os.path.isfile("crd-bumper.yaml"):
         with open("crd-bumper.yaml", "r", encoding="utf-8") as fi:
             bumper_cfg = yaml.safe_load(fi)
@@ -108,7 +129,7 @@ def main():
 
     if args.branch is None:
         bn = os.path.basename(args.module)
-        args.branch = f"api-{bn}-{args.hub_ver}"
+        args.branch = f"api-{bn}-{args.vendor_hub_ver}"
     if args.this_branch:
         print("Continuing work in current branch")
     else:
@@ -128,7 +149,7 @@ def main():
 def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
     """Vendor the new API into the repo."""
 
-    vendor = Vendor(args.dryrun, args.module, args.hub_ver)
+    vendor = Vendor(args.dryrun, args.module, args.hub_ver, args.vendor_hub_ver)
 
     if vendor.uses_module() is False:
         print(
@@ -136,36 +157,55 @@ def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
         )
         sys.exit(0)
     try:
+        if not os.path.isdir("vendor"):
+            # This repo doesn't normally vendor, so go get it.
+            # The .gitignore file should already be covering it.
+            gocli.tidy()
+            gocli.vendor()
         vendor.set_current_api_version()
-        vendor.set_preferred_api_alias()
+        main_file = None
+        if "alternate_main" in bumper_cfg:
+            main_file = bumper_cfg["alternate_main"]
+        vendor.set_preferred_api_alias(main_file)
     except ValueError as ex:
         print(str(ex))
         sys.exit(1)
 
-    print(f"Updating files from {vendor.current_api_version()} to {args.hub_ver}")
+    print(
+        f"Updating files from {vendor.current_api_version()} to {args.vendor_hub_ver}"
+    )
 
     # Update the Go files that are in the usual kubebuilder locations.
     vendor.update_go_files()
 
     # Bump any other, non-controller, directories of code.
-    if bumper_cfg is not None and "extra_go_dirs" in bumper_cfg:
+    if "extra_go_dirs" in bumper_cfg:
         for extra_dir in bumper_cfg["extra_go_dirs"].split(","):
             vendor.update_go_files(extra_dir)
+    if "extra_go_files" in bumper_cfg:
+        for full_path in bumper_cfg["extra_go_files"].split(","):
+            vendor.update_go_file(full_path)
     # Bump any necessary references in the config/ dir.
-    if bumper_cfg is not None and "extra_config_dirs" in bumper_cfg:
+    if "extra_config_dirs" in bumper_cfg:
         for extra_dir in bumper_cfg["extra_config_dirs"].split(","):
             vendor.update_config_files(extra_dir)
 
-    gocli.get(args.module, "master")
+    gocli.get(args.module, args.version)
     gocli.tidy()
     gocli.vendor()
-    vendor.verify_one_api_version()
 
-    makecmd.manifests()
-    makecmd.generate()
-    makecmd.generate_go_conversions()
+    have_controller_gen = True
+    if "skip_controller_gen" in bumper_cfg:
+        if bumper_cfg["skip_controller_gen"] is True:
+            have_controller_gen = False
+
+    if have_controller_gen:
+        makecmd.manifests()
+        makecmd.generate()
+        makecmd.generate_go_conversions()
     makecmd.fmt()
-    makecmd.clean_bin()
+    if have_controller_gen:
+        makecmd.clean_bin()
 
     vendor.commit(git, "vendor-new-api")
 
