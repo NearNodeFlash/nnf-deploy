@@ -87,7 +87,7 @@ PHASE="master"
 usage() {
     echo "Usage: $PROG [-h]"
     echo "       $PROG [-L]"
-    echo "       $PROG [-w workspace_dir] [-P phase] [-R repo-names] [-B part]"
+    echo "       $PROG [-w workspace_dir] [-P phase] [-R repo-names] [-B part] [-x THINGS]"
     echo
     echo "  -B part           Indicates which part of the version to bump for"
     echo "                    the new release. Default: '$SEMVER_BUMP'."
@@ -108,11 +108,16 @@ usage() {
     echo "  -R repo_names     Comma-separated list of repo names to operate on."
     echo "                    If unspecified, then all repos will be used."
     echo "  -w workspace_dir  Name for working directory. Default: '$WORKSPACE'"
+    echo "  -x THINGS         A list of colon-separated manual overrides."
+    echo "                      'force-tag=vX.Y.Z'  Use tag vX.Y.Z during the tag-release"
+    echo "                                          phase. Use this if you accidently did"
+    echo "                                          a manual merge rather than using the"
+    echo "                                          merge-pr phase above."
     echo
     echo "See README.md for detailed instructions"
 }
 
-while getopts "B:LP:R:w:h" opt; do
+while getopts "B:LP:R:w:x:h" opt; do
     case $opt in
     B)
         case $OPTARG in
@@ -148,6 +153,22 @@ while getopts "B:LP:R:w:h" opt; do
         ;;
     w)
         WORKSPACE="$OPTARG"
+        ;;
+    x)
+        OVERRIDES=${OPTARG//:/ }
+        bad_one=
+        for override in $OVERRIDES; do
+          if [[ "$override" =~ ^force\-tag=v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              FORCE_TAG_VALUE=${override//force-tag=/}
+              echo "Using force-tag: $FORCE_TAG_VALUE"
+          else
+              echo "Unrecognized -x option: $override"
+              bad_one=yes
+          fi
+        done
+        if [[ -n $bad_one ]]; then
+            exit 1
+        fi
         ;;
     h)
         usage
@@ -825,7 +846,20 @@ tag_release_vX() {
 
     latest_release=$(git describe --match="v*" --abbrev=0 HEAD) || do_fail "${indent}Failure getting latest release tag."
 
-    merge_release=$(git log --oneline -1 | sed 's/^.* Merge release \(.*\)/\1/')
+    most_recent_commit=$(git log --oneline -1)
+    if [[ "$most_recent_commit" =~ " Merge release " ]]; then
+        merge_release=$(git log --oneline -1 | sed 's/^.* Merge release \(.*\)/\1/')
+    elif [[ -n $FORCE_TAG_VALUE ]]; then
+        echo
+        msg "${indent}WARNING"
+        msg "${indent}Using -x override to set release version: $FORCE_TAG_VALUE"
+        msg "${indent}WARNING"
+        echo
+        merge_release="$FORCE_TAG_VALUE"
+    fi
+    if [[ -z $merge_release ]]; then
+        do_fail "${indent}Did not find the merge commit, or a -x override."
+    fi
     msg "${indent}Expecting to tag as release $merge_release"
 
     # Is it already tagged?
