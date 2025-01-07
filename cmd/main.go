@@ -52,9 +52,10 @@ var modulesAllowedRemote = []string{
 }
 
 type Context struct {
-	Debug  bool
-	DryRun bool
-	Force  bool
+	Debug        bool
+	DryRun       bool
+	DryRunAlways bool
+	Force        bool
 
 	Systems string
 	Repos   string
@@ -62,11 +63,12 @@ type Context struct {
 }
 
 var cli struct {
-	Debug   bool   `help:"Enable debug mode."`
-	DryRun  bool   `help:"Show what would be run."`
-	Systems string `name:"systems" default:"config/systems.yaml" help:"path to the systems config file"`
-	Repos   string `name:"repos" default:"config/repositories.yaml" help:"path to the repositories config file"`
-	Daemons string `name:"daemons" default:"config/daemons.yaml" help:"path to the daemons config file"`
+	Debug        bool   `help:"Enable debug mode."`
+	DryRun       bool   `help:"Show what would be run if modifying the target, but really run things that are usually safe on the target."`
+	DryRunAlways bool   `help:"DryRun always, never touch the target."`
+	Systems      string `name:"systems" default:"config/systems.yaml" help:"path to the systems config file"`
+	Repos        string `name:"repos" default:"config/repositories.yaml" help:"path to the repositories config file"`
+	Daemons      string `name:"daemons" default:"config/daemons.yaml" help:"path to the daemons config file"`
 
 	Deploy   DeployCmd   `cmd:"" help:"Deploy to current context."`
 	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
@@ -77,7 +79,7 @@ var cli struct {
 
 func main() {
 	ctx := kong.Parse(&cli)
-	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun, Systems: cli.Systems, Repos: cli.Repos, Daemons: cli.Daemons})
+	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun, DryRunAlways: cli.DryRunAlways, Systems: cli.Systems, Repos: cli.Repos, Daemons: cli.Daemons})
 	ctx.FatalIfErrorf(err)
 }
 
@@ -86,6 +88,9 @@ type DeployCmd struct {
 }
 
 func (cmd *DeployCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
@@ -120,6 +125,9 @@ type UndeployCmd struct {
 }
 
 func (cmd *UndeployCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
@@ -162,6 +170,9 @@ type MakeCmd struct {
 }
 
 func (cmd *MakeCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
@@ -213,16 +224,18 @@ type InstallCmd struct {
 	Force   bool     `help:"Force updates even if files are the same"`
 }
 
-func (cmd *InstallCmd) Run(ctx *Context) error {
-
-	ctx.Force = cmd.Force
+func (dcmd *InstallCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
+	ctx.Force = dcmd.Force
 
 	shouldSkipNode := func(node string) bool {
-		if len(cmd.Nodes) == 0 {
+		if len(dcmd.Nodes) == 0 {
 			return false
 		}
 
-		for _, n := range cmd.Nodes {
+		for _, n := range dcmd.Nodes {
 			if n == node {
 				return false
 			}
@@ -270,7 +283,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		var token []byte
 		var cert []byte
 		if d.ServiceAccount.Name != "" {
-			fmt.Println("Loading Service Account Cert & Token")
+			fmt.Println("\nLoading Service Account Cert & Token")
 
 			fmt.Println("  Secret:", d.ServiceAccount.Name+"/"+d.ServiceAccount.Namespace)
 
@@ -291,28 +304,33 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 
 		err = runInModules([]string{d.Repository}, func(module string) error {
 
-			fmt.Printf("Checking module %s\n", module)
+			fmt.Printf("\nChecking module %s\n\n", module)
 
-			if !cmd.NoBuild && d.Bin != "" && d.BuildCmd != "" {
+			if d.Bin != "" && d.BuildCmd != "" {
 				b := strings.Fields(d.BuildCmd)
 				cmd := exec.Command(b[0], b[1:]...)
 
-				fmt.Printf("Compile %s daemon...", d.Bin)
-				if _, err := runCommand(ctx, cmd); err != nil {
-					return err
-				}
-				fmt.Printf("DONE\n")
-
-				// Change to the bin's output path
-				if d.Path != "" {
-					if err := os.Chdir(d.Path); err != nil {
+				fmt.Printf("Compile %s daemon...\n", d.Bin)
+				if dcmd.NoBuild {
+					fmt.Printf("  No-Build: %s\n", cmd.String())
+				} else {
+					if _, err := runSafeCommand(ctx, cmd); err != nil {
 						return err
 					}
+					fmt.Printf("DONE\n")
+				}
+			}
+
+			// Change to the bin's output path
+			if d.Path != "" {
+				fmt.Printf("  Chdir %s\n", d.Path)
+				if err := os.Chdir(d.Path); err != nil {
+					return err
 				}
 			}
 
 			installCompute := func(compute string) error {
-				fmt.Printf(" Checking for install on Compute Node %s\n", compute)
+				fmt.Printf("\n Checking for install on Compute Node %s\n\n", compute)
 
 				if shouldSkipNode(compute) {
 					return nil
@@ -472,7 +490,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			}
 
 			for rabbit, computes := range perRabbit {
-				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
+				fmt.Printf("\n Check clients of rabbit %s\n\n", rabbit)
 
 				for _, compute := range computes {
 					err := installCompute(compute)
@@ -483,7 +501,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			}
 
 			for _, compute := range externalComputes {
-				fmt.Printf(" Check external computes\n")
+				fmt.Printf("\n Check external computes\n\n")
 
 				err := installCompute(compute)
 				if err != nil {
@@ -501,6 +519,9 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 type InitCmd struct{}
 
 func (cmd *InitCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
@@ -668,14 +689,14 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 	}
 
 	fmt.Printf("    Source MD5: ")
-	src, err := runCommand(ctx, exec.Command("md5sum", name))
+	src, err := runSafeCommand(ctx, exec.Command("md5sum", name))
 	if err != nil {
 		return false, err
 	}
 	fmt.Printf("%s", src)
 
 	fmt.Printf("    Destination MD5: ")
-	dest, err := runCommand(ctx, exec.Command("ssh", "-q", compute, "md5sum "+path.Join(destination, name), " || true"))
+	dest, err := runSafeCommand(ctx, exec.Command("ssh", "-q", compute, "md5sum "+path.Join(destination, name), " || true"))
 	if err != nil {
 		return false, err
 	}
@@ -686,7 +707,7 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 		fmt.Printf("  Compute Node %s requires update to %s\n", compute, name)
 	}
 
-	if ctx.DryRun {
+	if needsUpdate && ctx.DryRun {
 		needsUpdate = false
 		fmt.Printf("  Dry-Run: Skipping update of '%s'\n", name)
 	}
@@ -847,9 +868,20 @@ func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
 	return runCommandErrAllowed(ctx, cmd, false)
 }
 
+func runSafeCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
+	savedDryRun := ctx.DryRun
+	if !ctx.DryRunAlways {
+		// We're allowed to really run this "safe" command.
+		ctx.DryRun = false
+	}
+	out, err := runCommandErrAllowed(ctx, cmd, false)
+	ctx.DryRun = savedDryRun
+	return out, err
+}
+
 func runCommandErrAllowed(ctx *Context, cmd *exec.Cmd, errAllowed bool) ([]byte, error) {
 	if ctx.DryRun {
-		fmt.Printf("  Dry-Run: Skipping command '%s'\n", cmd.String())
+		fmt.Printf("  Dry-Run: %s\n", cmd.String())
 		if len(cmd.Env) > 0 {
 			fmt.Printf("  Additional env: %v\n", cmd.Env)
 		}
