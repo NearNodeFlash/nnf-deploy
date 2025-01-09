@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Hewlett Packard Enterprise Development LP
+ * Copyright 2021-2025 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -338,6 +338,58 @@ func EnumerateDaemons(configPath string, handleFn func(Daemon) error) error {
 
 	for _, daemon := range config.Daemons {
 		if err := handleFn(daemon); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type Library struct {
+	Name       string    `yaml:"name"`
+	BuildCmd   string    `yaml:"buildCmd"`
+	Repository string    `yaml:"repository"`
+	Library    LibEnt    `yaml:"lib,omitempty"`
+	Header     HeaderEnt `yaml:"header,omitempty"`
+	// Path is the path within the build repository that has the library and its header.
+	Path   string `yaml:"path"`
+	Secret struct {
+		Name      string `yaml:"name"`
+		Namespace string `yaml:"namespace"`
+	} `yaml:"secret,omitempty"`
+}
+
+type LibEnt struct {
+	// Name is the name of a library's .a or .so.
+	Name string `yaml:"name"`
+	// Dest is where Name should be copied to on the destination host.
+	Dest string `yaml:"dest"`
+}
+
+type HeaderEnt struct {
+	// Name is the name of a .h file.
+	Name string `yaml:"name"`
+	// Dest is where Name should be copied to on the destination host.
+	Dest string `yaml:"dest"`
+}
+
+type LibraryConfigFile struct {
+	Libraries []Library `yaml:"libraries"`
+}
+
+func EnumerateLibraries(configPath string, handleFn func(Library) error) error {
+	configFile, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	config := new(LibraryConfigFile)
+	if err := yaml.Unmarshal(configFile, config); err != nil {
+		return err
+	}
+
+	for _, library := range config.Libraries {
+		if err := handleFn(library); err != nil {
 			return err
 		}
 	}
