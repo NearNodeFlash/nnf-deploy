@@ -81,7 +81,7 @@ var cli struct {
 
 func main() {
 	ctx := kong.Parse(&cli)
-	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun, DryRunAlways: cli.DryRunAlways, Systems: cli.Systems, Repos: cli.Repos, Daemons: cli.Daemons})
+	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun, DryRunAlways: cli.DryRunAlways, Systems: cli.Systems, Repos: cli.Repos, Daemons: cli.Daemons, Libraries: cli.Libraries})
 	ctx.FatalIfErrorf(err)
 }
 
@@ -268,12 +268,18 @@ func (dcmd *InstallCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
+	err = dcmd.enumerateLibraries(ctx, sysConfigCR)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (dcmd *InstallCmd) enumerateDaemons(ctx *Context, k8sServerHost string, k8sServerPort string, sysConfigCR config.SystemConfigurationCRType) error {
 	perRabbit := sysConfigCR.RabbitsAndComputes()
 	externalComputes := sysConfigCR.ExternalComputes()
+
+	fmt.Printf("\n** Daemons\n\n")
 
 	return config.EnumerateDaemons(ctx.Daemons, func(d config.Daemon) error {
 		var token []byte
@@ -404,6 +410,112 @@ func (dcmd *InstallCmd) enumerateDaemons(ctx *Context, k8sServerHost string, k8s
 	})
 }
 
+func (dcmd *InstallCmd) enumerateLibraries(ctx *Context, sysConfigCR config.SystemConfigurationCRType) error {
+	perRabbit := sysConfigCR.RabbitsAndComputes()
+	externalComputes := sysConfigCR.ExternalComputes()
+
+	fmt.Printf("\n** Libraries\n")
+
+	return config.EnumerateLibraries(ctx.Libraries, func(d config.Library) error {
+		var token []byte
+		var cert []byte
+		var err error
+		fmt.Printf("\n")
+		cert, token, err = dcmd.getSecretCertAndToken(d)
+		if err != nil {
+			return err
+		}
+
+		err = runInModules([]string{d.Repository}, func(module string) error {
+
+			fmt.Printf("\nChecking module %s\n\n", module)
+
+			if d.BuildCmd != "" {
+				b := strings.Fields(d.BuildCmd)
+				cmd := exec.Command(b[0], b[1:]...)
+
+				fmt.Printf("Compile %s library...\n", d.Name)
+				if dcmd.NoBuild {
+					fmt.Printf("  No-Build: %s\n", cmd.String())
+				} else {
+					if _, err := runSafeCommand(ctx, cmd); err != nil {
+						return err
+					}
+					fmt.Printf("DONE\n")
+				}
+			}
+
+			// Change to the bin's output path
+			if d.Path != "" {
+				fmt.Printf("  Chdir %s\n", d.Path)
+				if err := os.Chdir(d.Path); err != nil {
+					return err
+				}
+			}
+
+			installCompute := func(compute string) error {
+				fmt.Printf("\n Checking for install on Compute Node %s\n\n", compute)
+				if dcmd.shouldSkipNode(compute) {
+					return nil
+				}
+				fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
+
+				configDir := "/etc/" + d.Name
+				if len(token) != 0 || len(cert) != 0 {
+					cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
+					if _, err := runCommand(ctx, cmd); err != nil {
+						return err
+					}
+				}
+				tokenPath := configDir
+				_, err = dcmd.updateFileContentOnCompute(ctx, compute, "token.der", token, tokenPath)
+				if err != nil {
+					return err
+				}
+				certFilePath := configDir
+				_, err = dcmd.updateFileContentOnCompute(ctx, compute, "cert.pem", cert, certFilePath)
+				if err != nil {
+					return err
+				}
+
+				if d.Library.Name != "" {
+					_, err = dcmd.updateFileOnCompute(ctx, compute, d.Library.Name, d.Library.Dest)
+					if err != nil {
+						return err
+					}
+				}
+				if d.Header.Name != "" {
+					_, err = dcmd.updateFileOnCompute(ctx, compute, d.Header.Name, d.Header.Dest)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			for rabbit, computes := range perRabbit {
+				fmt.Printf("\n Check clients of rabbit %s\n\n", rabbit)
+				for _, compute := range computes {
+					err := installCompute(compute)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			for _, compute := range externalComputes {
+				fmt.Printf("\n Check external computes\n\n")
+				err := installCompute(compute)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return err
+	})
+}
+
 func (dcmd *InstallCmd) shouldSkipNode(node string) bool {
 	if len(dcmd.Nodes) == 0 {
 		return false
@@ -437,6 +549,34 @@ func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, 
 
 		fmt.Printf("  Cert...")
 		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
+		if err != nil {
+			return cert, token, err
+		}
+		fmt.Println("Loaded REDACTED")
+	}
+
+	return cert, token, nil
+}
+
+func (dcmd *InstallCmd) getSecretCertAndToken(d config.Library) ([]byte, []byte, error) {
+	var token []byte
+	var cert []byte
+	var err error
+
+	if d.Secret.Name != "" {
+		fmt.Println("Loading Secret Cert & Token")
+
+		fmt.Println("  Secret:", d.Secret.Name+"/"+d.Secret.Namespace)
+
+		fmt.Printf("  Token...")
+		token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
+		if err != nil {
+			return cert, token, err
+		}
+		fmt.Println("Loaded REDACTED")
+
+		fmt.Printf("  Cert...")
+		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"tls.crt\"' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
 		if err != nil {
 			return cert, token, err
 		}
@@ -1073,13 +1213,9 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 // createDefaultStorageProfile creates the default NnfStorageProfile.
 func createDefaultStorageProfile(ctx *Context, module string) error {
-	if !strings.Contains(module, "nnf-sos") {
-		return nil
-	}
+	fmt.Println("Creating default profiles...")
 
-	fmt.Println("Creating default NnfStorageProfile...")
-
-	cmd := exec.Command("../tools/default-nnfstorageprofile.sh")
+	cmd := exec.Command("../tools/default-profiles.sh")
 	if _, err := runCommand(ctx, cmd); err != nil {
 		return err
 	}
