@@ -1213,13 +1213,9 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 // createDefaultStorageProfile creates the default NnfStorageProfile.
 func createDefaultStorageProfile(ctx *Context, module string) error {
-	if !strings.Contains(module, "nnf-sos") {
-		return nil
-	}
+	fmt.Println("Creating default profiles...")
 
-	fmt.Println("Creating default NnfStorageProfile...")
-
-	cmd := exec.Command("../tools/default-nnfstorageprofile.sh")
+	cmd := exec.Command("../tools/default-profiles.sh")
 	if _, err := runCommand(ctx, cmd); err != nil {
 		return err
 	}
