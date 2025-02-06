@@ -49,7 +49,7 @@
         ./release-all.sh -P release-push -R <repo>
         ```
 
-        Else if **Create Trial Release Branch** was unable to auto merge, manually merge and push the release branch
+    2. If **Create Trial Release Branch** was unable to auto merge, manually fix and merge the release branch and re-run this phase on that existing branch:
 
         ```bash
         cd workingspace/repo
@@ -59,10 +59,15 @@
         git status # confirm all issues have been address
         git add <all affected files>
         git commit -s # take the default commit message, don't bother editing it.
-        git push --set-upstream origin <release branch name>
         ```
 
-    2. Create PR for the pushed release branch:
+        Then re-run this phase on this branch, telling the tool to pick up where you left off:
+
+        ```bash
+        USE_EXISTING_WORKAREA=1 ./release-all.sh -P release-push -R <repo>
+        ```
+
+    3. Create PR for the pushed release branch:
 
        ```bash
        ./release-all.sh -P create-pr -R <repo>
