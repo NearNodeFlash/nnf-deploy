@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Hewlett Packard Enterprise Development LP
+ * Copyright 2021-2025 Hewlett Packard Enterprise Development LP
  * Other additional copyright holders may be indicated within.
  *
  * The entirety of this work is licensed under the Apache License,
@@ -52,21 +52,25 @@ var modulesAllowedRemote = []string{
 }
 
 type Context struct {
-	Debug  bool
-	DryRun bool
-	Force  bool
+	Debug        bool
+	DryRun       bool
+	DryRunAlways bool
+	Force        bool
 
-	Systems string
-	Repos   string
-	Daemons string
+	Systems   string
+	Repos     string
+	Daemons   string
+	Libraries string
 }
 
 var cli struct {
-	Debug   bool   `help:"Enable debug mode."`
-	DryRun  bool   `help:"Show what would be run."`
-	Systems string `name:"systems" default:"config/systems.yaml" help:"path to the systems config file"`
-	Repos   string `name:"repos" default:"config/repositories.yaml" help:"path to the repositories config file"`
-	Daemons string `name:"daemons" default:"config/daemons.yaml" help:"path to the daemons config file"`
+	Debug        bool   `help:"Enable debug mode."`
+	DryRun       bool   `help:"Show what would be run if modifying the target, but really run things that are usually safe on the target."`
+	DryRunAlways bool   `help:"DryRun always, never touch the target."`
+	Systems      string `name:"systems" default:"config/systems.yaml" help:"path to the systems config file"`
+	Repos        string `name:"repos" default:"config/repositories.yaml" help:"path to the repositories config file"`
+	Daemons      string `name:"daemons" default:"config/daemons.yaml" help:"path to the daemons config file"`
+	Libraries    string `name:"libraries" default:"config/libraries.yaml" help:"path to the libraries config file"`
 
 	Deploy   DeployCmd   `cmd:"" help:"Deploy to current context."`
 	Undeploy UndeployCmd `cmd:"" help:"Undeploy from current context."`
@@ -77,7 +81,7 @@ var cli struct {
 
 func main() {
 	ctx := kong.Parse(&cli)
-	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun, Systems: cli.Systems, Repos: cli.Repos, Daemons: cli.Daemons})
+	err := ctx.Run(&Context{Debug: cli.Debug, DryRun: cli.DryRun, DryRunAlways: cli.DryRunAlways, Systems: cli.Systems, Repos: cli.Repos, Daemons: cli.Daemons, Libraries: cli.Libraries})
 	ctx.FatalIfErrorf(err)
 }
 
@@ -86,6 +90,9 @@ type DeployCmd struct {
 }
 
 func (cmd *DeployCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
@@ -120,6 +127,9 @@ type UndeployCmd struct {
 }
 
 func (cmd *UndeployCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
@@ -162,6 +172,9 @@ type MakeCmd struct {
 }
 
 func (cmd *MakeCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
@@ -213,23 +226,11 @@ type InstallCmd struct {
 	Force   bool     `help:"Force updates even if files are the same"`
 }
 
-func (cmd *InstallCmd) Run(ctx *Context) error {
-
-	ctx.Force = cmd.Force
-
-	shouldSkipNode := func(node string) bool {
-		if len(cmd.Nodes) == 0 {
-			return false
-		}
-
-		for _, n := range cmd.Nodes {
-			if n == node {
-				return false
-			}
-		}
-
-		return true
+func (dcmd *InstallCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
 	}
+	ctx.Force = dcmd.Force
 
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
@@ -240,8 +241,6 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
-	perRabbit := sysConfigCR.RabbitsAndComputes()
-	externalComputes := sysConfigCR.ExternalComputes()
 
 	clusterConfig, err := currentClusterConfig()
 	if err != nil {
@@ -265,56 +264,64 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 		k8sServerPort = system.K8sPort
 	}
 
-	return config.EnumerateDaemons(ctx.Daemons, func(d config.Daemon) error {
+	err = dcmd.enumerateDaemons(ctx, k8sServerHost, k8sServerPort, sysConfigCR)
+	if err != nil {
+		return err
+	}
+	err = dcmd.enumerateLibraries(ctx, sysConfigCR)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
+func (dcmd *InstallCmd) enumerateDaemons(ctx *Context, k8sServerHost string, k8sServerPort string, sysConfigCR config.SystemConfigurationCRType) error {
+	perRabbit := sysConfigCR.RabbitsAndComputes()
+	externalComputes := sysConfigCR.ExternalComputes()
+
+	fmt.Printf("\n** Daemons\n\n")
+
+	return config.EnumerateDaemons(ctx.Daemons, func(d config.Daemon) error {
 		var token []byte
 		var cert []byte
-		if d.ServiceAccount.Name != "" {
-			fmt.Println("Loading Service Account Cert & Token")
-
-			fmt.Println("  Secret:", d.ServiceAccount.Name+"/"+d.ServiceAccount.Namespace)
-
-			fmt.Printf("  Token...")
-			token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
-			if err != nil {
-				return err
-			}
-			fmt.Println("Loaded REDACTED")
-
-			fmt.Printf("  Cert...")
-			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
-			if err != nil {
-				return err
-			}
-			fmt.Println("Loaded REDACTED")
+		var err error
+		fmt.Printf("\n")
+		cert, token, err = dcmd.getServiceAccountCertAndToken(d)
+		if err != nil {
+			return err
 		}
 
 		err = runInModules([]string{d.Repository}, func(module string) error {
 
-			fmt.Printf("Checking module %s\n", module)
+			fmt.Printf("\nChecking module %s\n\n", module)
 
-			if !cmd.NoBuild && d.Bin != "" && d.BuildCmd != "" {
+			if d.Bin != "" && d.BuildCmd != "" {
 				b := strings.Fields(d.BuildCmd)
 				cmd := exec.Command(b[0], b[1:]...)
 
-				fmt.Printf("Compile %s daemon...", d.Bin)
-				if _, err := runCommand(ctx, cmd); err != nil {
-					return err
-				}
-				fmt.Printf("DONE\n")
-
-				// Change to the bin's output path
-				if d.Path != "" {
-					if err := os.Chdir(d.Path); err != nil {
+				fmt.Printf("Compile %s daemon...\n", d.Bin)
+				if dcmd.NoBuild {
+					fmt.Printf("  No-Build: %s\n", cmd.String())
+				} else {
+					if _, err := runSafeCommand(ctx, cmd); err != nil {
 						return err
 					}
+					fmt.Printf("DONE\n")
+				}
+			}
+
+			// Change to the bin's output path
+			if d.Path != "" {
+				fmt.Printf("  Chdir %s\n", d.Path)
+				if err := os.Chdir(d.Path); err != nil {
+					return err
 				}
 			}
 
 			installCompute := func(compute string) error {
-				fmt.Printf(" Checking for install on Compute Node %s\n", compute)
+				fmt.Printf("\n Checking for install on Compute Node %s\n\n", compute)
 
-				if shouldSkipNode(compute) {
+				if dcmd.shouldSkipNode(compute) {
 					return nil
 				}
 
@@ -329,41 +336,17 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 				}
 
 				serviceTokenPath := configDir
-				tokenNeedsUpdate := false
-				if len(token) != 0 {
-					if err := os.WriteFile("service.token", token, 0644); err != nil {
-						return err
-					}
-
-					tokenNeedsUpdate, err = checkNeedsUpdate(ctx, "service.token", compute, serviceTokenPath)
-					if tokenNeedsUpdate {
-						err = copyToNode(ctx, "service.token", compute, serviceTokenPath)
-					}
-
-					os.Remove("service.token")
-
-					if err != nil {
-						return err
-					}
+				var tokenNeedsUpdate bool
+				tokenNeedsUpdate, err = dcmd.updateFileContentOnCompute(ctx, compute, "service.token", token, serviceTokenPath)
+				if err != nil {
+					return err
 				}
 
 				certFilePath := configDir
-				certNeedsUpdate := false
-				if len(cert) != 0 {
-					if err := os.WriteFile("service.cert", cert, 0644); err != nil {
-						return err
-					}
-
-					certNeedsUpdate, err = checkNeedsUpdate(ctx, "service.cert", compute, certFilePath)
-					if certNeedsUpdate {
-						err = copyToNode(ctx, "service.cert", compute, certFilePath)
-					}
-
-					os.Remove("service.cert")
-
-					if err != nil {
-						return err
-					}
+				var certNeedsUpdate bool
+				certNeedsUpdate, err = dcmd.updateFileContentOnCompute(ctx, compute, "service.cert", cert, certFilePath)
+				if err != nil {
+					return err
 				}
 
 				if d.Bin == "" {
@@ -376,103 +359,32 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 				}
 
 				if binaryNeedsUpdate {
-
-					fmt.Printf("  Stopping %s service...", d.Name)
-					cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
-					if _, err := runCommand(ctx, cmd); err != nil {
-						return err
-					}
-					fmt.Printf("\n")
-
-					fmt.Printf("  Removing %s service...", d.Name)
-					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
-					if _, err := runCommand(ctx, cmd); err != nil {
-						return err
-					}
-					fmt.Printf("\n")
-
-					if err := copyToNode(ctx, d.Bin, compute, "/usr/bin"); err != nil {
-						return err
-					}
-
-					fmt.Printf("  Installing %s service...", d.Name)
-					cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
-					if _, err := runCommand(ctx, cmd); err != nil {
+					err = dcmd.updateBinaryOnCompute(ctx, d, compute)
+					if err != nil {
 						return err
 					}
 					fmt.Printf("\n")
 				}
 
-				overrideContents := ""
-				overrideContents += "[Service]\n"
-				overrideContents += "ExecStart=\n"
-				overrideContents += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
-				overrideContents += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
-				overrideContents += "  --kubernetes-service-port=" + k8sServerPort
-
-				// optional command line arguments
-				if len(token) != 0 {
-					overrideContents += " \\\n" + "  --service-token-file=" + path.Join(serviceTokenPath, "service.token")
-				}
-				if len(cert) != 0 {
-					overrideContents += " \\\n" + "  --service-cert-file=" + path.Join(certFilePath, "service.cert")
-				}
-				if len(d.ExtraArgs) > 0 {
-					overrideContents += " \\\n  " + d.ExtraArgs
-				}
-
-				// Add environment variables - there should not be a \ on the preceding line
-				// otherwise the first env var will not work
-				for _, e := range d.Environment {
-					overrideContents += "\n" + "Environment=" + e.Name + "=" + e.Value
-				}
-
-				fmt.Printf("  Creating override directory...")
-				overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
-				cmd := exec.Command("ssh", compute, "mkdir", "-p", overridePath)
-				if _, err := runCommand(ctx, cmd); err != nil {
-					return err
-				}
-				fmt.Printf("\n")
-
-				fmt.Println("  Creating override configuration...")
-				if err := os.WriteFile("override.conf", []byte(overrideContents), 0644); err != nil {
-					return err
-				}
-
-				overrideNeedsUpdate, err := checkNeedsUpdate(ctx, "override.conf", compute, overridePath)
-				if overrideNeedsUpdate {
-					err = copyToNode(ctx, "override.conf", compute, overridePath)
-				}
-
-				os.Remove("override.conf")
-
+				var overrideNeedsUpdate bool
+				overrideNeedsUpdate, err = dcmd.updateSystemdUnit(ctx, d, compute, k8sServerHost, k8sServerPort, token, serviceTokenPath, cert, certFilePath)
 				if err != nil {
 					return err
 				}
 
 				if binaryNeedsUpdate || tokenNeedsUpdate || certNeedsUpdate || overrideNeedsUpdate {
 					// Reload the daemon to pick up the override.conf.
-					fmt.Printf("  Reloading service...")
-					cmd = exec.Command("ssh", compute, "systemctl daemon-reload")
-					if _, err := runCommand(ctx, cmd); err != nil {
+					err = dcmd.reloadDaemonOnCompute(ctx, d, compute)
+					if err != nil {
 						return err
 					}
-					fmt.Printf("\n")
-
-					fmt.Printf("  Starting service...")
-					cmd = exec.Command("ssh", compute, "systemctl", "start", d.Bin)
-					if _, err := runCommand(ctx, cmd); err != nil {
-						return err
-					}
-					fmt.Printf("\n")
 				}
 
 				return nil
 			}
 
 			for rabbit, computes := range perRabbit {
-				fmt.Printf(" Check clients of rabbit %s\n", rabbit)
+				fmt.Printf("\n Check clients of rabbit %s\n\n", rabbit)
 
 				for _, compute := range computes {
 					err := installCompute(compute)
@@ -483,7 +395,7 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 			}
 
 			for _, compute := range externalComputes {
-				fmt.Printf(" Check external computes\n")
+				fmt.Printf("\n Check external computes\n\n")
 
 				err := installCompute(compute)
 				if err != nil {
@@ -498,9 +410,321 @@ func (cmd *InstallCmd) Run(ctx *Context) error {
 	})
 }
 
+func (dcmd *InstallCmd) enumerateLibraries(ctx *Context, sysConfigCR config.SystemConfigurationCRType) error {
+	perRabbit := sysConfigCR.RabbitsAndComputes()
+	externalComputes := sysConfigCR.ExternalComputes()
+
+	fmt.Printf("\n** Libraries\n")
+
+	return config.EnumerateLibraries(ctx.Libraries, func(d config.Library) error {
+		var token []byte
+		var cert []byte
+		var err error
+		fmt.Printf("\n")
+		cert, token, err = dcmd.getSecretCertAndToken(d)
+		if err != nil {
+			return err
+		}
+
+		err = runInModules([]string{d.Repository}, func(module string) error {
+
+			fmt.Printf("\nChecking module %s\n\n", module)
+
+			if d.BuildCmd != "" {
+				b := strings.Fields(d.BuildCmd)
+				cmd := exec.Command(b[0], b[1:]...)
+
+				fmt.Printf("Compile %s library...\n", d.Name)
+				if dcmd.NoBuild {
+					fmt.Printf("  No-Build: %s\n", cmd.String())
+				} else {
+					if _, err := runSafeCommand(ctx, cmd); err != nil {
+						return err
+					}
+					fmt.Printf("DONE\n")
+				}
+			}
+
+			// Change to the bin's output path
+			if d.Path != "" {
+				fmt.Printf("  Chdir %s\n", d.Path)
+				if err := os.Chdir(d.Path); err != nil {
+					return err
+				}
+			}
+
+			installCompute := func(compute string) error {
+				fmt.Printf("\n Checking for install on Compute Node %s\n\n", compute)
+				if dcmd.shouldSkipNode(compute) {
+					return nil
+				}
+				fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
+
+				configDir := "/etc/" + d.Name
+				if len(token) != 0 || len(cert) != 0 {
+					cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
+					if _, err := runCommand(ctx, cmd); err != nil {
+						return err
+					}
+				}
+				tokenPath := configDir
+				_, err = dcmd.updateFileContentOnCompute(ctx, compute, "token.der", token, tokenPath)
+				if err != nil {
+					return err
+				}
+				certFilePath := configDir
+				_, err = dcmd.updateFileContentOnCompute(ctx, compute, "cert.pem", cert, certFilePath)
+				if err != nil {
+					return err
+				}
+
+				if d.Library.Name != "" {
+					_, err = dcmd.updateFileOnCompute(ctx, compute, d.Library.Name, d.Library.Dest)
+					if err != nil {
+						return err
+					}
+				}
+				if d.Header.Name != "" {
+					_, err = dcmd.updateFileOnCompute(ctx, compute, d.Header.Name, d.Header.Dest)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			for rabbit, computes := range perRabbit {
+				fmt.Printf("\n Check clients of rabbit %s\n\n", rabbit)
+				for _, compute := range computes {
+					err := installCompute(compute)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			for _, compute := range externalComputes {
+				fmt.Printf("\n Check external computes\n\n")
+				err := installCompute(compute)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return err
+	})
+}
+
+func (dcmd *InstallCmd) shouldSkipNode(node string) bool {
+	if len(dcmd.Nodes) == 0 {
+		return false
+	}
+
+	for _, n := range dcmd.Nodes {
+		if n == node {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, []byte, error) {
+	var token []byte
+	var cert []byte
+	var err error
+
+	if d.ServiceAccount.Name != "" {
+		fmt.Println("Loading Service Account Cert & Token")
+
+		fmt.Println("  Secret:", d.ServiceAccount.Name+"/"+d.ServiceAccount.Namespace)
+
+		fmt.Printf("  Token...")
+		token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
+		if err != nil {
+			return cert, token, err
+		}
+		fmt.Println("Loaded REDACTED")
+
+		fmt.Printf("  Cert...")
+		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
+		if err != nil {
+			return cert, token, err
+		}
+		fmt.Println("Loaded REDACTED")
+	}
+
+	return cert, token, nil
+}
+
+func (dcmd *InstallCmd) getSecretCertAndToken(d config.Library) ([]byte, []byte, error) {
+	var token []byte
+	var cert []byte
+	var err error
+
+	if d.Secret.Name != "" {
+		fmt.Println("Loading Secret Cert & Token")
+
+		fmt.Println("  Secret:", d.Secret.Name+"/"+d.Secret.Namespace)
+
+		fmt.Printf("  Token...")
+		token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
+		if err != nil {
+			return cert, token, err
+		}
+		fmt.Println("Loaded REDACTED")
+
+		fmt.Printf("  Cert...")
+		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"tls.crt\"' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
+		if err != nil {
+			return cert, token, err
+		}
+		fmt.Println("Loaded REDACTED")
+	}
+
+	return cert, token, nil
+}
+
+func (dcmd *InstallCmd) updateBinaryOnCompute(ctx *Context, d config.Daemon, compute string) error {
+
+	fmt.Printf("  Stopping %s service...", d.Name)
+	cmd := exec.Command("ssh", compute, "systemctl", "stop", d.Bin, "|| true")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+	fmt.Printf("\n")
+
+	fmt.Printf("  Removing %s service...", d.Name)
+	cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "remove", "|| true")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+	fmt.Printf("\n")
+
+	if err := copyToNode(ctx, d.Bin, compute, "/usr/bin"); err != nil {
+		return err
+	}
+
+	fmt.Printf("  Checking %s executable...", d.Name)
+	cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "-h")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+	fmt.Printf("\n")
+
+	fmt.Printf("  Installing %s service...", d.Name)
+	cmd = exec.Command("ssh", compute, "/usr/bin/"+d.Bin, "install", "|| true")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+	fmt.Printf("\n")
+	return nil
+}
+
+func (dcmd *InstallCmd) updateFileContentOnCompute(ctx *Context, compute string, fileBaseName string, content []byte, destPath string) (bool, error) {
+	var err error
+	needsUpdate := false
+
+	if len(content) != 0 {
+		if err = os.WriteFile(fileBaseName, content, 0644); err != nil {
+			return false, err
+		}
+		needsUpdate, err = dcmd.updateFileOnCompute(ctx, compute, fileBaseName, destPath)
+		os.Remove(fileBaseName)
+		if err != nil {
+			return false, err
+		}
+	}
+	return needsUpdate, nil
+}
+
+func (dcmd *InstallCmd) updateFileOnCompute(ctx *Context, compute string, fileBaseName string, destPath string) (bool, error) {
+	needsUpdate, err := checkNeedsUpdate(ctx, fileBaseName, compute, destPath)
+	if needsUpdate {
+		err = copyToNode(ctx, fileBaseName, compute, destPath)
+	}
+	if err != nil {
+		return false, err
+	}
+	return needsUpdate, nil
+}
+
+func (dcmd *InstallCmd) updateSystemdUnit(ctx *Context, d config.Daemon, compute string, k8sServerHost string, k8sServerPort string, token []byte, serviceTokenPath string, cert []byte, certFilePath string) (bool, error) {
+	overrideContents := ""
+	overrideContents += "[Service]\n"
+	overrideContents += "ExecStart=\n"
+	overrideContents += "ExecStart=/usr/bin/" + d.Bin + " \\\n"
+	overrideContents += "  --kubernetes-service-host=" + k8sServerHost + " \\\n"
+	overrideContents += "  --kubernetes-service-port=" + k8sServerPort
+
+	// optional command line arguments
+	if len(token) != 0 {
+		overrideContents += " \\\n" + "  --service-token-file=" + path.Join(serviceTokenPath, "service.token")
+	}
+	if len(cert) != 0 {
+		overrideContents += " \\\n" + "  --service-cert-file=" + path.Join(certFilePath, "service.cert")
+	}
+	if len(d.ExtraArgs) > 0 {
+		overrideContents += " \\\n  " + d.ExtraArgs
+	}
+
+	// Add environment variables - there should not be a \ on the preceding line
+	// otherwise the first env var will not work
+	for _, e := range d.Environment {
+		overrideContents += "\n" + "Environment=" + e.Name + "=" + e.Value
+	}
+
+	fmt.Printf("  Creating override directory...")
+	overridePath := "/etc/systemd/system/" + d.Bin + ".service.d"
+	cmd := exec.Command("ssh", compute, "mkdir", "-p", overridePath)
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return false, err
+	}
+	fmt.Printf("\n")
+
+	fmt.Println("  Creating override configuration...")
+	if err := os.WriteFile("override.conf", []byte(overrideContents), 0644); err != nil {
+		return false, err
+	}
+
+	overrideNeedsUpdate, err := checkNeedsUpdate(ctx, "override.conf", compute, overridePath)
+	if overrideNeedsUpdate {
+		err = copyToNode(ctx, "override.conf", compute, overridePath)
+	}
+
+	os.Remove("override.conf")
+
+	if err != nil {
+		return false, err
+	}
+	return overrideNeedsUpdate, nil
+}
+
+func (dcmd *InstallCmd) reloadDaemonOnCompute(ctx *Context, d config.Daemon, compute string) error {
+	// Reload the daemon to pick up the override.conf.
+	fmt.Printf("  Reloading service...\n")
+	cmd := exec.Command("ssh", compute, "systemctl daemon-reload")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+	fmt.Printf("\n")
+
+	fmt.Printf("  Starting service...\n")
+	cmd = exec.Command("ssh", compute, "systemctl", "start", d.Bin)
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return err
+	}
+	fmt.Printf("\n")
+	return nil
+}
+
 type InitCmd struct{}
 
 func (cmd *InitCmd) Run(ctx *Context) error {
+	if ctx.DryRunAlways {
+		ctx.DryRun = true
+	}
 	system, err := loadSystem(ctx.Systems)
 	if err != nil {
 		return err
@@ -668,14 +892,14 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 	}
 
 	fmt.Printf("    Source MD5: ")
-	src, err := runCommand(ctx, exec.Command("md5sum", name))
+	src, err := runSafeCommand(ctx, exec.Command("md5sum", name))
 	if err != nil {
 		return false, err
 	}
 	fmt.Printf("%s", src)
 
 	fmt.Printf("    Destination MD5: ")
-	dest, err := runCommand(ctx, exec.Command("ssh", "-q", compute, "md5sum "+path.Join(destination, name), " || true"))
+	dest, err := runSafeCommand(ctx, exec.Command("ssh", "-q", compute, "md5sum "+path.Join(destination, name), " || true"))
 	if err != nil {
 		return false, err
 	}
@@ -686,7 +910,7 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 		fmt.Printf("  Compute Node %s requires update to %s\n", compute, name)
 	}
 
-	if ctx.DryRun {
+	if needsUpdate && ctx.DryRun {
 		needsUpdate = false
 		fmt.Printf("  Dry-Run: Skipping update of '%s'\n", name)
 	}
@@ -847,9 +1071,20 @@ func runCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
 	return runCommandErrAllowed(ctx, cmd, false)
 }
 
+func runSafeCommand(ctx *Context, cmd *exec.Cmd) ([]byte, error) {
+	savedDryRun := ctx.DryRun
+	if !ctx.DryRunAlways {
+		// We're allowed to really run this "safe" command.
+		ctx.DryRun = false
+	}
+	out, err := runCommandErrAllowed(ctx, cmd, false)
+	ctx.DryRun = savedDryRun
+	return out, err
+}
+
 func runCommandErrAllowed(ctx *Context, cmd *exec.Cmd, errAllowed bool) ([]byte, error) {
 	if ctx.DryRun {
-		fmt.Printf("  Dry-Run: Skipping command '%s'\n", cmd.String())
+		fmt.Printf("  Dry-Run: %s\n", cmd.String())
 		if len(cmd.Env) > 0 {
 			fmt.Printf("  Additional env: %v\n", cmd.Env)
 		}
@@ -978,13 +1213,9 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 
 // createDefaultStorageProfile creates the default NnfStorageProfile.
 func createDefaultStorageProfile(ctx *Context, module string) error {
-	if !strings.Contains(module, "nnf-sos") {
-		return nil
-	}
+	fmt.Println("Creating default profiles...")
 
-	fmt.Println("Creating default NnfStorageProfile...")
-
-	cmd := exec.Command("../tools/default-nnfstorageprofile.sh")
+	cmd := exec.Command("../tools/default-profiles.sh")
 	if _, err := runCommand(ctx, cmd); err != nil {
 		return err
 	}
