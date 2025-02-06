@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -107,6 +107,7 @@ usage() {
     echo "                      'tag-release'  Tag the release."
     echo "  -R repo_names     Comma-separated list of repo names to operate on."
     echo "                    If unspecified, then all repos will be used."
+    echo "                    The phases that follow 'release' allow only one repo."
     echo "  -w workspace_dir  Name for working directory. Default: '$WORKSPACE'"
     echo "  -x THINGS         A list of colon-separated manual overrides."
     echo "                      'force-tag=vX.Y.Z'  Use tag vX.Y.Z during the tag-release"
@@ -886,7 +887,32 @@ tag_release_vX() {
     cd ..
 }
 
+check_if_wants_only_one() {
+    local repo_count
+    local phase=$PHASE
+
+    repo_count=$(echo "$REPO_LIST" | wc -w | awk '{print $1}')
+    if [[ $repo_count -gt 1 ]]; then
+        local fail=false
+        case $phase in
+        master) ;;
+        release)
+            if [[ -n $PUSH_BRANCH ]]; then
+                fail=true
+                phase="release-push"
+            fi
+            ;;
+        *) fail=true ;;
+        esac
+
+        if [[ $fail == "true" ]]; then
+            do_fail "Phase $phase requires -R with only one repo specified."
+        fi
+    fi
+}
+
 run_phase() {
+    check_if_wants_only_one
     for repo_short_name in $REPO_LIST; do
         url=$(getter repomap "$repo_short_name")
         name=$(get_repo_dir_name "$url")
