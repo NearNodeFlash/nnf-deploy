@@ -1,4 +1,4 @@
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -49,7 +49,7 @@ class FileUtil:
                 os.rename(f"{self._fpath}.new", self._fpath)
 
     def replace_in_file(self, from_str, to_str):
-        """Replace one string with another throughout the file."""
+        """Replace one string with another."""
 
         self.read()
         changed = False

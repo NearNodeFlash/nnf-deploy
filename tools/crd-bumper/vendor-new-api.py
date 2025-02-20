@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -163,10 +163,10 @@ def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
             gocli.tidy()
             gocli.vendor()
         vendor.set_current_api_version()
-        main_file = None
+        alt_main_file = None
         if "alternate_main" in bumper_cfg:
-            main_file = bumper_cfg["alternate_main"]
-        vendor.set_preferred_api_alias(main_file)
+            alt_main_file = bumper_cfg["alternate_main"]
+        vendor.set_preferred_api_alias(alt_main_file)
     except ValueError as ex:
         print(str(ex))
         sys.exit(1)
