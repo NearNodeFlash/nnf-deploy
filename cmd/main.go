@@ -286,7 +286,7 @@ func (dcmd *InstallCmd) enumerateDaemons(ctx *Context, k8sServerHost string, k8s
 		var cert []byte
 		var err error
 		fmt.Printf("\n")
-		cert, token, err = dcmd.getServiceAccountCertAndToken(d)
+		cert, token, err = dcmd.getServiceAccountCertAndToken(ctx, d)
 		if err != nil {
 			return err
 		}
@@ -420,7 +420,7 @@ func (dcmd *InstallCmd) enumerateLibraries(ctx *Context, sysConfigCR config.Syst
 		var cert []byte
 		var err error
 		fmt.Printf("\n")
-		cert, err = dcmd.getSecretCert(d)
+		cert, err = dcmd.getSecretCert(ctx, d)
 		if err != nil {
 			return err
 		}
@@ -460,11 +460,9 @@ func (dcmd *InstallCmd) enumerateLibraries(ctx *Context, sysConfigCR config.Syst
 				fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
 
 				configDir := "/etc/" + d.Name
-				if len(cert) != 0 {
-					cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
-					if _, err := runCommand(ctx, cmd); err != nil {
-						return err
-					}
+				cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
+				if _, err := runCommand(ctx, cmd); err != nil {
+					return err
 				}
 
 				certFilePath := configDir
@@ -519,7 +517,7 @@ func (dcmd *InstallCmd) shouldSkipNode(node string) bool {
 	return true
 }
 
-func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, []byte, error) {
+func (dcmd *InstallCmd) getServiceAccountCertAndToken(ctx *Context, d config.Daemon) ([]byte, []byte, error) {
 	var token []byte
 	var cert []byte
 	var err error
@@ -530,16 +528,26 @@ func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, 
 		fmt.Println("  Secret:", d.ServiceAccount.Name+"/"+d.ServiceAccount.Namespace)
 
 		fmt.Printf("  Token...")
-		token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
-		if err != nil {
-			return cert, token, err
+		if !ctx.DryRunAlways {
+			token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).CombinedOutput()
+			if err != nil {
+				return cert, token, err
+			}
+			if strings.Contains(string(token), "Error") || strings.Contains(string(token), "error") {
+				return cert, token, errors.New(string(token))
+			}
 		}
 		fmt.Println("Loaded REDACTED")
 
 		fmt.Printf("  Cert...")
-		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
-		if err != nil {
-			return cert, token, err
+		if !ctx.DryRunAlways {
+			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).CombinedOutput()
+			if err != nil {
+				return cert, token, err
+			}
+			if strings.Contains(string(cert), "Error") || strings.Contains(string(cert), "error") {
+				return cert, token, errors.New(string(cert))
+			}
 		}
 		fmt.Println("Loaded REDACTED")
 	}
@@ -547,7 +555,7 @@ func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, 
 	return cert, token, nil
 }
 
-func (dcmd *InstallCmd) getSecretCert(d config.Library) ([]byte, error) {
+func (dcmd *InstallCmd) getSecretCert(ctx *Context, d config.Library) ([]byte, error) {
 	var cert []byte
 	var err error
 
@@ -557,9 +565,14 @@ func (dcmd *InstallCmd) getSecretCert(d config.Library) ([]byte, error) {
 		fmt.Println("  Secret:", d.Secret.Name+"/"+d.Secret.Namespace)
 
 		fmt.Printf("  Cert...")
-		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"tls.crt\"' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
-		if err != nil {
-			return cert, err
+		if !ctx.DryRunAlways {
+			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"tls.crt\"' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).CombinedOutput()
+			if err != nil {
+				return cert, err
+			}
+			if strings.Contains(string(cert), "Error") || strings.Contains(string(cert), "error") {
+				return cert, errors.New(string(cert))
+			}
 		}
 		fmt.Println("Loaded REDACTED")
 	}
@@ -607,7 +620,7 @@ func (dcmd *InstallCmd) updateFileContentOnCompute(ctx *Context, compute string,
 	var err error
 	needsUpdate := false
 
-	if len(content) != 0 {
+	if len(content) != 0 || ctx.DryRunAlways {
 		if err = os.WriteFile(fileBaseName, content, 0644); err != nil {
 			return false, err
 		}
