@@ -554,7 +554,6 @@ func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, 
 }
 
 func (dcmd *InstallCmd) getSecretCert(d config.Library) ([]byte, error) {
-	// var token []byte
 	var cert []byte
 	var err error
 
@@ -562,13 +561,6 @@ func (dcmd *InstallCmd) getSecretCert(d config.Library) ([]byte, error) {
 		fmt.Println("Loading Client Secret TLS Cert")
 
 		fmt.Println("  Secret:", d.Secret.Name+"/"+d.Secret.Namespace)
-
-		// fmt.Printf("  Token...")
-		// token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
-		// if err != nil {
-		// 	return cert, token, err
-		// }
-		// fmt.Println("Loaded REDACTED")
 
 		fmt.Printf("  Cert...")
 		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"tls.crt\"' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
