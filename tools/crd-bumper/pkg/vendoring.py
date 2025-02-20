@@ -83,6 +83,8 @@ class Vendor:
         """
 
         def search_for_alias(file_name):
+            if not os.path.exists(file_name):
+                return
             fu = FileUtil(self._dryrun, file_name)
             # Find the import.
             line = fu.find_in_file(
