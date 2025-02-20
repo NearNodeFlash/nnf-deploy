@@ -479,12 +479,6 @@ func (dcmd *InstallCmd) enumerateLibraries(ctx *Context, sysConfigCR config.Syst
 						return err
 					}
 				}
-				if d.Header.Name != "" {
-					_, err = dcmd.updateFileOnCompute(ctx, compute, d.Header.Name, d.Header.Dest)
-					if err != nil {
-						return err
-					}
-				}
 				return nil
 			}
 

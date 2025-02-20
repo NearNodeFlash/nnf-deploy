@@ -3,9 +3,6 @@ libraries:
     lib:
       name: libcopyoffload.a
       dest: /opt/local/lib/
-    header:
-      name: copy-offload.h
-      dest: /opt/local/include/
     path: daemons/lib-copy-offload/
     buildCmd: make -C daemons/lib-copy-offload libcopyoffload.a
     repository: nnf-dm
