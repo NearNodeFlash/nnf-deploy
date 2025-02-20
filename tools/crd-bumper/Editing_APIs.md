@@ -8,7 +8,6 @@ In the DWS repository, add a new field to the `Status` section of the `SystemCon
 
 ### Step 1: Add a new ResourceError field
 
-
 ```go
 diff --git a/api/v1alpha2/systemconfiguration_types.go b/api/v1alpha2/systemconfiguration_types.go
 index 3e4d29fb..2c65e3a0 100644

@@ -1,4 +1,4 @@
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -68,7 +68,7 @@ class Vendor:
         self._current_ver = None
         self.set_current_api_version()
 
-    def set_preferred_api_alias(self, main_file=None):
+    def set_preferred_api_alias(self, alt_main_file=None):
         """
         What is this repo using as the alias for this module's API?
 
@@ -78,25 +78,29 @@ class Vendor:
            dwsv1alpha1 "github.com/DataWorkflowServices/dws/api/v1alpha"
            dataworkflowservicesv1alpha1 "github.com/DataWorkflowServices/dws/api/v1alpha"
 
-        We'll look at cmd/main.go to get an answer.
+        We'll look at cmd/main.go first to get an answer. If we don't find it
+        there then we'll look at the @alt_main_file, if one is provided.
         """
 
-        if main_file is not None:
-            fname = main_file
-        else:
-            fname = "cmd/main.go"
-        fu = FileUtil(self._dryrun, fname)
-        # Find the import.
-        line = fu.find_in_file(
-            f'{self._current_ver} "{self._module}/api/{self._current_ver}"'
-        )
-        if line is not None:
-            pat = rf'^\s+(.+){self._current_ver}\s+"{self._module}/api/{self._current_ver}"'
-            m = re.search(pat, line)
-            if m is not None:
-                self._preferred_alias = m.group(1)
+        def search_for_alias(file_name):
+            fu = FileUtil(self._dryrun, file_name)
+            # Find the import.
+            line = fu.find_in_file(
+                f'{self._current_ver} "{self._module}/api/{self._current_ver}"'
+            )
+            if line is not None:
+                pat = rf'^\s+(.+){self._current_ver}\s+"{self._module}/api/{self._current_ver}"'
+                m = re.search(pat, line)
+                if m is not None:
+                    self._preferred_alias = m.group(1)
+
+        fnames=["cmd/main.go"]
+        search_for_alias("cmd/main.go")
         if self._preferred_alias is None:
-            raise ValueError(f"Expected to find the module's alias in {fname}.")
+            fnames.append(alt_main_file)
+            search_for_alias(alt_main_file)
+        if self._preferred_alias is None:
+            raise ValueError(f"Expected to find the module's alias in {fnames}.")
 
     def update_go_file(self, full_path):
         """Bump the given Go file to point at the new hub."""
