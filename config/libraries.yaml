@@ -1,5 +1,5 @@
 libraries:
-  - name: copy-offload
+  - name: nnf-dm-usercontainer
     lib:
       name: libcopyoffload.a
       dest: /opt/local/lib/
@@ -7,5 +7,5 @@ libraries:
     buildCmd: make -C daemons/lib-copy-offload libcopyoffload.a
     repository: nnf-dm
     secret:
-      name: nnf-dm-copy-offload-client-tls
+      name: nnf-dm-usercontainer-client-tls
       namespace: default
