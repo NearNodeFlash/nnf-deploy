@@ -20,6 +20,10 @@ $ . venv/bin/activate
 (venv) $ pip install -r requirements.txt
 ```
 
+### Prior to Creating the new API
+
+For the easiest vendoring experience, the downstream repos should be up to date with this repo prior to creating the new API, and this new API should be vendored into the downstream repos before any further changes go into this repo or any of the downstream repos.
+
 ### Run the Tool
 
 Clone a fresh copy of the repository that contains the CRDs and controllers, checking out to the default branch (master or main). The tool expects a repository that is compatible with kubebuilder and will use the `./PROJECT` file that is maintained by kubebuilder.
