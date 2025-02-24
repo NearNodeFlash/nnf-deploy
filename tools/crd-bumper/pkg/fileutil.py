@@ -85,6 +85,19 @@ class FileUtil:
                     return line
         return None
 
+    def find_all_in_file(self, substr):
+        """Find all lines, with line numbers, having a given substring."""
+
+        self.read()
+        cnt = 1
+        output = []
+        if self._input_data is not None:
+            for line in self._input_data.split("\n"):
+                if substr in line:
+                    output.append([cnt, line])
+                cnt += 1
+        return output
+
     def find_with_pattern(self, pat):
         """Find the first line matching a given pattern."""
 

@@ -148,6 +148,16 @@ Used in `internal/controller/conversion_test.go` to indicate where additional te
 
 Used in `internal/controller/conversion_test.go` to indicate where additional spoke conversion tests should be placed. Each kind will have its own `Context()` block within the main `Describe()`, and this should be the last statement within each of those Context blocks. Replace "GROUP.KIND" with the API's group and kind, using the same spelling and use of lower/upper case letters as found in the `./PROJECT` file.
 
+**+crdbumper:carryforward:begin="KIND.DIRECTION"**
+
+**+crdbumper:carryforward:begin="Epilog"**
+
+Used in `api/$SPOKE/conversion.go` to indicate that a segment of code should be carried forward as new spokes are created or as old spokes are removed. Use of this marker should be uncommon; it's almost always wrong to carry-forward code to a new spoke. Replace "KIND" with the API's kind, using the same spelling and use of lower/upper case letters as found in the `./PROJECT` file. Replace "DIRECTION" with "ConvertFrom" or "ConvertTo" to mark the section of code as being in a `ConvertFrom()` or `ConvertTo()` function. If the "Epilog" variation is used then this marks one or more `Convert_$API1_$KIND_To_$API2_$KIND()` conversion functions, or similar chunks of code, that are typically collected at the end of `conversion.go`.
+
+**+crdbumper:carryforward:end**
+
+This is used in `api/$SPOKE/conversion.go` to close the segment of code that was marked with `+crdbumper:carryforward:begin`.
+
 ## References
 
 ### Kubernetes
