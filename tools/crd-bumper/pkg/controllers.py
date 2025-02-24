@@ -1,4 +1,4 @@
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -53,15 +53,15 @@ class Controllers:
                 return True
         return False
 
-    def bump_earlier_spokes(self):
+    def bump_earlier_spokes(self, final_msgs):
         """If the repo has earlier spokes, update them to point at the new hub."""
 
         earlier_spokes = self.has_earlier_spokes()
         if earlier_spokes:
-            self.run()
+            self.run(final_msgs)
         return earlier_spokes
 
-    def edit_util_conversion_test(self):
+    def edit_util_conversion_test(self, final_msgs):
         """
         Update the util/conversion fuzz test to point at the new hub.
         """
@@ -69,9 +69,9 @@ class Controllers:
         kinds = self._project.kinds(self._prev_ver)
         if len(kinds) == 0:
             raise ValueError(f"Nothing found at version {self._prev_ver}")
-        self._walk_files("github/cluster-api/util/conversion", kinds)
+        self._walk_files("github/cluster-api/util/conversion", kinds, final_msgs)
 
-    def run(self):
+    def run(self, final_msgs):
         """Walk over APIs and controllers, bumping them to point at the new hub."""
 
         kinds = self._project.kinds(self._prev_ver)
@@ -79,11 +79,11 @@ class Controllers:
             raise ValueError(f"Nothing found at version {self._prev_ver}")
 
         if self._topdir is not None:
-            self._walk_files(self._topdir, kinds)
+            self._walk_files(self._topdir, kinds, final_msgs)
         else:
             for top in ["internal/controller", "controllers"]:
                 if os.path.isdir(top):
-                    self._walk_files(top, kinds)
+                    self._walk_files(top, kinds, final_msgs)
 
     def update_extras(self, dirname):
         """Walk over extra files and bump them to point at the new hub.
@@ -124,7 +124,7 @@ class Controllers:
                 if fname.endswith(".yaml"):
                     self._point_config_at_new_hub(kinds, full_path)
 
-    def _walk_files(self, top, kinds):
+    def _walk_files(self, top, kinds, final_msgs):
         """Walk the files in the given directory, and update them to point at the new hub."""
 
         for root, _, f_names in os.walk(top, followlinks=False):
@@ -146,6 +146,7 @@ class Controllers:
                     self._conversiongen_marker(full_path, this_api)
                 elif top == "api" and fname == "conversion.go":
                     self._update_spoke_conversion(kinds, full_path, this_api)
+                    self._find_spoke_carryovers(full_path, this_api, final_msgs)
                 elif top == "internal/controller" and fname == "suite_test.go":
                     self._update_suite_test(kinds, full_path)
                 elif top == "internal/controller" and fname == "conversion_test.go":
@@ -282,6 +283,23 @@ class Controllers:
         # The Convert_*() functions:
         fu.replace_in_file(f"_{self._prev_ver}_", f"_{self._new_ver}_")
         fu.store()
+
+    def _find_spoke_carryovers(self, path, this_api, final_msgs):
+        """Search the conversion.go in each pre-existing spoke to find any code
+        that is marked for carry-over to new spokes.
+        """
+
+        if this_api == self._prev_ver:
+            # Search only the established spokes.
+            return
+
+        fu = FileUtil(self._dryrun, path)
+        lines = fu.find_all_in_file("+crdbumper:carryforward:begin")
+        if len(lines) > 0:
+            final_msgs.append(f"\nCarry-over request found in {path}:\n")
+            for line in lines:
+                final_msgs.append(f"  {line[0]}: {line[1]}\n")
+            final_msgs.append("\n")
 
     def commit_bump_controllers(self, git, stage):
         """

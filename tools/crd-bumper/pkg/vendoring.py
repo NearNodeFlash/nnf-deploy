@@ -96,7 +96,7 @@ class Vendor:
                 if m is not None:
                     self._preferred_alias = m.group(1)
 
-        fnames=["cmd/main.go"]
+        fnames = ["cmd/main.go"]
         search_for_alias("cmd/main.go")
         if self._preferred_alias is None:
             fnames.append(alt_main_file)
