@@ -2,6 +2,12 @@
 
 Tips, tutorials, examples, best practices.
 
+## Tips
+
+Some helpful tips to make life easier while writing conversion routines.
+
+* Do not delete fields. It's easier to write loss-less conversion routines if the field is renamed to something that indicates it's no longer used. This becomes more important in the spoke-hub-spoke scenario, because the hub will not have an annotation preserving the original spoke's values.
+
 ## Example 1: Add a field to a resource
 
 In the DWS repository, add a new field to the `Status` section of the `SystemConfiguration` **hub** resource. In this case, the hub version is `v1alpha2`.
