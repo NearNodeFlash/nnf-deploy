@@ -70,11 +70,6 @@ rules:
 #    - nnfcontainerprofiles
 #    - nnfstorageprofiles
 
-  - group: dm.cray.hpe.com
-#    resources:
-#    - datamovementmanagers
-#    - datamovementmanagers/status
-
 - level: RequestResponse
   verbs: ["create", "patch", "update", "delete", "deletecollection"]
   resources:
