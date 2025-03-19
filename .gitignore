@@ -11,6 +11,9 @@ manifests-kind.tar
 
 overlay-legacy.yaml
 
+# For mk-usercontainer-secrets.sh tool.
+certs/
+
 # For the release-all.sh tool.
 tools/release-all/workingspace
 tools/workingspace/
