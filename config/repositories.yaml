@@ -34,14 +34,14 @@ repositories:
     master: https://ghcr.io/hewlettpackard/lustre-csi-driver
     useRemoteK: false
     remoteReference:
-      build: v0.1.4
+      build: v0.1.5
       url: https://github.com/HewlettPackard/lustre-csi-driver.git/deploy/kubernetes/%s/?ref=%s
   - name: lustre-fs-operator
     development: https://ghcr.io/nearnodeflash/lustre-fs-operator
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
     useRemoteK: false
     remoteReference:
-      build: v0.1.10
+      build: v0.1.11
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 buildConfiguration:
   # Environment variables to set when calling any 'make' or 'deploy'
