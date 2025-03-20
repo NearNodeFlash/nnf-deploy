@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -219,12 +219,77 @@ release_switch_submodules() {
     check_submodules "$submod_branch" "true" "$indent"
 }
 
+# Update the submodule's release notes in place.
+# Current updates:
+# - Add list showing active API versions.
+#
+finalize_submod_release_notes() {
+    local submod="$1"
+    local submod_url="$2"
+    local submod_rel="$3"
+    local indent="$4  "
+    local body
+    local body_txt
+    local api
+    local ACTIVE_APIS
+    local submod_relpage
+    local found="false"
+    local item
+
+    if [[ ! -d $submod/api ]]; then
+        return
+    fi
+
+    msg "${indent}Finalize release notes for $submod $submod_rel"
+    if ! body=$(gh release view --repo "$submod_url" "$submod_rel" --json body); then
+        do_fail "${indent}Failure retrieving $submod $submod_rel release notes"
+    fi
+    body_txt=$(echo "$body" | jq -rM .body)
+
+    ACTIVE_APIS="Active API versions"
+    if echo "$body_txt" | grep -q "$ACTIVE_APIS"; then
+        return
+    fi
+
+    submod_relpage="$RELEASE_PAGE-$submod"
+    if [[ -f $submod_relpage ]]; then
+        rm "$submod_relpage" || do_fail "Unable to remove $submod_relpage"
+    fi
+
+    for api in "$submod"/api/*; do
+        [[ ! -d "$api" ]] && continue
+        item=$(basename "$api")
+        if grep -q kubebuilder:unservedversion "$api"/*_types.go; then
+            item="$item Known but no longer served."
+        fi
+        if grep -q kubebuilder:storageversion "$api"/*_types.go; then
+            item="$item Storage version."
+        fi
+        found="true"
+        ACTIVE_APIS="$ACTIVE_APIS
+! $item"
+    done
+
+    if [[ $found == "true" ]]; then
+        # Insert the API list just before the "Full Changelog".
+        body_txt=$(echo "$body_txt" | perl -e '$a = do { local $/; <STDIN>}; $a =~ s,\n\n\n,\n\n\nFOO\n\n\n,m; $a =~ s/FOO/### '"$ACTIVE_APIS"'/m; $a =~ s/!/\*/mg; print $a')
+
+        echo "$body_txt" > "$submod_relpage"
+        if [[ -n $DO_COMMIT ]]; then
+            gh release edit --repo "$submod_url" "$submod_rel" --notes-file "$submod_relpage"
+        fi
+    fi
+}
+
 check_release_vX() {
     local repo_short_name="$1"
     local repo_name="$2"
     local repo_url="$3"
     local branch="$4"
     local indent="  "
+    local body
+    local submod_rel
+    local submod_url
 
     default_branch=$(get_default_branch "$repo_short_name")
     msg "Repo $repo_name/$branch:"
@@ -296,6 +361,7 @@ check_release_vX() {
             fi
             submod_rel=$(grep -E "^$submod " $latest_subdirs_txt | awk '{print $2}')
             submod_url=$(grep -E '^\turl = ' .git/modules/"$submod"/config | awk '{print $3}')
+            finalize_submod_release_notes "$submod" "$submod_url" "$submod_rel" "$indent"
             msg "${indent}Collect release notes for $submod $submod_rel."
             if ! body=$(gh release view --repo "$submod_url" "$submod_rel" --json body); then
                 do_fail "${indent}Failure viewing $submod release $submod_rel"

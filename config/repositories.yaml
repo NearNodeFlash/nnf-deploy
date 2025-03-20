@@ -34,14 +34,14 @@ repositories:
     master: https://ghcr.io/hewlettpackard/lustre-csi-driver
     useRemoteK: false
     remoteReference:
-      build: v0.1.4
+      build: v0.1.5
       url: https://github.com/HewlettPackard/lustre-csi-driver.git/deploy/kubernetes/%s/?ref=%s
   - name: lustre-fs-operator
     development: https://ghcr.io/nearnodeflash/lustre-fs-operator
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
     useRemoteK: false
     remoteReference:
-      build: v0.1.10
+      build: v0.1.11
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 buildConfiguration:
   # Environment variables to set when calling any 'make' or 'deploy'
@@ -52,7 +52,7 @@ buildConfiguration:
     #  - A specific release build: 0.0.1 (without the "v" prefix)
     #  - The most recent build from the master branch: master
     - name: NNFMFU_VERSION
-      value: 0.1.5
+      value: 0.1.6
 thirdPartyServices:
   # Other services that NNF requires to be available on the system.
   # They will be installed in the order specified here.
@@ -65,6 +65,9 @@ thirdPartyServices:
   - name: mpi-operator
     useRemoteF: false
     url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
+  - name: kube-storage-version-migrator
+    useRemoteF: false
+    url: https://github.com/NearNodeFlash/kube-storage-version-migrator/releases/download/v0.1.2/manifests.tar
   - name: argocd
     useHelm: true
     helmCmd: helm install nnf -n argocd --create-namespace charts/argo-cd-7.6.12.tgz -f config/helm-values/argocd.yaml

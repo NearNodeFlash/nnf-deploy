@@ -346,11 +346,10 @@ func EnumerateDaemons(configPath string, handleFn func(Daemon) error) error {
 }
 
 type Library struct {
-	Name       string    `yaml:"name"`
-	BuildCmd   string    `yaml:"buildCmd"`
-	Repository string    `yaml:"repository"`
-	Library    LibEnt    `yaml:"lib,omitempty"`
-	Header     HeaderEnt `yaml:"header,omitempty"`
+	Name       string `yaml:"name"`
+	BuildCmd   string `yaml:"buildCmd"`
+	Repository string `yaml:"repository"`
+	Library    LibEnt `yaml:"lib,omitempty"`
 	// Path is the path within the build repository that has the library and its header.
 	Path   string `yaml:"path"`
 	Secret struct {

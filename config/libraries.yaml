@@ -1,14 +1,11 @@
 libraries:
-  - name: copy-offload
+  - name: nnf-dm-usercontainer
     lib:
       name: libcopyoffload.a
-      dest: /opt/local/lib
-    header:
-      name: copy-offload.h
-      dest: /opt/local/include
+      dest: /opt/local/lib/
     path: daemons/lib-copy-offload/
     buildCmd: make -C daemons/lib-copy-offload libcopyoffload.a
     repository: nnf-dm
     secret:
-      name: nnf-dm-copy-offload-client
+      name: nnf-dm-usercontainer-client-tls
       namespace: default

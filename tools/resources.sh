@@ -42,7 +42,7 @@ fi
 for_all_resources() {
     local FUNCTION=$1 ARGS=( "${@:2}" )
 
-    CRDS=$(kubectl get crds | grep -E "(dws|nnf|lustrefilesystems)\.(cray\.)+hpe\.com" | awk '{print $1}')
+    CRDS=$(kubectl get crds | grep -E "(nnf|lustrefilesystems)\.(cray\.)+hpe\.com|dataworkflowservices.github.io" | awk '{print $1}')
     for CRD in $CRDS
     do
         echo "Processing CRD $CRD"

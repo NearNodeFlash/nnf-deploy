@@ -286,7 +286,7 @@ func (dcmd *InstallCmd) enumerateDaemons(ctx *Context, k8sServerHost string, k8s
 		var cert []byte
 		var err error
 		fmt.Printf("\n")
-		cert, token, err = dcmd.getServiceAccountCertAndToken(d)
+		cert, token, err = dcmd.getServiceAccountCertAndToken(ctx, d)
 		if err != nil {
 			return err
 		}
@@ -417,11 +417,10 @@ func (dcmd *InstallCmd) enumerateLibraries(ctx *Context, sysConfigCR config.Syst
 	fmt.Printf("\n** Libraries\n")
 
 	return config.EnumerateLibraries(ctx.Libraries, func(d config.Library) error {
-		var token []byte
 		var cert []byte
 		var err error
 		fmt.Printf("\n")
-		cert, token, err = dcmd.getSecretCertAndToken(d)
+		cert, err = dcmd.getSecretCert(ctx, d)
 		if err != nil {
 			return err
 		}
@@ -461,17 +460,11 @@ func (dcmd *InstallCmd) enumerateLibraries(ctx *Context, sysConfigCR config.Syst
 				fmt.Printf("  Installing %s on Compute Node %s\n", d.Name, compute)
 
 				configDir := "/etc/" + d.Name
-				if len(token) != 0 || len(cert) != 0 {
-					cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
-					if _, err := runCommand(ctx, cmd); err != nil {
-						return err
-					}
-				}
-				tokenPath := configDir
-				_, err = dcmd.updateFileContentOnCompute(ctx, compute, "token.der", token, tokenPath)
-				if err != nil {
+				cmd := exec.Command("ssh", compute, "mkdir -p "+configDir)
+				if _, err := runCommand(ctx, cmd); err != nil {
 					return err
 				}
+
 				certFilePath := configDir
 				_, err = dcmd.updateFileContentOnCompute(ctx, compute, "cert.pem", cert, certFilePath)
 				if err != nil {
@@ -480,12 +473,6 @@ func (dcmd *InstallCmd) enumerateLibraries(ctx *Context, sysConfigCR config.Syst
 
 				if d.Library.Name != "" {
 					_, err = dcmd.updateFileOnCompute(ctx, compute, d.Library.Name, d.Library.Dest)
-					if err != nil {
-						return err
-					}
-				}
-				if d.Header.Name != "" {
-					_, err = dcmd.updateFileOnCompute(ctx, compute, d.Header.Name, d.Header.Dest)
 					if err != nil {
 						return err
 					}
@@ -530,7 +517,7 @@ func (dcmd *InstallCmd) shouldSkipNode(node string) bool {
 	return true
 }
 
-func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, []byte, error) {
+func (dcmd *InstallCmd) getServiceAccountCertAndToken(ctx *Context, d config.Daemon) ([]byte, []byte, error) {
 	var token []byte
 	var cert []byte
 	var err error
@@ -541,16 +528,26 @@ func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, 
 		fmt.Println("  Secret:", d.ServiceAccount.Name+"/"+d.ServiceAccount.Namespace)
 
 		fmt.Printf("  Token...")
-		token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
-		if err != nil {
-			return cert, token, err
+		if !ctx.DryRunAlways {
+			token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).CombinedOutput()
+			if err != nil {
+				return cert, token, err
+			}
+			if strings.Contains(string(token), "Error") || strings.Contains(string(token), "error") {
+				return cert, token, errors.New(string(token))
+			}
 		}
 		fmt.Println("Loaded REDACTED")
 
 		fmt.Printf("  Cert...")
-		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).Output()
-		if err != nil {
-			return cert, token, err
+		if !ctx.DryRunAlways {
+			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"ca.crt\"' | base64 --decode", d.ServiceAccount.Name, d.ServiceAccount.Namespace)).CombinedOutput()
+			if err != nil {
+				return cert, token, err
+			}
+			if strings.Contains(string(cert), "Error") || strings.Contains(string(cert), "error") {
+				return cert, token, errors.New(string(cert))
+			}
 		}
 		fmt.Println("Loaded REDACTED")
 	}
@@ -558,32 +555,29 @@ func (dcmd *InstallCmd) getServiceAccountCertAndToken(d config.Daemon) ([]byte, 
 	return cert, token, nil
 }
 
-func (dcmd *InstallCmd) getSecretCertAndToken(d config.Library) ([]byte, []byte, error) {
-	var token []byte
+func (dcmd *InstallCmd) getSecretCert(ctx *Context, d config.Library) ([]byte, error) {
 	var cert []byte
 	var err error
 
 	if d.Secret.Name != "" {
-		fmt.Println("Loading Secret Cert & Token")
+		fmt.Println("Loading Client Secret TLS Cert")
 
 		fmt.Println("  Secret:", d.Secret.Name+"/"+d.Secret.Namespace)
 
-		fmt.Printf("  Token...")
-		token, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.token' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
-		if err != nil {
-			return cert, token, err
-		}
-		fmt.Println("Loaded REDACTED")
-
 		fmt.Printf("  Cert...")
-		cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"tls.crt\"' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).Output()
-		if err != nil {
-			return cert, token, err
+		if !ctx.DryRunAlways {
+			cert, err = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret %s -n %s -o json | jq -Mr '.data.\"tls.crt\"' | base64 --decode", d.Secret.Name, d.Secret.Namespace)).CombinedOutput()
+			if err != nil {
+				return cert, err
+			}
+			if strings.Contains(string(cert), "Error") || strings.Contains(string(cert), "error") {
+				return cert, errors.New(string(cert))
+			}
 		}
 		fmt.Println("Loaded REDACTED")
 	}
 
-	return cert, token, nil
+	return cert, nil
 }
 
 func (dcmd *InstallCmd) updateBinaryOnCompute(ctx *Context, d config.Daemon, compute string) error {
@@ -626,7 +620,7 @@ func (dcmd *InstallCmd) updateFileContentOnCompute(ctx *Context, compute string,
 	var err error
 	needsUpdate := false
 
-	if len(content) != 0 {
+	if len(content) != 0 || ctx.DryRunAlways {
 		if err = os.WriteFile(fileBaseName, content, 0644); err != nil {
 			return false, err
 		}
@@ -920,11 +914,32 @@ func checkNeedsUpdate(ctx *Context, name string, compute string, destination str
 
 func copyToNode(ctx *Context, name string, compute string, destination string) error {
 	fmt.Printf("  Copying %s to %s at %s...", name, compute, destination)
+
+	if err := mkdirOnNode(ctx, compute, path.Dir(destination)); err != nil {
+		return err
+	}
+
 	if _, err := runCommand(ctx, exec.Command("scp", "-OC", name, compute+":"+destination)); err != nil {
 		return err
 	}
 
 	fmt.Printf("\n")
+	return nil
+}
+
+func mkdirOnNode(ctx *Context, compute string, dir string) error {
+	if dir != "." {
+		checkDirCmd := exec.Command("ssh", compute, "test -d", dir)
+		if _, err := runCommandErrAllowed(ctx, checkDirCmd, true); err != nil {
+			fmt.Printf("\n    Creating parent directory '%s'...", dir)
+			mkdirCmd := exec.Command("ssh", compute, "mkdir", "-p", dir)
+			if _, err := runCommand(ctx, mkdirCmd); err != nil {
+				return err
+			}
+			fmt.Printf("\n")
+		}
+	}
+
 	return nil
 }
 
