@@ -1,4 +1,4 @@
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -49,7 +49,7 @@ class FileUtil:
                 os.rename(f"{self._fpath}.new", self._fpath)
 
     def replace_in_file(self, from_str, to_str):
-        """Replace one string with another throughout the file."""
+        """Replace one string with another."""
 
         self.read()
         changed = False
@@ -84,6 +84,19 @@ class FileUtil:
                 if substr in line:
                     return line
         return None
+
+    def find_all_in_file(self, substr):
+        """Find all lines, with line numbers, having a given substring."""
+
+        self.read()
+        cnt = 1
+        output = []
+        if self._input_data is not None:
+            for line in self._input_data.split("\n"):
+                if substr in line:
+                    output.append([cnt, line])
+                cnt += 1
+        return output
 
     def find_with_pattern(self, pat):
         """Find the first line matching a given pattern."""

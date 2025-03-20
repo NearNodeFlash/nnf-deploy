@@ -65,6 +65,9 @@ thirdPartyServices:
   - name: mpi-operator
     useRemoteF: false
     url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
+  - name: kube-storage-version-migrator
+    useRemoteF: false
+    url: https://github.com/NearNodeFlash/kube-storage-version-migrator/releases/download/v0.1.2/manifests.tar
   - name: argocd
     useHelm: true
     helmCmd: helm install nnf -n argocd --create-namespace charts/argo-cd-7.6.12.tgz -f config/helm-values/argocd.yaml

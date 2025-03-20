@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -227,6 +227,11 @@ wget -O "$TREEDIR"/cert-mgr/cert-mgr.yaml "$CERT_URL"
 mkdir "$TREEDIR/mpi-operator"
 MPIOP_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "mpi-operator"]; print(x[0])' < config/repositories.yaml)
 wget -O "$TREEDIR"/mpi-operator/mpi-operator.yaml "$MPIOP_URL"
+
+MIGRATOR_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "kube-storage-version-migrator"]; print(x[0])' < config/repositories.yaml)
+wget -O "$TREEDIR"/svm-manifests.tar "$MIGRATOR_URL"
+tar -C "$TREEDIR" -xf "$TREEDIR"/svm-manifests.tar
+rm "$TREEDIR"/svm-manifests.tar
 
 (cd "$TREEDIR" && tar cf "$TARFILE" ./*)
 exit $?
