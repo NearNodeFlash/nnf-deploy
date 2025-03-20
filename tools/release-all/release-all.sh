@@ -83,11 +83,12 @@ SEMVER_BUMP="patch"
 PUSH_BRANCH=""
 WORKSPACE="workingspace"
 PHASE="master"
+ALLOW_VENDOR_MULTI_API=
 
 usage() {
     echo "Usage: $PROG [-h]"
     echo "       $PROG [-L]"
-    echo "       $PROG [-w workspace_dir] [-P phase] [-R repo-names] [-B part] [-x THINGS]"
+    echo "       $PROG [-w workspace_dir] [-P phase] [-R repo-names] [-B part] [-x THINGS] [-M]"
     echo
     echo "  -B part           Indicates which part of the version to bump for"
     echo "                    the new release. Default: '$SEMVER_BUMP'."
@@ -108,6 +109,9 @@ usage() {
     echo "  -R repo_names     Comma-separated list of repo names to operate on."
     echo "                    If unspecified, then all repos will be used."
     echo "                    The phases that follow 'release' allow only one repo."
+    echo "  -M                Allow multiple API versions to be vendored from a"
+    echo "                    single peer module. Expect this to be an unusual"
+    echo "                    case."
     echo "  -w workspace_dir  Name for working directory. Default: '$WORKSPACE'"
     echo "  -x THINGS         A list of colon-separated manual overrides."
     echo "                      'force-tag=vX.Y.Z'  Use tag vX.Y.Z during the tag-release"
@@ -118,7 +122,7 @@ usage() {
     echo "See README.md for detailed instructions"
 }
 
-while getopts "B:LP:R:w:x:h" opt; do
+while getopts "B:LP:R:Mw:x:h" opt; do
     case $opt in
     B)
         case $OPTARG in
@@ -154,6 +158,9 @@ while getopts "B:LP:R:w:x:h" opt; do
         ;;
     w)
         WORKSPACE="$OPTARG"
+        ;;
+    M)
+        ALLOW_VENDOR_MULTI_API=1
         ;;
     x)
         OVERRIDES=${OPTARG//:/ }
@@ -305,16 +312,26 @@ check_peer_module_api_count() {
     peer_modules=$(grep -e DataWorkflowServices -e NearNodeFlash -e HewlettPackard go.mod | grep -v -e module -e structex | awk '{print $1}')
     if [[ -n $peer_modules ]]; then
         echo
+        local found
         for mod in $peer_modules; do
             modpath="vendor/$mod/api"
             if [[ -d $modpath ]]; then
                 if [[ $(/bin/ls -1 "$modpath" | wc -l) -gt 1 ]]; then
                     msg "${indent}Vendored multiple APIs in $modpath."
-                    msg "${indent}Update the code to use only one."
-                    exit 1
+                    if [[ -z $ALLOW_VENDOR_MULTI_API ]]; then
+                        msg "${indent}Update the code to use only one."
+                        msg "${indent}If this condition is expected, then override this check with -M."
+                        exit 1
+                    fi
+                    found=1
                 fi
             fi
         done
+        if [[ -n $found ]]; then
+            echo
+            msg "${indent}Multiple APIs have been allowed with -M, continuing"
+            echo
+        fi
     fi
 }
 
@@ -892,6 +909,9 @@ check_if_wants_only_one() {
     local phase=$PHASE
 
     repo_count=$(echo "$REPO_LIST" | wc -w | awk '{print $1}')
+    if [[ $repo_count -gt 1 && -n $ALLOW_VENDOR_MULTI_API ]]; then
+        do_fail "Use of -M requires -R with only one repo specified."
+    fi
     if [[ $repo_count -gt 1 ]]; then
         local fail=false
         case $phase in
