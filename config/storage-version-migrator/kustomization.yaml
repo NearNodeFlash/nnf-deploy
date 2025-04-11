@@ -1,0 +1,12 @@
+resources:
+- namespace-rbac.yaml
+- trigger.yaml
+- migrator.yaml
+- storage_migration_crd.yaml
+- storage_state_crd.yaml
+
+images:
+- name: ghcr.io/nearnodeflash/storage-version-migration-migrator
+  newName: ghcr.io/nearnodeflash/kube-storage-version-migrator
+- name: ghcr.io/nearnodeflash/storage-version-migration-trigger
+  newName: ghcr.io/nearnodeflash/kube-storage-version-trigger

@@ -112,7 +112,7 @@ func (cmd *DeployCmd) Run(ctx *Context) error {
 			return err
 		}
 
-		if err := createDefaultStorageProfile(ctx, module); err != nil {
+		if err := createDefaultStorageProfile(ctx); err != nil {
 			return err
 		}
 
@@ -768,6 +768,43 @@ func installThirdPartyServices(ctx *Context) error {
 			if err := runKubectlApplyF(ctx, svc.Url); err != nil {
 				return err
 			}
+		} else if svc.UseRemoteFTar || svc.UseRemoteKTar {
+			fmt.Printf("Installing %s...\n", svc.Name)
+			mdir, err := os.MkdirTemp("", svc.Name)
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(mdir)
+			cmd := exec.Command("bash", "-c", fmt.Sprintf("curl -sSL %s | tar -C %s -x", svc.Url, mdir))
+			_, err = runCommand(ctx, cmd)
+			if err != nil {
+				return fmt.Errorf("error from: %s\n%w", cmd.String(), err)
+			}
+			if svc.UseRemoteKTar && svc.Kustomization != "" {
+				cmd := exec.Command("cp", svc.Kustomization, fmt.Sprintf("%s/%s/kustomization.yaml", mdir, svc.Name))
+				_, err = runCommand(ctx, cmd)
+				if err != nil {
+					return fmt.Errorf("error from: %s\n%w", cmd.String(), err)
+				}
+				cmd = exec.Command("bash", "-c", fmt.Sprintf("kubectl apply -k %s/%s", mdir, svc.Name))
+				_, err = runCommand(ctx, cmd)
+				if err != nil {
+					return fmt.Errorf("error from: %s\n%w", cmd.String(), err)
+				}
+			}
+			// cmd = exec.Command("/bin/ls", "-alR", mdir)
+			// output, err := runCommand(ctx, cmd)
+			// if err != nil {
+			// 	return fmt.Errorf("error from: %s\n%w", cmd.String(), err)
+			// }
+			// fmt.Printf("Output of %s:\n%s\n", cmd.String(), output)
+			if svc.UseRemoteFTar {
+				cmd = exec.Command("bash", "-c", fmt.Sprintf("kubectl apply -R -f %s", mdir))
+				_, err = runCommand(ctx, cmd)
+				if err != nil {
+					return fmt.Errorf("error from: %s\n%w", cmd.String(), err)
+				}
+			}
 		} else if svc.UseHelm {
 			fmt.Printf("Installing %s...\n", svc.Name)
 			cmd := exec.Command("bash", "-c", svc.HelmCmd)
@@ -1227,7 +1264,7 @@ func createSystemConfigFromSOS(ctx *Context, system *config.System, module strin
 }
 
 // createDefaultStorageProfile creates the default NnfStorageProfile.
-func createDefaultStorageProfile(ctx *Context, module string) error {
+func createDefaultStorageProfile(ctx *Context) error {
 	fmt.Println("Creating default profiles...")
 
 	cmd := exec.Command("../tools/default-profiles.sh")
