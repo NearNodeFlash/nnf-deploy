@@ -792,12 +792,6 @@ func installThirdPartyServices(ctx *Context) error {
 					return fmt.Errorf("error from: %s\n%w", cmd.String(), err)
 				}
 			}
-			// cmd = exec.Command("/bin/ls", "-alR", mdir)
-			// output, err := runCommand(ctx, cmd)
-			// if err != nil {
-			// 	return fmt.Errorf("error from: %s\n%w", cmd.String(), err)
-			// }
-			// fmt.Printf("Output of %s:\n%s\n", cmd.String(), output)
 			if svc.UseRemoteFTar {
 				cmd = exec.Command("bash", "-c", fmt.Sprintf("kubectl apply -R -f %s", mdir))
 				_, err = runCommand(ctx, cmd)
