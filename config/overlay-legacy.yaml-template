@@ -13,5 +13,9 @@ thirdPartyServices:
     useRemoteF: true
   - name: mpi-operator
     useRemoteF: true
+  - name: storage-version-migrator
+    useRemoteKTar: false
+  - name: nnf-storedversions-maint
+    useRemoteFTar: false
   - name: argocd
     useHelm: false
