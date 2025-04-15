@@ -1,4 +1,4 @@
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -122,6 +122,82 @@ class Unserve:
         msg = f"""Mark the {self._spoke_ver} API as unserved.
 
 ACTION: Address the ACTION comments in internal/controller/conversion_test.go.
+
+ACTION: Begin by running "make vet". Repair any issues that it finds.
+  Then run "make test" and continue repairing issues until the tests
+  pass.
+"""
+        git.commit_stage(stage, msg)
+
+
+class ReServe(Unserve):
+    """Tools to mark an API as served, after it has been marked as unserved."""
+
+    def __init__(self, dryrun, project, spoke_ver, preferred_alias):
+        super().__init__(dryrun, project, spoke_ver, preferred_alias)
+        self.in_re_serve = True
+
+    def set_served(self):
+        """
+        Remove the kubebuilder:unservedversion marker in the specified spoke API,
+        for any Kind that has it.
+        """
+
+        kinds = self._project.kinds(self._spoke_ver)
+        for kind in kinds:
+            fname = f"api/{self._spoke_ver}/{kind.lower()}_types.go"
+            if os.path.isfile(fname):
+                fu = FileUtil(self._dryrun, fname)
+                line = fu.find_in_file("+kubebuilder:unservedversion")
+                if not line:
+                    continue
+                if fu.delete_from_file(line):
+                    fu.store()
+
+    def modify_conversion_webhook_suite_test(self):
+        """
+        Modify the suite test that exercises the conversion webhook.
+
+        Update the tests for the specified spoke API.
+        """
+
+        conv_go = "internal/controller/conversion_test.go"
+        if not os.path.isfile(conv_go):
+            print(f"NOTE: Unable to find {conv_go}!")
+            return
+
+        fu = FileUtil(self._dryrun, conv_go)
+
+        # Pattern to find the "PIt()" method so we can change it to "It()".
+        pit_pat = r"^(\s+)PIt(\(.*)"
+        it_pat = r"^(\s+)It(\(.*)"
+        kinds = self._project.kinds(self._spoke_ver)
+        for kind in kinds:
+            spec = fu.find_in_file(
+                f"""PIt("reads {kind} resource via hub and via spoke {self._spoke_ver}", func()"""
+            )
+            if spec is not None:
+                newspec = spec
+                m = re.search(pit_pat, spec)
+                if m is not None:
+                    newspec = f"{m.group(1)}It{m.group(2)}"
+                    fu.replace_in_file(spec, newspec)
+
+            spec = fu.find_in_file(
+                f"""It("is unable to read {kind} resource via spoke {self._spoke_ver}", func()"""
+            )
+            if spec is not None:
+                newspec = spec
+                m = re.search(it_pat, spec)
+                if m is not None:
+                    newspec = f"{m.group(1)}PIt{m.group(2)}"
+                    fu.replace_in_file(spec, newspec)
+        fu.store()
+
+    def commit(self, git, stage):
+        """Create a commit message."""
+
+        msg = f"""Remove the unserved marker from the {self._spoke_ver} API.
 
 ACTION: Begin by running "make vet". Repair any issues that it finds.
   Then run "make test" and continue repairing issues until the tests
