@@ -154,7 +154,9 @@ def main():
 def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
     """Vendor the new API into the repo."""
 
-    vendor = Vendor(args.dryrun, args.module, args.hub_ver, args.vendor_hub_ver, args.multi_vend)
+    vendor = Vendor(
+        args.dryrun, args.module, args.hub_ver, args.vendor_hub_ver, args.multi_vend
+    )
 
     if vendor.uses_module() is False:
         print(
