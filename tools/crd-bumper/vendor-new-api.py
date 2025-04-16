@@ -24,7 +24,6 @@ import os
 import sys
 import yaml
 
-from pkg.conversion_gen import ConversionGen
 from pkg.git_cli import GitCLI
 from pkg.make_cmd import MakeCmd
 from pkg.vendoring import Vendor
@@ -102,6 +101,12 @@ PARSER.add_argument(
     default=WORKING_DIR,
     help=f"Name for working directory. All repos will be cloned below this directory. Default: {WORKING_DIR}.",
 )
+PARSER.add_argument(
+    "-M",
+    action="store_true",
+    dest="multi_vend",
+    help="Allow multiple API versions to be vendored from a single peer module. Expect this to be an unusual case.",
+)
 
 
 def main():
@@ -149,7 +154,9 @@ def main():
 def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
     """Vendor the new API into the repo."""
 
-    vendor = Vendor(args.dryrun, args.module, args.hub_ver, args.vendor_hub_ver)
+    vendor = Vendor(
+        args.dryrun, args.module, args.hub_ver, args.vendor_hub_ver, args.multi_vend
+    )
 
     if vendor.uses_module() is False:
         print(
