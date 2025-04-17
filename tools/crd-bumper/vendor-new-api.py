@@ -107,12 +107,22 @@ PARSER.add_argument(
     dest="multi_vend",
     help="Allow multiple API versions to be vendored from a single peer module. Expect this to be an unusual case.",
 )
+PARSER.add_argument(
+    "--vendor-prev-hub-ver",
+    type=str,
+    required=True,
+    help="Version of the previous hub API for the repo being vendored. Requires -M. Expect this to be an unusual case.",
+)
 
 
 def main():
     """main"""
 
     args = PARSER.parse_args()
+
+    if args.vendor_prev_hub_ver and not args.multi_vend:
+        print("Option --vendor-prev-hub-ver requires -M.")
+        sys.exit(1)
 
     gitcli = GitCLI(args.dryrun, args.nocommit)
     gitcli.clone_and_cd(args.repo, args.workdir)
@@ -155,7 +165,12 @@ def vendor_new_api(args, makecmd, git, gocli, bumper_cfg):
     """Vendor the new API into the repo."""
 
     vendor = Vendor(
-        args.dryrun, args.module, args.hub_ver, args.vendor_hub_ver, args.multi_vend
+        args.dryrun,
+        args.module,
+        args.hub_ver,
+        args.vendor_hub_ver,
+        args.multi_vend,
+        args.vendor_prev_hub_ver,
     )
 
     if vendor.uses_module() is False:
