@@ -24,7 +24,16 @@ from .fileutil import FileUtil
 class Vendor:
     """Tools for vendoring a new API version."""
 
-    def __init__(self, dryrun, module, hub_ver, vendor_hub_ver, multi_vend=False):
+    def __init__(
+        self,
+        dryrun,
+        module,
+        hub_ver,
+        vendor_hub_ver,
+        multi_vend=False,
+        vendor_prev_hub_ver=None,
+    ):
+        """Init"""
         self._dryrun = dryrun
         self._module = module
         self._hub_ver = hub_ver
@@ -32,6 +41,7 @@ class Vendor:
         self._current_ver = None
         self._preferred_alias = None
         self._multi_vend = multi_vend
+        self._vendor_prev_hub_ver = vendor_prev_hub_ver
 
     def current_api_version(self):
         """Return the current in-use API version."""
@@ -59,9 +69,9 @@ class Vendor:
                 break
             if len(dir_names) > 1 and self._multi_vend:
                 # Multiple APIs are vendored here, and the user wants us to allow
-                # it. Verify that the desired version is one of them.
+                # it. Verify that the indicated previous hub version is one of them.
                 for dname in dir_names:
-                    if dname == self._vendor_hub_ver:
+                    if dname == self._vendor_prev_hub_ver:
                         self._current_ver = dname
                         print("Multiple APIs have been allowed with -M, continuing")
                         break
