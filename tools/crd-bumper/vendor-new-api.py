@@ -110,7 +110,6 @@ PARSER.add_argument(
 PARSER.add_argument(
     "--vendor-prev-hub-ver",
     type=str,
-    required=True,
     help="Version of the previous hub API for the repo being vendored. Requires -M. Expect this to be an unusual case.",
 )
 
