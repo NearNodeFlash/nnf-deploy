@@ -24,13 +24,24 @@ from .fileutil import FileUtil
 class Vendor:
     """Tools for vendoring a new API version."""
 
-    def __init__(self, dryrun, module, hub_ver, vendor_hub_ver):
+    def __init__(
+        self,
+        dryrun,
+        module,
+        hub_ver,
+        vendor_hub_ver,
+        multi_vend=False,
+        vendor_prev_hub_ver=None,
+    ):
+        """Init"""
         self._dryrun = dryrun
         self._module = module
         self._hub_ver = hub_ver
         self._vendor_hub_ver = vendor_hub_ver
         self._current_ver = None
         self._preferred_alias = None
+        self._multi_vend = multi_vend
+        self._vendor_prev_hub_ver = vendor_prev_hub_ver
 
     def current_api_version(self):
         """Return the current in-use API version."""
@@ -56,6 +67,16 @@ class Vendor:
                 # Only one API vendored here.
                 self._current_ver = dir_names[0]
                 break
+            if len(dir_names) > 1 and self._multi_vend:
+                # Multiple APIs are vendored here, and the user wants us to allow
+                # it. Verify that the indicated previous hub version is one of them.
+                for dname in dir_names:
+                    if dname == self._vendor_prev_hub_ver:
+                        self._current_ver = dname
+                        print("Multiple APIs have been allowed with -M, continuing")
+                        break
+                if self._current_ver is not None:
+                    break
             raise ValueError(
                 f"Expected to find one API at {path}, but found {len(dir_names)}."
             )

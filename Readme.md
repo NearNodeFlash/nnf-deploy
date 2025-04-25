@@ -1,4 +1,4 @@
-****# NNF Deployment
+# NNF Deployment
 
 To clone this project, use the additional --recurse-submodules option to retrieve its submodules:
 
@@ -106,7 +106,8 @@ Deploy all the submodules using the `deploy` command
 ./nnf-deploy deploy
 ```
 
-To deploy only specific repositories, include the desired modules after `deploy` command. For example, to deploy only `dws` and `nnf-sos` repositories, use
+To deploy only specific repositories, include the desired modules after `deploy` command. For example, to deploy only `dws` and `nnf-sos` repositories:
+
 ```bash
 ./nnf-deploy deploy dws nnf-sos
 ```
@@ -140,21 +141,29 @@ The `make` subcommand provides direct access to makefile targets within each sub
 ./nnf-deploy make docker-build
 ```
 
-### Kind cluster
+## KIND cluster
 
-Kind clusters are built and deployed using locally compiled images. The following commands:
+[Kubernetes-in-Docker](https://kind.sigs.k8s.io) (KIND) clusters are built and deployed using locally compiled images.
 
 - Create a kind cluster
+- Attach ArgoCD to your gitops repo, which you created from the [argocd-boilerplate](https://github.com/NearNodeFlash/argocd-boilerplate). Otherwise, see the "overlay legacy" step in "Init" above, to run the cluster without ArgoCD.
 - Build all docker images for Rabbit modules
 - Push those images into the Kind cluster
+- Make a manifest for these images. Run `make manifests` and use the `./tools/unpack-manifest.py` tool in your gitops repo to unpack the `manifests-kind.tar` file.
 - Deploy those images onto the Kind cluster nodes
 
-```bash
-./tools/kind.sh reset
+```console
+./tools/kind.sh create
+./tools/kind.sh argocd_attach $ARGOCD_PASSWORD
 ./nnf-deploy make docker-build
 ./nnf-deploy make kind-push
-./nnf-deploy deploy
 ```
+
+Next, use the `./tools/deploy-env.sh` tool in your gitops repo to deploy the bootstrap resources to ArgoCD in your cluster.
+
+### KIND with existing NNF releases
+
+A KIND cluster may be used to test existing releases. Use the same steps described above, skipping the `nnf-deploy make ...` commands because existing releases will pull their images from the upstream registry. Download the `manifests-kind.tar` file from the desired NNF release at [nnf-deploy releases](https://github.com/NearNodeFlash/nnf-deploy/releases) and use the `./tools/unpack-manifests.py` tool in your gitops repo to unpack the manifest.
 
 ## Install
 
@@ -164,4 +173,3 @@ proper certs and tokens. Systemd files are used to manage and start the daemons.
 ```bash
 ./nnf-deploy install
 ```
-

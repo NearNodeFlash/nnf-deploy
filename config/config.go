@@ -216,12 +216,15 @@ type BuildConfiguration struct {
 }
 
 type ThirdPartyService struct {
-	Name       string `yaml:"name"`
-	UseRemoteF bool   `yaml:"useRemoteF,omitempty"`
-	Url        string `yaml:"url"`
-	WaitCmd    string `yaml:"waitCmd,omitempty"`
-	UseHelm    bool   `yaml:"useHelm,omitempty"`
-	HelmCmd    string `yaml:"helmCmd,omitempty"`
+	Name          string `yaml:"name"`
+	UseRemoteF    bool   `yaml:"useRemoteF,omitempty"`
+	UseRemoteFTar bool   `yaml:"useRemoteFTar,omitempty"`
+	UseRemoteKTar bool   `yaml:"useRemoteKTar,omitempty"`
+	Kustomization string `yaml:"kustomization,omitempty"`
+	Url           string `yaml:"url"`
+	WaitCmd       string `yaml:"waitCmd,omitempty"`
+	UseHelm       bool   `yaml:"useHelm,omitempty"`
+	HelmCmd       string `yaml:"helmCmd,omitempty"`
 }
 
 func readConfigFile(configPath string) (*RepositoryConfigFile, error) {
@@ -293,6 +296,8 @@ func GetThirdPartyServices(configPath string) ([]ThirdPartyService, error) {
 			for idx := range config.ThirdPartyServices {
 				if config.ThirdPartyServices[idx].Name == svc.Name {
 					config.ThirdPartyServices[idx].UseRemoteF = svc.UseRemoteF
+					config.ThirdPartyServices[idx].UseRemoteFTar = svc.UseRemoteFTar
+					config.ThirdPartyServices[idx].UseRemoteKTar = svc.UseRemoteKTar
 					config.ThirdPartyServices[idx].UseHelm = svc.UseHelm
 					break
 				}

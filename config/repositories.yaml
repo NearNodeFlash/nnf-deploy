@@ -34,14 +34,14 @@ repositories:
     master: https://ghcr.io/hewlettpackard/lustre-csi-driver
     useRemoteK: false
     remoteReference:
-      build: v0.1.5
+      build: v0.1.6
       url: https://github.com/HewlettPackard/lustre-csi-driver.git/deploy/kubernetes/%s/?ref=%s
   - name: lustre-fs-operator
     development: https://ghcr.io/nearnodeflash/lustre-fs-operator
     master: https://ghcr.io/nearnodeflash/lustre-fs-operator
     useRemoteK: false
     remoteReference:
-      build: v0.1.11
+      build: v0.1.12
       url: https://github.com/NearNodeFlash/lustre-fs-operator.git/config/default/?ref=%s
 buildConfiguration:
   # Environment variables to set when calling any 'make' or 'deploy'
@@ -65,9 +65,15 @@ thirdPartyServices:
   - name: mpi-operator
     useRemoteF: false
     url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
-  - name: kube-storage-version-migrator
-    useRemoteF: false
+  - name: storage-version-migrator
+    useRemoteKTar: false
+    kustomization: config/storage-version-migrator/kustomization.yaml
     url: https://github.com/NearNodeFlash/kube-storage-version-migrator/releases/download/v0.1.2/manifests.tar
+    waitCmd: kubectl wait deploy -n kube-system trigger --for jsonpath='{.status.availableReplicas}=1'
+  - name: nnf-storedversions-maint
+    useRemoteFTar: false
+    url: https://github.com/NearNodeFlash/nnf-storedversions-maint/releases/download/v0.1.2/manifests.tar
+    waitCmd: kubectl wait deploy -n nnf-storedversions-maint-system nnf-storedversions-maint-controller-manager --for jsonpath='{.status.availableReplicas}=1'
   - name: argocd
     useHelm: true
     helmCmd: helm install nnf -n argocd --create-namespace charts/argo-cd-7.6.12.tgz -f config/helm-values/argocd.yaml
