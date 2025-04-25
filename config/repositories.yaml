@@ -65,9 +65,15 @@ thirdPartyServices:
   - name: mpi-operator
     useRemoteF: false
     url: https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
-  - name: kube-storage-version-migrator
-    useRemoteF: false
+  - name: storage-version-migrator
+    useRemoteKTar: false
+    kustomization: config/storage-version-migrator/kustomization.yaml
     url: https://github.com/NearNodeFlash/kube-storage-version-migrator/releases/download/v0.1.2/manifests.tar
+    waitCmd: kubectl wait deploy -n kube-system trigger --for jsonpath='{.status.availableReplicas}=1'
+  - name: nnf-storedversions-maint
+    useRemoteFTar: false
+    url: https://github.com/NearNodeFlash/nnf-storedversions-maint/releases/download/v0.1.2/manifests.tar
+    waitCmd: kubectl wait deploy -n nnf-storedversions-maint-system nnf-storedversions-maint-controller-manager --for jsonpath='{.status.availableReplicas}=1'
   - name: argocd
     useHelm: true
     helmCmd: helm install nnf -n argocd --create-namespace charts/argo-cd-7.6.12.tgz -f config/helm-values/argocd.yaml

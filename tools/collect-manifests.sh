@@ -228,10 +228,15 @@ mkdir "$TREEDIR/mpi-operator"
 MPIOP_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "mpi-operator"]; print(x[0])' < config/repositories.yaml)
 wget -O "$TREEDIR"/mpi-operator/mpi-operator.yaml "$MPIOP_URL"
 
-MIGRATOR_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "kube-storage-version-migrator"]; print(x[0])' < config/repositories.yaml)
+MIGRATOR_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "storage-version-migrator"]; print(x[0])' < config/repositories.yaml)
 wget -O "$TREEDIR"/svm-manifests.tar "$MIGRATOR_URL"
 tar -C "$TREEDIR" -xf "$TREEDIR"/svm-manifests.tar
 rm "$TREEDIR"/svm-manifests.tar
+
+STOREDVERSIONS_MAINT_URL=$(python3 -c 'import yaml, sys; doc = yaml.safe_load(sys.stdin); x = [tp["url"] for tp in doc["thirdPartyServices"] if tp["name"] == "nnf-storedversions-maint"]; print(x[0])' < config/repositories.yaml)
+wget -O "$TREEDIR"/storedversions-manifests.tar "$STOREDVERSIONS_MAINT_URL"
+tar -C "$TREEDIR" -xf "$TREEDIR"/storedversions-manifests.tar
+rm "$TREEDIR"/storedversions-manifests.tar
 
 (cd "$TREEDIR" && tar cf "$TARFILE" ./*)
 exit $?

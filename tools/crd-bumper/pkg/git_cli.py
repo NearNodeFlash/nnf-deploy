@@ -1,4 +1,4 @@
-# Copyright 2024 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -31,13 +31,16 @@ class GitCLI:
             nocommit = True
         self._nocommit = nocommit
 
-    def checkout_branch(self, branch):
+    def checkout_branch(self, branch, create_branch=True):
         """Checkout a named branch."""
 
         if branch in ["main", "master", "releases/v0"]:
             raise ValueError("Branch name must not be main, master, or releases/v0")
         self.verify_clean()
-        cmd = f"git checkout -b {branch}"
+        args = ""
+        if create_branch:
+            args = "-b"
+        cmd = f"git checkout {args} {branch}"
         if self._dryrun:
             print(f"Dryrun: {cmd}")
         else:
