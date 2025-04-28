@@ -1,6 +1,6 @@
 # Describes the Rabbit nodes created for the KIND environment, and some
 # imaginary compute nodes for those rabbits.
-apiVersion: dataworkflowservices.github.io/v1alpha3
+apiVersion: dataworkflowservices.github.io/v1alpha4
 kind: SystemConfiguration
 metadata:
   # Nnf-sos expects this resource to be default/default.
