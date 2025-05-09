@@ -578,6 +578,23 @@ update_nnf_mfu_release_references() {
     fi
 }
 
+# Update nnf-docs for the latest nnf-deploy release version.
+update_nnf_release_reference() {
+    local indent="$1"
+    local yml="mkdocs.yml"
+
+    [[ ! -f $yml ]] && return
+    nnf_deploy_release=$(find_latest_release nnf_deploy "$indent")
+    if [[ -z $nnf_deploy_release ]]; then
+        do_fail "${indent}Unable to get nnf-deploy releases"
+    fi
+    msg "${indent}Current latest nnf-deploy release is $nnf_deploy_release"
+    sed -i.bak -e 's/^# Release: .*/# Release: '"$nnf_deploy_release"'/' $yml || do_fail "${indent}Failed to replace nnf-deploy release reference"
+    rm -f $yml.bak
+    git add $yml
+    git commit -s -m "Update nnf-deploy release reference" || do_fail "${indent}Failure updating nnf-deploy release reference"
+}
+
 # Update lustre-fs-operator, lustre-csi-driver for
 # nnf-deploy's config/repositories.yaml.
 update_remote_release_references() {
@@ -760,6 +777,10 @@ check_repo_release_vX() {
         fi
         verify_clean_workarea "$indent"
         make || do_fail "${indent}Failure building the nnf-deploy binary."
+
+    elif [[ $repo_short_name == nnf_doc ]]; then
+        update_nnf_release_reference "$indent"
+        verify_clean_workarea "$indent"
     fi
 
     if [[ $(git log --oneline "$branch...HEAD" | wc -l) -gt 0 ]]; then
