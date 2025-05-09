@@ -34,7 +34,6 @@ do_fail() {
 
 WORKSPACE="workingspace"
 TARGET_NNF_RELEASE=
-SKIP_DOCS=
 DO_COMMIT=
 
 usage() {
@@ -43,9 +42,6 @@ usage() {
     echo
     echo "  -C                Commit the new release notes. First, run without"
     echo "                    this so you can review the notes."
-    echo "  -D                Skip the docs repo. If the docs repo did not have"
-    echo "                    updates for this NNF release, then specify this"
-    echo "                    option to skip it."
     echo "  -r nnf_release    Latest NNF release tag, including the leading 'v'."
     echo "                    This must refer to a completed NNF release,"
     echo "                    including the docs repo, and it must be the most"
@@ -55,13 +51,10 @@ usage() {
     echo
 }
 
-while getopts "CDr:w:h" opt; do
+while getopts "Cr:w:h" opt; do
     case $opt in
     C)
         DO_COMMIT=yes
-        ;;
-    D)
-        SKIP_DOCS=yes
         ;;
     r)
         TARGET_NNF_RELEASE="$OPTARG"
@@ -389,12 +382,10 @@ dep_url="$NNF_DEPLOY_URL"
 dep_name=$(get_repo_dir_name "$dep_url")
 check_release_vX "$dep_repo_short_name" "$dep_name" "$dep_url" "releases/v0"
 
-if [[ -z $SKIP_DOCS ]]; then
-    doc_repo_short_name="nnf_doc"
-    doc_url="$NNF_DOC_URL"
-    doc_name=$(get_repo_dir_name "$doc_url")
-    check_release_vX "$doc_repo_short_name" "$doc_name" "$doc_url" "releases/v0"
-fi
+doc_repo_short_name="nnf_doc"
+doc_url="$NNF_DOC_URL"
+doc_name=$(get_repo_dir_name "$doc_url")
+check_release_vX "$doc_repo_short_name" "$doc_name" "$doc_url" "releases/v0"
 
 if [[ -n $NNF_DEPLOY_RELEASE && -f $RELEASE_PAGE ]]; then
     if [[ -n $DO_COMMIT ]]; then
