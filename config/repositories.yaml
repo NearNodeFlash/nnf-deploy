@@ -72,7 +72,7 @@ thirdPartyServices:
     waitCmd: kubectl wait deploy -n kube-system trigger --for jsonpath='{.status.availableReplicas}=1'
   - name: nnf-storedversions-maint
     useRemoteFTar: false
-    url: https://github.com/NearNodeFlash/nnf-storedversions-maint/releases/download/v0.1.2/manifests.tar
+    url: https://github.com/NearNodeFlash/nnf-storedversions-maint/releases/download/v0.1.3/manifests.tar
     waitCmd: kubectl wait deploy -n nnf-storedversions-maint-system nnf-storedversions-maint-controller-manager --for jsonpath='{.status.availableReplicas}=1'
   - name: argocd
     useHelm: true
