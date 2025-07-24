@@ -1,8 +1,6 @@
 module github.com/NearNodeFlash/nnf-deploy
 
-go 1.22.0
-
-toolchain go1.22.5
+go 1.23.9
 
 require (
 	github.com/alecthomas/kong v0.7.1
