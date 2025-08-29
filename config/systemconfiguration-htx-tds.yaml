@@ -1,5 +1,5 @@
 # Describes Rabbit "texas", or "htx-tds", and its compute nodes.
-apiVersion: dataworkflowservices.github.io/v1alpha4
+apiVersion: dataworkflowservices.github.io/v1alpha6
 kind: SystemConfiguration
 metadata:
   # Nnf-sos expects this resource to be default/default.
