@@ -126,15 +126,6 @@ brew install gh
 gh auth login
 ```
 
-### Permission Errors
-
-Make sure the scripts are executable:
-
-```bash
-chmod +x tools/crd-analyst/crd-analyzer.py
-chmod +x tools/crd-analyst/setup-crd-analyzer.sh
-```
-
 ### Python Environment Issues
 
 If you encounter Python environment issues, try:
