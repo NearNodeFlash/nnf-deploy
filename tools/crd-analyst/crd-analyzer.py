@@ -296,6 +296,77 @@ class CRDAnalyzer:
         
         # Generate detailed comparison
         self._generate_comparison_report(version1, version2, crds1, crds2)
+
+    def analyze_local_component(self, component_path: str) -> Dict[str, Dict]:
+        """Analyze CRDs in a local component directory."""
+        msg(f"Analyzing CRDs for local component at '{component_path}'...")
+        
+        # Assume the script is run from the repo root.
+        # The component path is relative to the repo root.
+        repo_root = Path.cwd()
+        component_dir = repo_root / component_path
+        
+        if not component_dir.is_dir():
+            do_fail(f"Component directory not found: {component_dir}")
+            
+        crd_files = self.find_crd_files(component_dir)
+        
+        crds = {}
+        for crd_file in crd_files:
+            crd_infos = self.extract_crd_info(crd_file)
+            for crd_info in crd_infos:
+                if crd_info:
+                    crds[crd_info['name']] = crd_info
+        
+        msg(f"Analyzed {len(crds)} CRDs in local component '{component_path}'", Colors.GREEN)
+        return crds
+
+    def compare_local_to_release(self, component_path: str, version: str):
+        """Compare a local component's CRDs to a release version."""
+        msg(f"Comparing local component '{component_path}' against release {version}...")
+        
+        # Analyze the local component directory
+        crds1 = self.analyze_local_component(component_path)
+        
+        # Analyze the release
+        crds2 = self.analyze_release(version)
+
+        # We only care about CRDs present in the local component analysis.
+        # Filter the release CRDs to only those that are relevant to the component.
+        # This is a simple heuristic: if a CRD from the release is in a path that contains the component name, we keep it.
+        # A better approach might be to check if the CRD name from crds1 exists in crds2.
+        
+        crds1_names = set(crds1.keys())
+        
+        # Filter crds2 to only include CRDs that are either in crds1 or whose files are in a path matching the component name.
+        # This ensures we can see changes to existing CRDs and also detect if a CRD was moved out of the component.
+        filtered_crds2 = {}
+        for name, crd in crds2.items():
+            # A bit of a heuristic: if the file path contains the component name, it's probably relevant.
+            if f"/{component_path}/" in crd.get('file', ''):
+                 filtered_crds2[name] = crd
+            elif name in crds1_names: # Also include it if it's a CRD we have locally, it might have moved.
+                 filtered_crds2[name] = crd
+
+
+        # The comparison report needs all CRDs from both sets to show added/removed correctly.
+        # Let's refine the sets for comparison.
+        # `crds1` is the set of CRDs in the local component directory.
+        # We want to compare this to the set of CRDs that BELONGED to that component in the target release.
+        
+        # So, we need to identify which CRDs in the release belong to the component.
+        release_component_crds = {
+            name: crd for name, crd in crds2.items()
+            if f"/{component_path}/" in crd.get('file', '')
+        }
+
+        msg(f"Found {len(release_component_crds)} CRDs for component '{component_path}' in release '{version}'")
+
+        self.save_analysis(f"local-{component_path.replace('/', '-')}", crds1)
+        self.save_analysis(f"{version}-{component_path.replace('/', '-')}", release_component_crds)
+        
+        # Generate detailed comparison (release -> local)
+        self._generate_comparison_report(version, f"local-{component_path.replace('/', '-')}", release_component_crds, crds1)
     
     def _generate_comparison_report(self, v1: str, v2: str, crds1: Dict, crds2: Dict):
         """Generate a detailed comparison report"""
@@ -508,6 +579,11 @@ Examples:
     compare_parser = subparsers.add_parser("compare", help="Compare CRDs between two releases")
     compare_parser.add_argument("version1", help="First release version (e.g., v0.1.20)")
     compare_parser.add_argument("version2", help="Second release version (e.g., v0.1.23)")
+
+    # Compare local command
+    compare_local_parser = subparsers.add_parser("compare-local", help="Compare a local component's CRDs against a release")
+    compare_local_parser.add_argument("component", help="Name of the local component directory to analyze (e.g., dws)")
+    compare_local_parser.add_argument("version", help="Release version to compare against (e.g., v0.1.23)")
     
     args = parser.parse_args()
     
@@ -527,6 +603,10 @@ Examples:
         elif args.command == "compare":
             analyzer.compare_releases(args.version1, args.version2)
             msg(f"Comparison complete! Check {analyzer.workspace} for detailed reports.", Colors.GREEN)
+
+        elif args.command == "compare-local":
+            analyzer.compare_local_to_release(args.component, args.version)
+            msg(f"Local comparison complete! Check {analyzer.workspace} for detailed reports.", Colors.GREEN)
         
         return 0
     
