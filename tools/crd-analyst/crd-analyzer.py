@@ -414,16 +414,18 @@ class CRDAnalyzer:
                 crd1 = crds1.get(crd_name)
                 crd2 = crds2.get(crd_name)
                 
-                if not crd1:
-                    # Added
-                    group = crds2[crd_name]['group']
+                if crd1 is None:
+                    # Added - crd2 must exist
+                    crd2_data = crds2[crd_name]
+                    group = crd2_data['group']
                     v1_versions_str = "-"
-                    v2_versions_str = ", ".join([f"**{v['name']}**" if v['storage'] else v['name'] for v in crd2['versions']])
+                    v2_versions_str = ", ".join([f"**{v['name']}**" if v['storage'] else v['name'] for v in crd2_data['versions']])
                     status = "➕ NEW"
-                elif not crd2:
-                    # Removed
-                    group = crds1[crd_name]['group']
-                    v1_versions_str = ", ".join([f"**{v['name']}**" if v['storage'] else v['name'] for v in crd1['versions']])
+                elif crd2 is None:
+                    # Removed - crd1 must exist
+                    crd1_data = crds1[crd_name]
+                    group = crd1_data['group']
+                    v1_versions_str = ", ".join([f"**{v['name']}**" if v['storage'] else v['name'] for v in crd1_data['versions']])
                     v2_versions_str = "-"
                     status = "➖ REMOVED"
                 else:
@@ -451,23 +453,25 @@ class CRDAnalyzer:
                 crd1 = crds1.get(crd_name)
                 crd2 = crds2.get(crd_name)
                 
-                if not crd1:
-                    # New CRD
+                if crd1 is None:
+                    # New CRD - crd2 must exist
+                    crd2_data = crds2[crd_name]
                     f.write(f"### ➕ {crd_name} (NEW)\n")
-                    f.write(f"**Group**: {crd2['group']}\n")
-                    f.write(f"**Scope**: {crd2['scope']}\n")
-                    f.write(f"**File**: {crd2['file']}\n\n")
+                    f.write(f"**Group**: {crd2_data['group']}\n")
+                    f.write(f"**Scope**: {crd2_data['scope']}\n")
+                    f.write(f"**File**: {crd2_data['file']}\n\n")
                     f.write("**API Versions**:\n")
-                    self._write_crd_versions(f, crd2)
+                    self._write_crd_versions(f, crd2_data)
                     
-                elif not crd2:
-                    # Removed CRD
+                elif crd2 is None:
+                    # Removed CRD - crd1 must exist
+                    crd1_data = crds1[crd_name]
                     f.write(f"### ➖ {crd_name} (REMOVED)\n")
-                    f.write(f"**Group**: {crd1['group']}\n")
-                    f.write(f"**Scope**: {crd1['scope']}\n")
-                    f.write(f"**File**: {crd1['file']}\n\n")
+                    f.write(f"**Group**: {crd1_data['group']}\n")
+                    f.write(f"**Scope**: {crd1_data['scope']}\n")
+                    f.write(f"**File**: {crd1_data['file']}\n\n")
                     f.write("**API Versions**:\n")
-                    self._write_crd_versions(f, crd1)
+                    self._write_crd_versions(f, crd1_data)
                     
                 else:
                     # Compare versions
