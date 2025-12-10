@@ -491,9 +491,11 @@ update_own_release_references() {
         # This one also has a helm chart. Use `yq -i e` to do an in-place edit
         # with the yq that is written in Go. The yq written in Python uses
         # `-yi`.
-        chart="charts/lustre-csi-driver/values.yaml"
-        yq -i e -M '(.deployment.tag) = "'"$release_ver"'"' "$chart" || do_fail "${indent}Unable to update release version in helm chart"
-        git add "$chart"
+        chartvalues="charts/lustre-csi-driver/values.yaml"
+        yq -i e -M '(.deployment.tag) = "'"$release_ver"'"' "$chartvalues" || do_fail "${indent}Unable to update release version in helm chart"
+        chart="charts/lustre-csi-driver/Chart.yaml"
+        yq -i e -M '(.appVersion) = "'"$release_ver"'"' "$chart" || do_fail "${indent}Unable to update appVersion in helm chart"
+        git add "$chartvalues" "$chart"
         ;;
     lustre_fs_operator)
         k_yaml="config/manager"
