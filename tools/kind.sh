@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021-2024 Hewlett Packard Enterprise Development LP
+# Copyright 2021-2026 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -30,6 +30,51 @@ function clear_mock_fs {
         rm -rf /tmp/nnf
         mkdir /tmp/nnf
     fi
+}
+
+function inject_ca_certs {
+    local certs="$KIND_CA_CERTS"
+    local tmp_certs=""
+
+    # If KIND_CA_CERTS is not set, auto-extract system CA certs.
+    if [[ -z "$certs" ]]; then
+        tmp_certs=$(mktemp /tmp/kind-ca-certs.XXXXXX.pem)
+        if [[ "$(uname)" == "Darwin" ]]; then
+            if [[ -f /Library/Keychains/System.keychain ]]; then
+                security find-certificate -a -p /Library/Keychains/System.keychain > "$tmp_certs" 2>/dev/null
+            fi
+        else
+            # Linux: copy the system CA bundle.
+            if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
+                cp /etc/ssl/certs/ca-certificates.crt "$tmp_certs"
+            elif [[ -f /etc/pki/tls/certs/ca-bundle.crt ]]; then
+                cp /etc/pki/tls/certs/ca-bundle.crt "$tmp_certs"
+            fi
+        fi
+
+        if [[ ! -s "$tmp_certs" ]]; then
+            echo "WARNING: Could not extract system CA certificates. Set KIND_CA_CERTS to a PEM file if image pulls fail with TLS errors."
+            rm -f "$tmp_certs"
+            return
+        fi
+        certs="$tmp_certs"
+    fi
+
+    if [[ ! -f "$certs" ]]; then
+        echo "ERROR: KIND_CA_CERTS file not found: $certs"
+        return 1
+    fi
+
+    echo "Injecting CA certificates from $certs into KIND nodes..."
+    for node in $(kind get nodes); do
+        docker cp "$certs" "$node:/usr/local/share/ca-certificates/extra-ca-certs.crt"
+        docker exec "$node" update-ca-certificates
+        docker exec "$node" systemctl restart containerd
+        echo "  $node: done"
+    done
+
+    # Clean up temp file if we created one.
+    [[ -n "$tmp_certs" ]] && rm -f "$tmp_certs"
 }
 
 function create_cluster {
@@ -91,6 +136,12 @@ EOF
     fi
 
     kind create cluster --wait 60s --image=kindest/node:v1.31.2 --config $CONFIG
+
+    # If corporate/custom CA certificates are available, inject them into
+    # each KIND node so containerd can pull from registries behind a TLS
+    # intercepting proxy. Set KIND_CA_CERTS to a PEM file path, or it
+    # defaults to /tmp/corporate-certs.pem.
+    inject_ca_certs
 
     # Use the same init routines that we use on real hardware.
     # This applies taints and labels to rabbit nodes, and installs other
