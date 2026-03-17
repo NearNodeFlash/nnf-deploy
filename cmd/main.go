@@ -104,6 +104,11 @@ func (cmd *DeployCmd) Run(ctx *Context) error {
 			return nil
 		}
 
+		// Wait for prerequisites that this module needs.
+		if err := waitForModulePrereqs(ctx, module); err != nil {
+			return err
+		}
+
 		if err := createSystemConfigFromSOS(ctx, system, module); err != nil {
 			return err
 		}
@@ -1042,6 +1047,100 @@ func getExampleOverlay(ctx *Context, system *config.System, module string) (stri
 	}
 
 	return "", nil
+}
+
+// Modules that require cert-manager webhook to be ready before deploying.
+var modulesCertManager = []string{
+	"lustre-fs-operator",
+	"dws",
+	"nnf-sos",
+}
+
+// Modules that require the DWS controller-manager to be ready before deploying,
+// because they use DWS CRDs that have a conversion webhook served by DWS.
+var modulesDWSController = []string{
+	"nnf-sos",
+	"nnf-dm",
+}
+
+// waitForModulePrereqs waits for prerequisite services that a module depends on.
+func waitForModulePrereqs(ctx *Context, module string) error {
+	if ctx.DryRun {
+		return nil
+	}
+
+	for _, m := range modulesCertManager {
+		if m == module {
+			if err := waitForCertManagerWebhook(ctx); err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	for _, m := range modulesDWSController {
+		if m == module {
+			if err := waitForDWSControllerManager(ctx); err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	return nil
+}
+
+// waitForCertManagerWebhook waits for the cert-manager webhook to be ready and
+// functional. Modules that create cert-manager Certificate or Issuer resources
+// need this webhook to be operational.
+func waitForCertManagerWebhook(ctx *Context) error {
+	fmt.Println("  Waiting for cert-manager webhook...")
+	cmd := exec.Command("kubectl", "wait", "deploy", "-n", "cert-manager",
+		"--timeout=180s", "cert-manager-webhook",
+		"--for", "jsonpath={.status.availableReplicas}=1")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return fmt.Errorf("cert-manager webhook deployment not ready: %w", err)
+	}
+
+	// The deployment being available doesn't guarantee the webhook is
+	// functional. Verify by attempting a server-side dry-run of an Issuer.
+	fmt.Println("  Verifying cert-manager webhook is functional...")
+	for attempts := 0; attempts < 60; attempts++ {
+		cmd = exec.Command("kubectl", "apply", "--dry-run=server", "-f", "-")
+		cmd.Stdin = strings.NewReader(`apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: deploy-dryrun-test
+  namespace: default
+spec:
+  selfSigned: {}
+`)
+		if out, err := cmd.CombinedOutput(); err == nil {
+			_ = out
+			break
+		}
+		if attempts == 59 {
+			return fmt.Errorf("cert-manager webhook not functional after 120s")
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	return nil
+}
+
+// waitForDWSControllerManager waits for the DWS controller-manager to be fully
+// ready. The DWS controller-manager serves the CRD conversion webhook needed by
+// modules that access DWS custom resources with multiple API versions.
+func waitForDWSControllerManager(ctx *Context) error {
+	fmt.Println("  Waiting for DWS controller-manager...")
+	cmd := exec.Command("kubectl", "wait", "deploy", "-n", "dws-system",
+		"--timeout=180s", "dws-controller-manager",
+		"--for", "jsonpath={.status.availableReplicas}=1")
+	if _, err := runCommand(ctx, cmd); err != nil {
+		return fmt.Errorf("DWS controller-manager not ready: %w", err)
+	}
+
+	return nil
 }
 
 func deployModule(ctx *Context, system *config.System, module string) error {
