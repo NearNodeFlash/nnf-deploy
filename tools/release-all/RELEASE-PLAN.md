@@ -1,6 +1,6 @@
 # NNF Software Release Plan
 
-This document is the authoritative, self-contained guide for executing an NNF software release. The release process is the same regardless of how many repos have changes — the `release` phase automatically detects which repos have new commits since the last release and skips those that don't. An agent or human following this document should be able to execute the entire release without external context.
+This document is the authoritative, self-contained guide for executing an NNF software release. All release phases are driven by `release-all.sh` in this directory, wrapped by the `nnf_cmd` helper function. The release process is the same regardless of how many repos have changes — the `release` phase automatically detects which repos have new commits since the last release and skips those that don't. An agent or human following this document should be able to execute the entire release without external context.
 
 ---
 
@@ -19,14 +19,7 @@ This document is the authoritative, self-contained guide for executing an NNF so
 | `nnf_deploy` | `NearNodeFlash/nnf-deploy` | NearNodeFlash | `master` | Has submodules for most repos |
 | `nnf_doc` | `NearNodeFlash/NearNodeFlash.github.io` | NearNodeFlash | **`main`** (not master) | Released last; tracks nnf-deploy version |
 
-**PR Reviewers:** Assign all members of the reviewer pool **except** the person creating the release:
-
-- `matthew-richerson`
-- `bdevcich`
-- `roehrich-hpe`
-- `ajfloeder`
-
-For example, if `ajfloeder` is running the release, the reviewers are `matthew-richerson`, `bdevcich`, `roehrich-hpe`.
+**PR Reviewers:** Defined in `.github/CODEOWNERS`. Assign all code owners **except** the person creating the release. The `setup-release-env.sh` helper reads CODEOWNERS automatically and sets `$RELEASE_REVIEWERS`.
 
 **Dependency chain (release order):**
 
@@ -51,9 +44,10 @@ If an upstream repo changes, **all downstream repos that vendor it** may need re
 
 1. Ensure these tools are installed: `gh`, `yq` (Go version v4.x), `jq`, `perl`, `git`, `make`, `tput`, `sed`
 2. Set `GH_TOKEN` env var with a GitHub **classic** token (not fine-grained) with `repo` scope. The token is 40 characters, starting with `ghp_`.
-3. Verify SSH access to all repo URLs (`ssh -T git@github.com`)
-4. Decide the release type (`-B major|minor|patch`). **Always pass `-B` explicitly** — do not rely on the script default, which could change. Most releases use `-B patch`.
-5. **Pre-release vendoring check:** If any upstream repo has had changes merged to master since the last release that affect downstream vendoring, ensure downstream repos have been revendored **before** starting the release. For example, if `nnf-sos` changed, then `nnf-dm` and `nnf-integration-test` (which vendor `nnf-sos`) must have their vendor directories updated via PRs merged to master. Phase 1's vendoring checks will catch any mismatches.
+3. Verify `gh` authentication: `gh auth status`. Confirm it shows the expected user and token scopes.
+4. Verify SSH access to all repo URLs (`ssh -T git@github.com`)
+5. Decide the release type (`-B major|minor|patch`). **Always pass `-B` explicitly** — do not rely on the script default, which could change. Most releases use `-B patch`.
+6. **Pre-release vendoring check:** If any upstream repo has had changes merged to master since the last release that affect downstream vendoring, ensure downstream repos have been revendored **before** starting the release. For example, if `nnf-sos` changed, then `nnf-dm` and `nnf-integration-test` (which vendor `nnf-sos`) must have their vendor directories updated via PRs merged to master. Phase 1's vendoring checks will catch any mismatches.
 
 ### Phase 0: Fresh Clone
 
@@ -69,6 +63,14 @@ export RELEASE_WORKDIR=~/release-work   # adjust as needed
 
 # If $RELEASE_WORKDIR exists, ask the user before proceeding.
 # If they decline, stop here.
+
+# Clean build artifacts before removing (rm -rf can fail on build outputs)
+if [ -d "$RELEASE_WORKDIR/nnf-deploy/workingspace" ]; then
+    for repo in "$RELEASE_WORKDIR"/nnf-deploy/workingspace/*/; do
+        ( cd "$repo" && make clean-bin 2>/dev/null || true )
+    done
+fi
+
 rm -rf "$RELEASE_WORKDIR"
 mkdir -p "$RELEASE_WORKDIR"
 cd "$RELEASE_WORKDIR"
@@ -134,11 +136,11 @@ For each failing repo:
 6. **Push** the branch and **create a PR** titled `"Update vendor dependencies"` with body `"Pre-release vendoring update."`.
 7. **Assign reviewers** from `$RELEASE_REVIEWERS`.
 8. **Wait for CI** and reviewer approval, then **merge** the PR.
-9. **Verify the fix against origin:** Re-clone (repeat Step 0) so you're working from what's actually on GitHub, then re-run Step 2 starting from the repo you just fixed and continuing through the remaining downstream repos. The fixed repo must pass. If a downstream repo fails, repeat this procedure for it.
+9. **Verify the fix against origin:** Re-clone (repeat Step 0) so you're working from what's actually on GitHub, then re-run the `nnf_cmd master <repo>` check starting from the repo you just fixed and continuing through all remaining downstream repos in order. The fixed repo must now pass. If a downstream repo fails, repeat this procedure (steps 1–9) for it.
 10. Return to `$RELEASE_WORKDIR/nnf-deploy/tools/release-all`.
 
 > **Dependency order matters:** An upstream repo's vendoring PR must be merged to master before any downstream repo that vendors it can be fixed. For example, if both `nnf_sos` and `nnf_dm` fail, merge the `nnf_sos` fix first — `nnf_dm` vendors `nnf_sos` and needs the updated master.
-
+>
 > **`nnf_deploy` submodule pointers:** Any submodule repo that has had commits merged to master since the last submodule pointer update — whether from development work or vendoring fixes — will cause `nnf_deploy`'s Step 2 check to fail with "Submodules are not up to date." The script catches this automatically. Fix it the same way: clone `nnf_deploy`, create a branch, run `git submodule update --remote` for the affected submodules, commit, PR, merge. Then re-clone and verify.
 
 After fixing and verifying the last failing repo, **re-run Step 2 on all repos** as a final safety net to confirm everything passes end to end.
@@ -157,7 +159,7 @@ done
 
 Review output for merge conflicts before continuing.
 
-> **Note:** `nnf_mfu` (and sometimes `nnf_ec`) may report "No new changes to release" if master has no commits since the last release. This is normal — skip the repo in subsequent phases.
+> **Note:** `nnf_mfu` and `nnf_ec` are standalone repos that often have no new commits between releases. If either reports "No new changes to release", this is normal — **skip that repo in all subsequent phases** (Steps 4a–4d and the `nnf_doc` sequence). Do not attempt to push, PR, merge, or tag a repo that had no changes.
 
 #### `nnf_doc` deferral
 
@@ -165,7 +167,7 @@ Review output for merge conflicts before continuing.
 
 1. Complete Steps 3–4d for all repos through `nnf_deploy`
 2. **Wait ~60 seconds** for `nnf_deploy`'s "Handle Release Tag" GitHub Actions workflow to publish the GitHub Release
-3. Verify: `gh release view $NNF_RELEASE -R NearNodeFlash/nnf-deploy 2>&1 | cat` should succeed
+3. Verify: `gh release view $NNF_RELEASE -R NearNodeFlash/nnf-deploy 2>&1 | cat` should succeed. If it fails with "release not found", wait another 30 seconds and retry. The workflow typically completes within 2 minutes; if it hasn't after 5 minutes, check the Actions tab on the `nnf-deploy` repo for errors.
 4. Then run `nnf_doc` through Steps 3–4d:
 
 ```sh
@@ -266,35 +268,7 @@ The `-i` flag displays image version changes inline. Use `-d` to display the ful
 
 Check each repo for correct tag, release notes, and artifacts (`manifests.tar` + `manifests-kind.tar` on `nnf-deploy`).
 
----
 
-## Part B: Documentation Improvements & Corrections
-
-### Corrections (issues found by comparing docs to actual scripts)
-
-> Items marked ✅ have been applied to `release-all.md` on branch `improve-release-docs`.
-> Items marked 🔲 remain open.
-
-1. ✅ **Missing prerequisites** — Added full Prerequisites section with tool table, `GH_TOKEN` env var, and SSH access check.
-2. ✅ **Missing `-B` flag** — Documented `-B major|minor|patch` (default: `patch`) in the Steps section.
-3. 🔲 **Missing `-w`, `-M` flags** — `-x force-tag` is now documented for error recovery, but `-w` (workspace dir override) and `-M` (multi-API-version bypass) are not yet documented. These are advanced/optional and could be an enhancement.
-4. ✅ **Step structure was confusing** — Restructured as steps 3a–3d with bold headers; 3a branching path made explicit.
-5. ✅ **Annotated tag requirement not called out** — Added Important note at step 3d explaining annotated tag requirement and CI/CD rejection of lightweight tags.
-6. ✅ **`repo-list` output never shown** — Added the full 10-repo dependency-ordered list under step 0.
-7. ✅ **nnf-mfu and nnf-ec distinction unclear** — Added *(standalone repo, not a submodule)* annotations and dependency-order list with rationale.
-8. ✅ **No error recovery guidance** — Added `-x force-tag=vX.Y.Z` recovery, manual merge warning on step 3c.
-9. ✅ **`compare-releases.sh` not framed as verification** — Renamed section to "Verify the release" and framed as a recommended verification step.
-10. ✅ **`final-release-notes.sh` prereqs not listed** — Added note listing `yq`, `gh`, `jq`, `perl`, and `GH_TOKEN` requirement.
-11. ✅ **No mention of CI/CD workflow** — Added explanation of `handle_release_tag.yaml` at step 3d (creates GitHub release, attaches artifacts).
-12. ✅ **Step numbering was wrong** — Renumbered as 3a–3d (was 1–5 sub-list); removed phantom step "e".
-
-### Enhancements
-
-1. **Add a pre-flight checklist section** before Step 1
-2. **Add a troubleshooting section** — tag rejected, yq version mismatch, GH_TOKEN expired, merge conflicts
-3. **Add "What happens under the hood"** — Brief description of what each phase does internally (updates kustomization images, Helm versions, Dockerfile refs, repositories.yaml)
-4. **Document full repo ordering with rationale** — Explain the dependency chain (dws → lustre → nnf-mfu/ec → nnf-sos → nnf-dm → integration-test → deploy → docs)
-5. **Expand `tools/release-all/README.md`** — Add prerequisites and quick-start
 
 ---
 

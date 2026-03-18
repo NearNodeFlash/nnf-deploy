@@ -59,10 +59,20 @@ NNF_RELEASE=$(echo "$PREVIOUS_RELEASE" | perl -F'/\./' -ane "$PERL_CMD")
 
 # --- Detect operator & reviewers --------------------------------------------
 RELEASE_USER=$(gh api user --jq '.login' 2>&1)
-REVIEWER_POOL="matthew-richerson,bdevcich,roehrich-hpe,ajfloeder"
+CODEOWNERS_FILE="../../.github/CODEOWNERS"
+if [[ ! -f "$CODEOWNERS_FILE" ]]; then
+    echo "ERROR: $CODEOWNERS_FILE not found. Run from tools/release-all/ inside an nnf-deploy clone." >&2
+    return 1
+fi
+REVIEWER_POOL=$(grep '^\*' "$CODEOWNERS_FILE" | tr -s ' ' | cut -d' ' -f2- | tr ' ' '\n' | sed 's/@//' | paste -sd,)
 export RELEASE_REVIEWERS
 RELEASE_REVIEWERS=$(echo "$REVIEWER_POOL" | tr ',' '\n' \
     | grep -v "$RELEASE_USER" | paste -sd,)
+
+if [[ -z "$RELEASE_REVIEWERS" ]]; then
+    echo "WARNING: RELEASE_REVIEWERS is empty — you are the only code owner in CODEOWNERS." >&2
+    echo "         You will need to assign reviewers manually for each PR." >&2
+fi
 
 # --- Helper: run release-all.sh with auto -M and -B -------------------------
 # Usage: nnf_cmd <phase> <repo>
