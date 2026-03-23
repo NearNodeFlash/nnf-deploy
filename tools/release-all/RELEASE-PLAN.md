@@ -13,6 +13,7 @@ This document is the authoritative, self-contained guide for executing an NNF so
 | `lustre_fs_operator` | `NearNodeFlash/lustre-fs-operator` | NearNodeFlash | `master` | |
 | `nnf_mfu` | `NearNodeFlash/nnf-mfu` | NearNodeFlash | `master` | Standalone, not a submodule |
 | `nnf_ec` | `NearNodeFlash/nnf-ec` | NearNodeFlash | `master` | Standalone, not a submodule |
+| `nnf_storedversions_maint` | `NearNodeFlash/nnf-storedversions-maint` | NearNodeFlash | **`main`** (not master) | Standalone, not a submodule |
 | `nnf_sos` | `NearNodeFlash/nnf-sos` | NearNodeFlash | `master` | Requires `-M` flag |
 | `nnf_dm` | `NearNodeFlash/nnf-dm` | NearNodeFlash | `master` | Vendors nnf-sos |
 | `nnf_integration_test` | `NearNodeFlash/nnf-integration-test` | NearNodeFlash | `master` | Vendors nnf-sos |
@@ -24,7 +25,7 @@ This document is the authoritative, self-contained guide for executing an NNF so
 **Dependency chain (release order):**
 
 ```text
-dws → lustre_csi_driver → lustre_fs_operator → nnf_mfu → nnf_ec → nnf_sos → nnf_dm → nnf_integration_test → nnf_deploy → nnf_doc
+dws → lustre_csi_driver → lustre_fs_operator → nnf_mfu → nnf_ec → nnf_storedversions_maint → nnf_sos → nnf_dm → nnf_integration_test → nnf_deploy → nnf_doc
 ```
 
 **Vendoring dependencies (peer modules in `go.mod`):**
@@ -33,6 +34,7 @@ dws → lustre_csi_driver → lustre_fs_operator → nnf_mfu → nnf_ec → nnf_
 - `nnf_sos` vendors `dws`, `lustre-fs-operator`, `nnf-ec`
 - `nnf_dm` vendors `dws`, `lustre-fs-operator`, `nnf-ec` (indirect), `nnf-sos`
 - `nnf_integration_test` vendors `dws`, `lustre-fs-operator`, `nnf-ec` (indirect), `nnf-sos`
+- `nnf_storedversions_maint` has **no** NNF peer vendoring dependencies
 
 If an upstream repo changes, **all downstream repos that vendor it** may need revendoring before the release (see Step 2a). The vendoring check in Step 2 catches these automatically.
 
@@ -108,7 +110,7 @@ List repos:
 ./release-all.sh -L
 ```
 
-Save the ordered list: `dws`, `lustre_csi_driver`, `lustre_fs_operator`, `nnf_mfu`, `nnf_ec`, `nnf_sos`, `nnf_dm`, `nnf_integration_test`, `nnf_deploy`, `nnf_doc`.
+Save the ordered list: `dws`, `lustre_csi_driver`, `lustre_fs_operator`, `nnf_mfu`, `nnf_ec`, `nnf_storedversions_maint`, `nnf_sos`, `nnf_dm`, `nnf_integration_test`, `nnf_deploy`, `nnf_doc`.
 
 #### Step 2 — Check vendoring *(sequential, per repo)*
 
@@ -159,7 +161,7 @@ done
 
 Review output for merge conflicts before continuing.
 
-> **Note:** `nnf_mfu` and `nnf_ec` are standalone repos that often have no new commits between releases. If either reports "No new changes to release", this is normal — **skip that repo in all subsequent phases** (Steps 4a–4d and the `nnf_doc` sequence). Do not attempt to push, PR, merge, or tag a repo that had no changes.
+> **Note:** `nnf_mfu`, `nnf_ec`, and `nnf_storedversions_maint` are standalone repos that often have no new commits between releases. If any reports "No new changes to release", this is normal — **skip that repo in all subsequent phases** (Steps 4a–4d and the `nnf_doc` sequence). Do not attempt to push, PR, merge, or tag a repo that had no changes.
 
 #### `nnf_doc` deferral
 

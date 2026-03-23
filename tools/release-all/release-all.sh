@@ -27,22 +27,24 @@ repomap_keys[1]=lustre_csi_driver
 repomap_keys[2]=lustre_fs_operator
 repomap_keys[3]=nnf_mfu
 repomap_keys[4]=nnf_ec
-repomap_keys[5]=nnf_sos
-repomap_keys[6]=nnf_dm
-repomap_keys[7]=nnf_integration_test
-repomap_keys[8]=nnf_deploy
-repomap_keys[9]=nnf_doc
+repomap_keys[5]=nnf_storedversions_maint
+repomap_keys[6]=nnf_sos
+repomap_keys[7]=nnf_dm
+repomap_keys[8]=nnf_integration_test
+repomap_keys[9]=nnf_deploy
+repomap_keys[10]=nnf_doc
 
 declare "repomap_${repomap_keys[0]}"='git@github.com:DataWorkflowServices/dws.git'
 declare "repomap_${repomap_keys[1]}"='git@github.com:HewlettPackard/lustre-csi-driver.git'
 declare "repomap_${repomap_keys[2]}"='git@github.com:NearNodeFlash/lustre-fs-operator.git'
 declare "repomap_${repomap_keys[3]}"='git@github.com:NearNodeFlash/nnf-mfu.git'
 declare "repomap_${repomap_keys[4]}"='git@github.com:NearNodeFlash/nnf-ec.git'
-declare "repomap_${repomap_keys[5]}"='git@github.com:NearNodeFlash/nnf-sos.git'
-declare "repomap_${repomap_keys[6]}"='git@github.com:NearNodeFlash/nnf-dm.git'
-declare "repomap_${repomap_keys[7]}"='git@github.com:NearNodeFlash/nnf-integration-test.git'
-declare "repomap_${repomap_keys[8]}"='git@github.com:NearNodeFlash/nnf-deploy.git'
-declare "repomap_${repomap_keys[9]}"='git@github.com:NearNodeFlash/NearNodeFlash.github.io.git'
+declare "repomap_${repomap_keys[5]}"='git@github.com:NearNodeFlash/nnf-storedversions-maint.git'
+declare "repomap_${repomap_keys[6]}"='git@github.com:NearNodeFlash/nnf-sos.git'
+declare "repomap_${repomap_keys[7]}"='git@github.com:NearNodeFlash/nnf-dm.git'
+declare "repomap_${repomap_keys[8]}"='git@github.com:NearNodeFlash/nnf-integration-test.git'
+declare "repomap_${repomap_keys[9]}"='git@github.com:NearNodeFlash/nnf-deploy.git'
+declare "repomap_${repomap_keys[10]}"='git@github.com:NearNodeFlash/NearNodeFlash.github.io.git'
 
 getter() {
     # Getter for the associative-array-ish thingy that works in bash v3 for Mac.
@@ -235,6 +237,7 @@ get_default_branch() {
     local default_branch=master
 
     [[ $repo_short_name = nnf_doc ]] && default_branch=main
+    [[ $repo_short_name = nnf_storedversions_maint ]] && default_branch=main
     echo "$default_branch"
 }
 
@@ -508,6 +511,11 @@ update_own_release_references() {
         git add "$k_yaml"
         ;;
     nnf_dm)
+        k_yaml="config/manager"
+        update_kustomization_file "$k_yaml" controller "$release_ver" "$indent"
+        git add "$k_yaml"
+        ;;
+    nnf_storedversions_maint)
         k_yaml="config/manager"
         update_kustomization_file "$k_yaml" controller "$release_ver" "$indent"
         git add "$k_yaml"
