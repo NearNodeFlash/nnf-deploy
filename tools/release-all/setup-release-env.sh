@@ -107,6 +107,7 @@ nnf_gh_repo() {
         lustre_fs_operator)   echo "NearNodeFlash/lustre-fs-operator" ;;
         nnf_mfu)              echo "NearNodeFlash/nnf-mfu" ;;
         nnf_ec)               echo "NearNodeFlash/nnf-ec" ;;
+        nnf_storedversions_maint) echo "NearNodeFlash/nnf-storedversions-maint" ;;
         nnf_sos)              echo "NearNodeFlash/nnf-sos" ;;
         nnf_dm)               echo "NearNodeFlash/nnf-dm" ;;
         nnf_integration_test) echo "NearNodeFlash/nnf-integration-test" ;;

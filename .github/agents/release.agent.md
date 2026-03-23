@@ -1,5 +1,5 @@
 ---
-description: "Use when performing an NNF software release, creating release branches, tagging releases, managing release PRs, running release-all.sh, comparing releases, or finalizing release notes. Covers releases across the 10 NNF repositories."
+description: "Use when performing an NNF software release, creating release branches, tagging releases, managing release PRs, running release-all.sh, comparing releases, or finalizing release notes. Covers releases across all NNF repositories."
 tools: [execute, read, edit, search, todo, web]
 argument-hint: "Specify the release type (patch, minor, or major) — defaults to patch"
 ---
