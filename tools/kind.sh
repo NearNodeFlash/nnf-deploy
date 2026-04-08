@@ -22,6 +22,42 @@
 set -e
 set -o pipefail
 
+usage() {
+    echo "Usage: $0 [--no-argocd] <CMD>"
+    echo
+    echo "Options:"
+    echo "  --no-argocd             Deploy without ArgoCD using the legacy overlay."
+    echo "                          Installs cert-manager, mpi-operator, and lustre"
+    echo "                          operators directly instead of via ArgoCD."
+    echo
+    echo "Commands:"
+    echo "  create                  Create a new KIND cluster."
+    echo "  destroy                 Destroy the existing KIND cluster."
+    echo "  reset                   Destroy the existing KIND cluster and create"
+    echo "                          a new cluster. Note: locally-built images are"
+    echo "                          not automatically reloaded -- re-run 'push' or"
+    echo "                          './nnf-deploy make kind-push' after a reset."
+    echo "  push                    Execute 'make kind-push' in each submodule dir."
+    echo "  argocd_attach <new_password>"
+    echo "                          Login to the argocd instance and set the new"
+    echo "                          password. Then add the Git repo to the instance."
+    echo "  argocd_login <new_password>"
+    echo "                          Only do the login to the argocd instance and set"
+    echo "                          the password."
+    echo "  argocd_add_git_repo     Only add the git repo to the argocd instance."
+    echo "  help                    Show this help message."
+}
+
+NO_ARGOCD=
+while [[ "$1" == --* ]]; do
+    case "$1" in
+    --no-argocd) NO_ARGOCD=1 ;;
+    --help) usage; exit 0 ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+    shift
+done
+
 CMD="$1"
 shift
 
@@ -75,6 +111,22 @@ function inject_ca_certs {
 
     # Clean up temp file if we created one.
     [[ -n "$tmp_certs" ]] && rm -f "$tmp_certs"
+}
+
+# Create the integration test user on KIND Rabbit worker nodes.
+# The nnf-integration-test suite verifies that UID/GID exist on Rabbit nodes
+# (defaults: UID=1051 GID=1052, the flux user). Without this, the BeforeSuite
+# check fails and no tests run.
+function create_test_user {
+    local uid=${NNF_USER_ID:-1051}
+    local gid=${NNF_GROUP_ID:-1052}
+
+    echo "Creating test user (UID=$uid, GID=$gid) on KIND Rabbit worker nodes..."
+    for node in $(kind get nodes | grep -v control-plane); do
+        # Create group and user if they don't already exist
+        docker exec "$node" sh -c "getent group $gid >/dev/null 2>&1 || groupadd -g $gid testgroup"
+        docker exec "$node" sh -c "getent passwd $uid >/dev/null 2>&1 || useradd -u $uid -g $gid -M -s /bin/bash testuser"
+    done
 }
 
 function create_cluster {
@@ -146,7 +198,14 @@ EOF
     # Use the same init routines that we use on real hardware.
     # This applies taints and labels to rabbit nodes, and installs other
     # services that rabbit software requires.
+    if [[ -n $NO_ARGOCD ]]; then
+        echo "Deploying without ArgoCD (legacy overlay mode)..."
+        cp config/overlay-legacy.yaml-template overlay-legacy.yaml
+    fi
     ./nnf-deploy init
+
+    # Create the test user on Rabbit nodes for integration tests
+    create_test_user
 }
 
 function have_argocd {
@@ -231,23 +290,7 @@ function push_submodules {
     done
 }
 
-usage() {
-    echo "Usage: $0 <CMD>"
-    echo
-    echo "  create                  Create a new KIND cluster."
-    echo "  destroy                 Destroy the existing KIND cluster."
-    echo "  reset                   Destroy the existing KIND cluster and create"
-    echo "                          a new cluster."
-    echo "  push                    Execute 'make kind-push' in each submodule dir."
-    echo "  argocd_attach <new_password>"
-    echo "                          Login to the argocd instance and set the new"
-    echo "                          password. Then add the Git repo to the instance."
-    echo "  argocd_login <new_password>"
-    echo "                          Only do the login to the argocd instance and set"
-    echo "                          the password."
-    echo "  argocd_add_git_repo     Only add the git repo to the argocd instance."
 
-}
 
 if [[ "$CMD" == "create" ]]; then
     create_cluster
@@ -264,6 +307,8 @@ elif [[ "$CMD" == "argocd_login" ]]; then
     argocd_login "$*"
 elif [[ "$CMD" == "argocd_add_git_repo" ]]; then
     argocd_add_git_repo
+elif [[ "$CMD" == "help" || "$CMD" == "--help" ]]; then
+    usage
 else
     usage
     exit 1
