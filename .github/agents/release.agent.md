@@ -18,6 +18,7 @@ Before starting any release work, read these files completely:
 ## Core Rules
 
 - **ALWAYS wait for explicit user approval before proceeding to the next step.** After every step, state what you did, whether it succeeded, and the evidence. **WAIT for the user.**
+- **ONE command per turn.** Run the command for ONE repo, show the full output, state PASS or FAIL with evidence, then STOP. Do not run the next repo's command until the user explicitly says to proceed. This applies even when the plan shows a `for` loop — execute the loop body manually, one repo per turn.
 - **ALWAYS run commands in a terminal** so the user can see them.
 - **ALWAYS append `2>&1 | cat`** to every `release-all.sh` and `gh` command — no exceptions.
 - **ONE repo at a time.** Execute one phase per repo sequentially. **NEVER parallelize** across repos.
