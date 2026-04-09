@@ -23,6 +23,7 @@ PROG=$(basename "$0")
 
 NNF_DOC_URL='git@github.com:NearNodeFlash/NearNodeFlash.github.io.git'
 NNF_DEPLOY_URL='git@github.com:NearNodeFlash/nnf-deploy.git'
+NNF_STOREDVERSIONS_MAINT_URL='git@github.com:NearNodeFlash/nnf-storedversions-maint.git'
 
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
@@ -381,6 +382,11 @@ dep_repo_short_name="nnf_deploy"
 dep_url="$NNF_DEPLOY_URL"
 dep_name=$(get_repo_dir_name "$dep_url")
 check_release_vX "$dep_repo_short_name" "$dep_name" "$dep_url" "releases/v0"
+
+svm_repo_short_name="nnf_storedversions_maint"
+svm_url="$NNF_STOREDVERSIONS_MAINT_URL"
+svm_name=$(get_repo_dir_name "$svm_url")
+check_release_vX "$svm_repo_short_name" "$svm_name" "$svm_url" "releases/v0"
 
 doc_repo_short_name="nnf_doc"
 doc_url="$NNF_DOC_URL"

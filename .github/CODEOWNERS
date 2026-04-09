@@ -1,0 +1,3 @@
+# NNF release reviewers — used by the release agent to assign PR reviewers.
+# All code owners are assigned as reviewers except the person creating the release.
+* @matthew-richerson @bdevcich @roehrich-hpe @ajfloeder
