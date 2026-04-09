@@ -64,10 +64,10 @@ if [[ ! -f "$CODEOWNERS_FILE" ]]; then
     echo "ERROR: $CODEOWNERS_FILE not found. Run from tools/release-all/ inside an nnf-deploy clone." >&2
     return 1
 fi
-REVIEWER_POOL=$(grep '^\*' "$CODEOWNERS_FILE" | tr -s ' ' | cut -d' ' -f2- | tr ' ' '\n' | sed 's/@//' | paste -sd,)
+REVIEWER_POOL=$(grep '^\*' "$CODEOWNERS_FILE" | tr -s ' ' | cut -d' ' -f2- | tr ' ' '\n' | sed 's/@//' | paste -sd, -)
 export RELEASE_REVIEWERS
 RELEASE_REVIEWERS=$(echo "$REVIEWER_POOL" | tr ',' '\n' \
-    | grep -v "$RELEASE_USER" | paste -sd,)
+    | grep -v "$RELEASE_USER" | paste -sd, -)
 
 if [[ -z "$RELEASE_REVIEWERS" ]]; then
     echo "WARNING: RELEASE_REVIEWERS is empty — you are the only code owner in CODEOWNERS." >&2
