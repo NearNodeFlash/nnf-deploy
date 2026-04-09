@@ -102,6 +102,8 @@ Source the release environment helper to auto-compute versions, detect the relea
 source ./setup-release-env.sh -B patch   # or -B minor / -B major
 ```
 
+> **Important:** Never pipe this `source` command (e.g. `source ... | cat`). Piping runs `source` in a subshell, which means the exported variables and function definitions (`nnf_cmd`, etc.) are lost to the calling shell. If you need to capture output, redirect to a file or run without the pipe.
+
 This exports `$PREVIOUS_RELEASE`, `$NNF_RELEASE`, `$RELEASE_TYPE`, and `$RELEASE_REVIEWERS`, and defines helper functions `nnf_cmd`, `nnf_create_pr`, `nnf_add_reviewers`, and `nnf_gh_repo`. Confirm the printed summary with the user before proceeding.
 
 List repos:
@@ -269,8 +271,6 @@ The `-i` flag displays image version changes inline. Use `-d` to display the ful
 #### Step 7 — Verify GitHub releases
 
 Check each repo for correct tag, release notes, and artifacts (`manifests.tar` + `manifests-kind.tar` on `nnf-deploy`).
-
-
 
 ---
 

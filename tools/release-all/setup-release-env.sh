@@ -78,9 +78,12 @@ fi
 # Usage: nnf_cmd <phase> <repo>
 nnf_cmd() {
     local phase="$1" repo="$2"
-    local args=()
+    local args=() _rc
     [[ "$repo" == "nnf_sos" ]] && args+=("-M")
     ./release-all.sh -B "$RELEASE_TYPE" -P "$phase" -R "$repo" "${args[@]}" 2>&1 | cat
+    # bash uses PIPESTATUS[0]; zsh uses pipestatus[1] (lowercase, 1-indexed)
+    _rc=${PIPESTATUS[0]:-${pipestatus[1]}}
+    return "${_rc:-0}"
 }
 
 # --- Helper: create-pr + capture PR number -----------------------------------
