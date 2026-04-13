@@ -22,6 +22,25 @@
 set -e
 set -o pipefail
 
+# This script must be run from the root of the nnf-deploy repo, not from tools/.
+if [[ ! -f "tools/kind.sh" ]]; then
+    echo "ERROR: kind.sh must be run from the root of the nnf-deploy repo."
+    echo "  cd \$(git -C \"\$(dirname \"\$0\")\" rev-parse --show-toplevel) && tools/kind.sh $*"
+    exit 1
+fi
+
+# kind v0.31.0+ is required for Kubernetes 1.35 support.
+KIND_MIN_VERSION="0.31.0"
+KIND_VERSION=$(kind version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+if [[ -z "$KIND_VERSION" ]]; then
+    echo "ERROR: kind is not installed or not in PATH."
+    exit 1
+fi
+if ! printf '%s\n%s\n' "$KIND_MIN_VERSION" "$KIND_VERSION" | sort -V -C; then
+    echo "ERROR: kind v$KIND_VERSION is installed but v$KIND_MIN_VERSION or later is required for Kubernetes 1.35."
+    exit 1
+fi
+
 usage() {
     echo "Usage: $0 [--no-argocd] <CMD>"
     echo
@@ -152,6 +171,7 @@ nodes:
   kubeadmConfigPatches:
   - |
     kind: ClusterConfiguration
+    apiVersion: kubeadm.k8s.io/v1beta3
     apiServer:
         # enable auditing flags on the API server
         extraArgs:
@@ -187,7 +207,7 @@ EOF
         mkdir -p /tmp/nnf && dd if=/dev/zero of=/tmp/nnf/file.in bs=128 count=0 seek=$((1024 * 1024))
     fi
 
-    kind create cluster --wait 60s --image=kindest/node:v1.31.2 --config $CONFIG
+    kind create cluster --wait 60s --image=kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f --config $CONFIG
 
     # If corporate/custom CA certificates are available, inject them into
     # each KIND node so containerd can pull from registries behind a TLS
