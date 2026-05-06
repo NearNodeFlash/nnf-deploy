@@ -122,8 +122,17 @@ function inject_ca_certs {
 
     echo "Injecting CA certificates from $certs into KIND nodes..."
     for node in $(kind get nodes); do
-        docker cp "$certs" "$node:/usr/local/share/ca-certificates/extra-ca-certs.crt"
-        docker exec "$node" update-ca-certificates
+        # Pipe the bundle via stdin and split into individual .crt files so that
+        # update-ca-certificates / c_rehash does not emit
+        # "skipping ... it does not contain exactly one certificate or CRL".
+        docker exec -i "$node" bash -c '
+            awk "/-----BEGIN CERTIFICATE-----/{n++; f=sprintf(\"/usr/local/share/ca-certificates/extra-ca-cert-%d.crt\",n)} f{print > f}"
+        ' < "$certs"
+        # The ca-certificates.crt bundle always triggers a benign c_rehash warning;
+        # filter it so only real warnings surface.
+        local uca_out
+        uca_out=$(docker exec "$node" update-ca-certificates 2>&1)
+        echo "$uca_out" | grep -Fv "skipping ca-certificates.crt" || true
         docker exec "$node" systemctl restart containerd
         echo "  $node: done"
     done
