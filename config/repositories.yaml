@@ -68,7 +68,7 @@ thirdPartyServices:
   - name: storage-version-migrator
     useRemoteKTar: false
     kustomization: config/storage-version-migrator/kustomization.yaml
-    url: https://github.com/NearNodeFlash/kube-storage-version-migrator/releases/download/v0.1.2/manifests.tar
+    url: https://github.com/NearNodeFlash/kube-storage-version-migrator/releases/download/v0.1.3/manifests.tar
     waitCmd: kubectl wait deploy -n kube-system trigger --for jsonpath='{.status.availableReplicas}=1'
   - name: nnf-storedversions-maint
     useRemoteFTar: false
