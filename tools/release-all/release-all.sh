@@ -285,7 +285,7 @@ verify_clean_build() {
     msg "${indent}Verifying clean build on GitHub for $default_branch..."
     build_status=$(gh run list --repo "$repo_url" --branch "$default_branch" --limit 1 --json conclusion -q '.[0].conclusion' 2>/dev/null || echo "unknown")
     if [[ "$build_status" != "success" ]]; then
-        do_fail "Build status for $default_branch: $build_status (expected: success)" "$indent"
+        do_fail "${indent}Build status for $default_branch: $build_status (expected: success)" "$indent"
     fi
 }
 
