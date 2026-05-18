@@ -283,9 +283,23 @@ verify_clean_build() {
     local indent="$3"
 
     msg "${indent}Verifying clean build on GitHub for $default_branch..."
-    build_status=$(gh run list --repo "$repo_url" --branch "$default_branch" --limit 1 --json conclusion -q '.[0].conclusion' 2>/dev/null || echo "unknown")
-    if [[ "$build_status" != "success" ]]; then
-        do_fail "${indent}Build status for $default_branch: $build_status (expected: success)" "$indent"
+    # shellcheck disable=SC2054
+    local gh_cmd=(gh run list --repo "$repo_url" --branch "$default_branch" --limit 1 --json status,conclusion -q '.[0] | {"status":.status,"conclusion":.conclusion}')
+    local build_json
+    build_json=$("${gh_cmd[@]}" 2>&1)
+    if echo "$build_json" | grep -q "connection reset by peer"; then
+        # Retry, but only once.
+        sleep 1
+        build_json=$("${gh_cmd[@]}" 2>&1)
+    fi
+    local conclusion status
+    conclusion=$(echo "$build_json" | grep -o '"conclusion": *"[^"]*"' | sed 's/.*": *"\(.*\)"/\1/')
+    status=$(echo "$build_json" | grep -o '"status": *"[^"]*"' | sed 's/.*": *"\(.*\)"/\1/')
+    if [[ -z "$conclusion" ]]; then
+        do_fail "${indent}Build is not yet completed (status: $status)"
+    fi
+    if [[ "$conclusion" != "success" ]]; then
+        do_fail "${indent}Build conclusion for $default_branch: $conclusion (expected: success)"
     fi
 }
 
