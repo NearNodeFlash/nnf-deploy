@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2024-2025 Hewlett Packard Enterprise Development LP
+# Copyright 2024-2026 Hewlett Packard Enterprise Development LP
 # Other additional copyright holders may be indicated within.
 #
 # The entirety of this work is licensed under the Apache License,
@@ -277,6 +277,48 @@ verify_crd_conversions() {
     fi
 }
 
+verify_clean_build() {
+    local repo_url="$1"
+    local default_branch="$2"
+    local indent="$3"
+
+    msg "${indent}Verifying clean build on GitHub for $default_branch..."
+    # shellcheck disable=SC2054
+    local gh_cmd=(gh run list --repo "$repo_url" --branch "$default_branch" --limit 1 --json status,conclusion -q '.[0] | {"status":.status,"conclusion":.conclusion}')
+    local build_json
+    build_json=$("${gh_cmd[@]}" 2>&1)
+    if echo "$build_json" | grep -q "connection reset by peer"; then
+        # Retry, but only once.
+        sleep 1
+        build_json=$("${gh_cmd[@]}" 2>&1)
+    fi
+    local conclusion status
+    conclusion=$(echo "$build_json" | grep -o '"conclusion": *"[^"]*"' | sed 's/.*": *"\(.*\)"/\1/')
+    status=$(echo "$build_json" | grep -o '"status": *"[^"]*"' | sed 's/.*": *"\(.*\)"/\1/')
+    if [[ -z "$conclusion" ]]; then
+        do_fail "${indent}Build is not yet completed (status: $status)"
+    fi
+    if [[ "$conclusion" != "success" ]]; then
+        do_fail "${indent}Build conclusion for $default_branch: $conclusion (expected: success)"
+    fi
+}
+
+# A master branch should have only one chart, and it must be in the charts/
+# directory. The chart-releases/ directory will be present only in the release
+# branch.
+verify_master_one_chart() {
+    local indent="$1"
+
+    if [[ -d chart-releases ]]; then
+        do_fail "${indent}Expected no chart-releases/ in master branch; the master branch should use charts/ for its charts."
+    fi
+    if [[ -d charts ]]; then
+        if [[ $(find charts/ -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ') != 1 ]]; then
+            do_fail "${indent}Expected exactly one chart version in charts/ directory."
+        fi
+    fi
+}
+
 # Peer modules refers to the other DWS/NNF modules listed in go.mod.
 check_peer_modules() {
     local indent="$1"
@@ -470,11 +512,35 @@ find_latest_release(){
     echo "$latest_tag"
 }
 
+# Update the helm chart version dir in the release branch repo, from the one
+# found in the master branch.
+update_release_helm_chart_dir() {
+    local release_ver="$1"
+    local indent="$2"
+
+    if [[ -d charts ]]; then
+        if [[ ! -d chart-releases ]]; then
+            mkdir chart-releases || do_fail "${indent}Unable to create chart-releases/ directory for release branch."
+        fi
+        if [[ $(find chart-releases/ -maxdepth 1 -mindepth 1 -type d | wc -l) -gt 0 ]]; then
+            git rm -rf chart-releases/*/ || echo "No charts to remove"
+        fi
+        cp -r charts/* chart-releases/ || do_fail "${indent}Unable to copy chart from charts/ to chart-releases/ for release branch."
+        # Rename the chart version dir from its existing chart-releases/v* to
+        # the new chart-releases/v$release_ver.
+        # We let the chart version match the app version; the chart and the app
+        # live in the same repo, so this kind of makes sense.
+        chartvdir=$(find chart-releases -maxdepth 1 -type d -name 'v*' | head -n 1)
+        mv "$chartvdir" "chart-releases/v$release_ver" || do_fail "${indent}Unable to rename chart directory"
+    fi
+}
+
 # Update versions where the release is referring to itself.
 update_own_release_references() {
     local repo_short_name="$1"
     local vrelease_ver="$2"
-    local indent="$3"
+    local branch="$3"
+    local indent="$4"
     local release_ver
 
     # Strip the leading 'v'.
@@ -494,11 +560,15 @@ update_own_release_references() {
         # This one also has a helm chart. Use `yq -i e` to do an in-place edit
         # with the yq that is written in Go. The yq written in Python uses
         # `-yi`.
-        chartvalues="charts/lustre-csi-driver/values.yaml"
-        yq -i e -M '(.deployment.tag) = "'"$release_ver"'"' "$chartvalues" || do_fail "${indent}Unable to update release version in helm chart"
-        chart="charts/lustre-csi-driver/Chart.yaml"
-        yq -i e -M '(.appVersion) = "'"$release_ver"'"' "$chart" || do_fail "${indent}Unable to update appVersion in helm chart"
-        git add "$chartvalues" "$chart"
+        update_release_helm_chart_dir "$release_ver" "$indent"
+        make helm-app-version CHART_DIR=chart-releases VERSION="$release_ver" || do_fail "${indent}Unable to update app version in helm chart"
+        # Use the chart-releases/v* dir name as the chart version:
+        make helm-chart-version CHART_DIR=chart-releases || do_fail "${indent}Unable to update helm chart version"
+        # Make the new chart package and chart repo index, so when this is
+        # pushed, github will act like a chart repo.
+        make helm-repackage CHART_DIR=chart-releases || do_fail "${indent}Unable to repackage the helm chart"
+        make helm-reindex CHART_DIR=chart-releases CHART_BRANCH="$branch" || do_fail "${indent}Unable to reindex the helm chart"
+        git add chart-releases
         ;;
     lustre_fs_operator)
         k_yaml="config/manager"
@@ -663,6 +733,8 @@ check_repo_master() {
     msg "Repo $repo_name/$default_branch:"
     begin_with_clean_workarea "$repo_name" "$indent"
 
+    verify_clean_build "$repo_url" "$default_branch" "$indent"
+
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$default_branch" "$indent"
 
     if [[ $repo_short_name != nnf_deploy ]] && [[ $repo_short_name != nnf_ec ]]; then
@@ -670,6 +742,7 @@ check_repo_master() {
     fi
     verify_clean_workarea "$indent"
     verify_crd_conversions "$indent"
+    verify_master_one_chart "$indent"
 
     check_peer_modules "$indent"
     verify_clean_workarea "$indent"
@@ -695,6 +768,9 @@ check_repo_release_vX() {
     msg "Repo $repo_name/$branch:"
     msg "  Merge default branch $default_branch"
     begin_with_clean_workarea "$repo_name" "$indent"
+
+    verify_clean_build "$repo_url" "$default_branch" "$indent"
+    verify_clean_build "$repo_url" "$branch" "$indent"
 
     clone_checkout_fresh_workarea "$repo_name" "$repo_url" "$branch" "$indent"
 
@@ -795,7 +871,7 @@ check_repo_release_vX() {
 
     if [[ $(git log --oneline "$branch...HEAD" | wc -l) -gt 0 ]]; then
         # We have updates, so let's designate a new release.
-        update_own_release_references "$repo_short_name" "$new_release" "$indent"
+        update_own_release_references "$repo_short_name" "$new_release" "$branch" "$indent"
         has_changes=true
     else
         msg "${indent}No new changes to release for $repo_name."
