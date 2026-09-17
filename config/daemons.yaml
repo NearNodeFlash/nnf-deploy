@@ -4,24 +4,6 @@ daemons:
     serviceAccount:
       name: nnf-fencing-agent
       namespace: nnf-system
-  - name: nnf-data-movement
-    bin: nnf-dm
-    buildCmd: make build-daemon
-    path: bin/
-    repository: nnf-dm
-    serviceAccount:
-      name: nnf-dm-daemon
-      namespace: nnf-dm-system
-    extraArgs: '--kubernetes-qps 50 --kubernetes-burst 100'
-    env:
-      - name: GOGC
-        value: "off"
-      - name: GOMEMLIMIT
-        value: "20MiB"
-      - name: GOMAXPROCS
-        value: 5
-      - name: HTTP2_PING_TIMEOUT_SECONDS
-        value: 60
   - name: client-mount
     bin: clientmountd
     buildCmd: make build-daemon
