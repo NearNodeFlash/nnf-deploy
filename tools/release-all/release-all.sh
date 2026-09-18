@@ -742,7 +742,11 @@ check_repo_master() {
     fi
     verify_clean_workarea "$indent"
     verify_crd_conversions "$indent"
-    verify_master_one_chart "$indent"
+    # Only lustre_csi_driver publishes a versioned helm chart; other repos may
+    # keep unrelated third-party charts in charts/.
+    if [[ $repo_short_name == lustre_csi_driver ]]; then
+        verify_master_one_chart "$indent"
+    fi
 
     check_peer_modules "$indent"
     verify_clean_workarea "$indent"
