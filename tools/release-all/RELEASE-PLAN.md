@@ -45,8 +45,8 @@ If an upstream repo changes, **all downstream repos that vendor it** may need re
 ### Prerequisites (Pre-flight Checklist)
 
 1. Ensure these tools are installed: `gh`, `yq` (Go version v4.x), `jq`, `perl`, `git`, `make`, `tput`, `sed`
-2. Set `GH_TOKEN` env var with a GitHub **classic** token (not fine-grained) with `repo` scope. The token is 40 characters, starting with `ghp_`.
-3. Verify `gh` authentication: `gh auth status`. Confirm it shows the expected user and token scopes.
+2. Authenticate `gh` via `gh auth login` (OAuth, keyring-stored) with at least the `repo` scope. `GH_TOKEN` is **not** required — none of the release scripts read it, and a classic PAT is no longer needed.
+3. Verify `gh` authentication: `gh auth status`. Confirm it shows the expected **active** account and that its scopes include `repo`. If multiple accounts are logged in, `gh auth switch -u <user>` to the one with admin/maintain on the NNF repos (needed for the tag-ruleset bypass in Step 4d).
 4. Verify SSH access to all repo URLs (`ssh -T git@github.com`)
 5. Decide the release type (`-B major|minor|patch`). **Always pass `-B` explicitly** — do not rely on the script default, which could change. Most releases use `-B patch`.
 6. **Pre-release vendoring check:** If any upstream repo has had changes merged to master since the last release that affect downstream vendoring, ensure downstream repos have been revendored **before** starting the release. For example, if `nnf-sos` changed, then `nnf-dm` and `nnf-integration-test` (which vendor `nnf-sos`) must have their vendor directories updated via PRs merged to master. Phase 1's vendoring checks will catch any mismatches.
@@ -140,7 +140,7 @@ For each failing repo:
 6. **Push** the branch and **create a PR** titled `"Update vendor dependencies"` with body `"Pre-release vendoring update."`.
 7. **Assign reviewers** from `$RELEASE_REVIEWERS`.
 8. **Wait for CI** and reviewer approval, then **merge** the PR.
-9. **Verify the fix against origin:** Re-clone (repeat Step 0) so you're working from what's actually on GitHub, then re-run the `nnf_cmd master <repo>` check starting from the repo you just fixed and continuing through all remaining downstream repos in order. The fixed repo must now pass. If a downstream repo fails, repeat this procedure (steps 1–9) for it.
+9. **Verify the fix against origin:** Re-run the `nnf_cmd master <repo>` check starting from the repo you just fixed and continuing through all remaining downstream repos in order. The `master` phase re-clones each repo from GitHub into `workingspace/`, so it always validates what is actually on origin — a full re-clone of `$RELEASE_WORKDIR` (Step 0) is only needed if `nnf-deploy` master itself has moved. The fixed repo must now pass. If a downstream repo fails, repeat this procedure (steps 1–9) for it.
 10. Return to `$RELEASE_WORKDIR/nnf-deploy/tools/release-all`.
 
 > **Dependency order matters:** An upstream repo's vendoring PR must be merged to master before any downstream repo that vendors it can be fixed. For example, if both `nnf_sos` and `nnf_dm` fail, merge the `nnf_sos` fix first — `nnf_dm` vendors `nnf_sos` and needs the updated master.
