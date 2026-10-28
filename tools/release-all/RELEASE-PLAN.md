@@ -256,6 +256,11 @@ nnf_cmd tag-release <repo>
 ./final-release-notes.sh -r $NNF_RELEASE -C 2>&1 | cat      # commit
 ```
 
+The release page covers nnf-deploy and its submodules, plus the standalone
+repos `nnf-mfu`, `nnf-ec`, `nnf-storedversions-maint`, and `nnf_doc`. A
+standalone repo whose latest release predates the previous nnf-deploy release
+was not part of this cycle and is skipped (common for `nnf-mfu`).
+
 ### Phase 5: Verification
 
 #### Step 6 — Compare release manifests
@@ -297,7 +302,7 @@ Check each repo for correct tag, release notes, and artifacts (`manifests.tar` +
 2. Zero errors from each `master` phase before proceeding
 3. GitHub release page shows correct annotated tag after each `tag-release`
 4. `compare-releases.sh` diff validates expected changes
-5. `final-release-notes.sh` output includes all submodule notes + CRD API info
+5. `final-release-notes.sh` output includes all submodule notes + CRD API info, and notes for any standalone repo (`nnf-ec`, `nnf-mfu`) released this cycle
 6. nnf-deploy GitHub release has manifests.tar and manifests-kind.tar
 
 ### Further Considerations
