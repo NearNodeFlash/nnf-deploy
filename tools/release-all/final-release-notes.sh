@@ -24,6 +24,8 @@ PROG=$(basename "$0")
 NNF_DOC_URL='git@github.com:NearNodeFlash/NearNodeFlash.github.io.git'
 NNF_DEPLOY_URL='git@github.com:NearNodeFlash/nnf-deploy.git'
 NNF_STOREDVERSIONS_MAINT_URL='git@github.com:NearNodeFlash/nnf-storedversions-maint.git'
+NNF_MFU_URL='git@github.com:NearNodeFlash/nnf-mfu.git'
+NNF_EC_URL='git@github.com:NearNodeFlash/nnf-ec.git'
 
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
@@ -100,6 +102,8 @@ fi
 cd "$WORKSPACE" || do_fail "Unable to cd into $WORKSPACE"
 
 NNF_DEPLOY_RELEASE=
+NNF_DEPLOY_PREV_RELEASE=
+NNF_DEPLOY_PREV_RELEASE_DATE=
 RELEASE_PAGE="$(PWD)/RELEASE_PAGE.md"
 
 msg(){
@@ -310,6 +314,10 @@ check_release_vX() {
             do_fail "${indent}Latest release does not match specified target of $TARGET_NNF_RELEASE."
         fi
         NNF_DEPLOY_RELEASE="$latest_release"
+        NNF_DEPLOY_PREV_RELEASE="$prev_release"
+        if ! NNF_DEPLOY_PREV_RELEASE_DATE=$(gh release view "$prev_release" --json publishedAt | jq -rM .publishedAt); then
+            do_fail "${indent}Failure getting publish date of previous release $prev_release"
+        fi
     fi
 
     verify_clean_workarea "$indent"
@@ -378,10 +386,45 @@ check_release_vX() {
     cd ..
 }
 
+# Standalone repos such as nnf-ec and nnf-mfu are released by release-all.sh
+# but are not submodules of nnf-deploy, so they are not picked up by the
+# submodule walk above. Include them only when their latest release was
+# published during this release cycle, i.e. after the previous nnf-deploy
+# release; otherwise skip them quietly.
+check_standalone_release_vX() {
+    local repo_short_name="$1"
+    local repo_url="$2"
+    local branch="$3"
+    local repo_name
+    local latest_tag
+    local published_at
+
+    repo_name=$(get_repo_dir_name "$repo_url")
+    latest_tag=$(find_latest_release "$repo_url")
+    if [[ -z $latest_tag ]]; then
+        do_fail "Unable to find latest release of $repo_name"
+    fi
+    if ! published_at=$(gh release view --repo "$repo_url" "v$latest_tag" --json publishedAt | jq -rM .publishedAt); then
+        do_fail "Failure getting publish date of $repo_name v$latest_tag"
+    fi
+
+    # Timestamps are ISO 8601 in UTC, so a string compare orders them.
+    if [[ ! $published_at > $NNF_DEPLOY_PREV_RELEASE_DATE ]]; then
+        msg "Repo $repo_name: latest release v$latest_tag predates nnf-deploy $NNF_DEPLOY_PREV_RELEASE; skipping."
+        echo
+        return
+    fi
+
+    check_release_vX "$repo_short_name" "$repo_name" "$repo_url" "$branch"
+}
+
 dep_repo_short_name="nnf_deploy"
 dep_url="$NNF_DEPLOY_URL"
 dep_name=$(get_repo_dir_name "$dep_url")
 check_release_vX "$dep_repo_short_name" "$dep_name" "$dep_url" "releases/v0"
+
+check_standalone_release_vX "nnf_mfu" "$NNF_MFU_URL" "releases/v0"
+check_standalone_release_vX "nnf_ec" "$NNF_EC_URL" "releases/v0"
 
 svm_repo_short_name="nnf_storedversions_maint"
 svm_url="$NNF_STOREDVERSIONS_MAINT_URL"
